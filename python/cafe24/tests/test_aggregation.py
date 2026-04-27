@@ -9,9 +9,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(ROOT / "web"))
+sys.path.insert(0, str(ROOT))
 
-from aggregation import (
+from backend.shared.aggregation import (
     aggregate,
     sort_groups,
     sort_variants,
