@@ -173,8 +173,9 @@ def apply_flat_formats(ws):
 def parse_categories(s, all_cats):
     if s == "all":
         return [c for c in all_cats if c.get("category_depth") == 1]
-    wanted = {int(x.strip()) for x in s.split(",") if x.strip()}
-    return [c for c in all_cats if c.get("category_no") in wanted]
+    wanted = [int(x.strip()) for x in s.split(",") if x.strip()]
+    by_no = {c["category_no"]: c for c in all_cats}
+    return [by_no[n] for n in wanted if n in by_no]
 
 
 def detect_currency(orders):
@@ -377,7 +378,7 @@ def api_excel(
             ws.append([])
 
         if mode == "tabs":
-            sorted_results = sort_categories(results, cat_sort_by, cat_sort_dir)
+            sorted_results = results
             used = set()
             for r in sorted_results:
                 title = sanitize_sheet_name(f"{r['category_no']}_{r['category_name']}", used)
@@ -436,7 +437,7 @@ def api_excel(
             ws = wb.create_sheet(title="합산")
             ws.append([f"기간: {start} ~ {end} / 통화: {currency}"])
             ws.append([])
-            sorted_results = sort_categories(results, cat_sort_by, cat_sort_dir)
+            sorted_results = results
             for r in sorted_results:
                 cat_label = f"[{r['category_no']}] {r['category_name']}"
                 emit_section(ws, cat_label, r["groups"])

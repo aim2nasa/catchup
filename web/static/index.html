@@ -64,15 +64,13 @@
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   }
 
-  .filters { padding: 14px 16px; margin-bottom: 12px; }
+  .filters { padding: 12px 14px; margin-bottom: 12px; }
   .filters .row {
     display: flex;
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: 8px;
   }
-  .filters .row:last-child { margin-bottom: 0; }
   .filters label {
     font-size: 12px;
     color: var(--c-text-muted);
@@ -89,25 +87,6 @@
     background: var(--c-surface);
     color: var(--c-text);
   }
-
-  .cats {
-    flex: 1 1 100%;
-    max-height: 160px;
-    overflow-y: auto;
-    border: 1px solid var(--c-border);
-    padding: 8px 10px;
-    background: var(--c-bg);
-    border-radius: 4px;
-  }
-  .cats label.cat {
-    display: inline-block;
-    margin: 2px 10px 2px 0;
-    font-size: 12px;
-    color: var(--c-text);
-    cursor: pointer;
-    font-weight: 400;
-  }
-  .cats label.cat input { vertical-align: middle; margin-right: 4px; }
 
   button {
     padding: 6px 14px;
@@ -131,26 +110,125 @@
     border-color: var(--c-primary-dark);
   }
 
+  .split-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 800px) {
+    .split-panel { grid-template-columns: 1fr; }
+  }
+
+  .left-pane, .right-pane {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 60vh;
+    min-height: 320px;
+    max-height: 560px;
+  }
+
+  .summary-section {
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .summary-section .pane-header label {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .summary-section .pane-header select {
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: 4px;
+    background: var(--c-surface);
+    color: var(--c-text);
+    font-weight: 600;
+  }
+
+  .pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .pane-title { font-weight: 700; font-size: 13px; }
+  .pane-controls { display: flex; gap: 4px; }
+  .pane-controls button { font-size: 11px; padding: 3px 8px; font-weight: 500; }
+
+  .cat-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+    margin-bottom: 10px;
+  }
+  .cat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: grab;
+    user-select: none;
+    margin-bottom: 2px;
+  }
+  .cat-item:hover {
+    background: var(--c-row-hover);
+    border-color: var(--c-border-strong);
+  }
+  .cat-item.dragging {
+    opacity: 0.4;
+    background: var(--c-row-alt);
+  }
+  .drag-handle {
+    color: var(--c-text-muted);
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: -3px;
+    cursor: grab;
+    width: 14px;
+  }
+  .cat-item .cat-no {
+    font-family: ui-monospace, monospace;
+    color: var(--c-text-muted);
+    font-size: 11px;
+    min-width: 36px;
+  }
+  .cat-item .cat-name { flex: 1; font-size: 12px; }
+
+  .left-actions {
+    display: flex;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--c-border);
+  }
+
   .progress {
     background: var(--c-progress-bg);
     color: var(--c-progress-text);
     padding: 10px 12px;
     border-radius: 6px;
-    max-height: 200px;
+    flex: 1 1 auto;
     overflow-y: auto;
     font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
     font-size: 12px;
     white-space: pre-wrap;
-    margin-bottom: 12px;
-    min-height: 40px;
+    min-height: 0;
   }
-
   .error {
     background: var(--c-error-bg);
     color: var(--c-error-text);
     padding: 10px 12px;
     border-radius: 6px;
-    margin-bottom: 12px;
+    margin-top: 10px;
     font-family: ui-monospace, monospace;
     font-size: 12px;
     white-space: pre-wrap;
@@ -158,32 +236,73 @@
     border: 1px solid var(--c-error-border);
   }
 
-  .grand {
+  .summary { display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto; }
+
+  .grand-card {
     background: var(--c-grand-bg);
     color: var(--c-grand-text);
-    padding: 16px 20px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+    padding: 12px 14px;
+    border-radius: 6px;
   }
-  .grand .label {
+  .grand-card .label {
     color: var(--c-grand-muted);
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-weight: 600;
   }
-  .grand .num {
-    font-size: 26px;
+  .grand-card .num {
+    font-size: 20px;
     font-weight: 700;
-    margin-top: 6px;
+    margin-top: 4px;
     font-variant-numeric: tabular-nums;
   }
-  .grand .num em {
-    color: var(--c-grand-accent);
-    font-style: normal;
+  .grand-card .num em { color: var(--c-grand-accent); font-style: normal; }
+  .grand-card .num .sep { color: var(--c-grand-muted); margin: 0 8px; font-weight: 400; }
+
+  .cat-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
-  .grand .num .sep { color: var(--c-grand-muted); margin: 0 10px; font-weight: 400; }
+  .cat-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--c-row-alt);
+    border: 1px solid var(--c-border);
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .cat-card .cat-no-pill {
+    background: var(--c-cat-num-bg);
+    color: var(--c-cat-num-text);
+    padding: 1px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: ui-monospace, monospace;
+  }
+  .cat-card .cat-card-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cat-card .cat-card-stats {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text-muted);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .cat-card .cat-card-stats strong {
+    color: var(--c-text);
+    font-weight: 700;
+    margin: 0 3px;
+  }
 
   .tabs {
     border-bottom: 2px solid var(--c-border-strong);
@@ -326,6 +445,7 @@
   }
   .toggle-btn:hover { background: var(--c-row-hover); }
   tr.row-child.collapsed { display: none; }
+
   table tbody tr.row-child td.name-cell {
     color: var(--c-row-child-text);
     padding-left: 24px;
@@ -378,25 +498,51 @@
       </select>
     </label>
   </div>
-  <div class="row">
-    <span style="font-size:12px;color:var(--c-text-muted);font-weight:600;">카테고리 (depth=1):</span>
-    <button type="button" onclick="selectAllCats(true)">전체 선택</button>
-    <button type="button" onclick="selectAllCats(false)">전체 해제</button>
+</div>
+
+<div class="split-panel">
+  <div class="left-pane card">
+    <div class="pane-header">
+      <span class="pane-title">카테고리 (드래그로 순서 변경)</span>
+      <div class="pane-controls">
+        <button onclick="selectAllCats(true)">전체</button>
+        <button onclick="selectAllCats(false)">해제</button>
+      </div>
+    </div>
+    <div class="cat-list" id="cats">로딩...</div>
+    <div class="left-actions">
+      <button id="run" class="primary">조회</button>
+      <button id="dl" disabled>Excel 다운로드</button>
+    </div>
   </div>
-  <div class="row">
-    <div class="cats" id="cats">로딩...</div>
-  </div>
-  <div class="row">
-    <button id="run" class="primary">조회</button>
-    <button id="dl" disabled>Excel 다운로드</button>
+
+  <div class="right-pane card">
+    <div class="pane-header">
+      <span class="pane-title" id="rightTitle">진행 상황</span>
+    </div>
+    <div class="progress" id="progress"></div>
+    <div class="error" id="error"></div>
   </div>
 </div>
 
-<div class="progress hidden" id="progress"></div>
-<div class="error" id="error"></div>
+<div class="summary-section card hidden" id="summaryWrap">
+  <div class="pane-header">
+    <span class="pane-title">결과 요약</span>
+    <label>정렬
+      <select id="catSortSummary">
+        <option value="rev:-1" selected>매출 ↓</option>
+        <option value="rev:1">매출 ↑</option>
+        <option value="qty:-1">판매수 ↓</option>
+        <option value="qty:1">판매수 ↑</option>
+        <option value="user">사용자 지정 (드래그 순서)</option>
+      </select>
+    </label>
+  </div>
+  <div class="grand-card" id="grandSummary"></div>
+  <div class="cat-cards" id="catCards"></div>
+</div>
 
 <div id="grandWrap" class="hidden">
-  <div class="grand" id="grand"></div>
   <div class="tabs hidden" id="tabs"></div>
   <div id="results"></div>
 </div>
@@ -411,6 +557,7 @@ let sortBy = 'rev';
 let sortDir = -1;
 let runStartedAt = null;
 let _gidCounter = 0;
+let catOrder = [];
 
 function toggleGroup(btn, gid) {
   const willCollapse = btn.textContent === '−';
@@ -436,12 +583,53 @@ async function loadCats() {
     }
     const data = await r.json();
     allCats = data.filter(c => c.depth === 1);
-    document.getElementById('cats').innerHTML = allCats.map(c =>
-      '<label class="cat"><input type="checkbox" class="cat-cb" value="' + c.no + '" checked> ' + c.no + ' ' + escapeHtml(c.name) + '</label>'
-    ).join('');
+    catOrder = allCats.map(c => c.no);
+    buildCatList();
   } catch (e) {
     document.getElementById('cats').innerHTML = '<span style="color:var(--c-error-text)">카테고리 로딩 실패: ' + escapeHtml(String(e)) + '</span>';
   }
+}
+
+function buildCatList() {
+  const container = document.getElementById('cats');
+  container.innerHTML = '';
+  catOrder.forEach(no => {
+    const cat = allCats.find(c => c.no === no);
+    if (!cat) return;
+    const item = document.createElement('div');
+    item.className = 'cat-item';
+    item.draggable = true;
+    item.dataset.no = no;
+    item.innerHTML =
+      '<span class="drag-handle">⋮⋮</span>' +
+      '<input type="checkbox" class="cat-cb" value="' + no + '" checked>' +
+      '<span class="cat-no">[' + no + ']</span>' +
+      '<span class="cat-name">' + escapeHtml(cat.name) + '</span>';
+    item.addEventListener('dragstart', () => item.classList.add('dragging'));
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      catOrder = Array.from(container.children).map(it => parseInt(it.dataset.no, 10));
+    });
+    container.appendChild(item);
+  });
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const dragging = container.querySelector('.dragging');
+    if (!dragging) return;
+    const after = getDragAfterElement(container, e.clientY);
+    if (after == null) container.appendChild(dragging);
+    else container.insertBefore(dragging, after);
+  });
+}
+
+function getDragAfterElement(container, y) {
+  const items = [...container.querySelectorAll('.cat-item:not(.dragging)')];
+  return items.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: child };
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
 }
 
 function selectAllCats(state) {
@@ -449,11 +637,8 @@ function selectAllCats(state) {
 }
 
 function selectedCats() {
-  const all = document.querySelectorAll('.cat-cb');
-  const checked = document.querySelectorAll('.cat-cb:checked');
-  if (all.length === 0) return 'all';
-  if (checked.length === all.length) return 'all';
-  return Array.from(checked).map(cb => cb.value).join(',');
+  const checked = new Set(Array.from(document.querySelectorAll('.cat-cb:checked')).map(cb => parseInt(cb.value, 10)));
+  return catOrder.filter(no => checked.has(no)).join(',');
 }
 
 function fmt(n, currency) {
@@ -468,16 +653,11 @@ function pushProgress(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-function hideProgress() {
-  document.getElementById('progress').classList.add('hidden');
-}
-
 function showError(msg) {
   const el = document.getElementById('error');
   el.style.display = 'block';
   el.textContent = msg;
 }
-
 function clearError() {
   const el = document.getElementById('error');
   el.style.display = 'none';
@@ -504,13 +684,6 @@ function getVariantVal(v, parentPrice, key) {
   if (key === 'rev') return v.rev || 0;
   return 0;
 }
-function getCatSortVal(r, key) {
-  if (key === 'rev') return r.rev || 0;
-  if (key === 'qty') return r.qty || 0;
-  if (key === 'code') return r.category_no || 0;
-  if (key === 'name') return r.category_name || '';
-  return r.rev || 0;
-}
 function cmp(a, b, dir) {
   if (typeof a === 'string' || typeof b === 'string') {
     return String(a).localeCompare(String(b), 'ko-KR') * dir;
@@ -522,9 +695,6 @@ function sortGroups(groups) {
 }
 function sortVariants(vars, parentPrice) {
   return [...vars].sort((a, b) => cmp(getVariantVal(a, parentPrice, sortBy), getVariantVal(b, parentPrice, sortBy), sortDir));
-}
-function sortCategoriesArr(results) {
-  return [...results].sort((a, b) => (b.rev || 0) - (a.rev || 0));
 }
 
 function setSort(col) {
@@ -581,7 +751,7 @@ function renderTable(groups, totals, cur) {
 
 function renderFlatTable(data, cur) {
   const head = '<tr>' +
-    '<th onclick="setSort(\'code\')">카테고리<span class="sort-ind"></span></th>' +
+    '<th>카테고리</th>' +
     '<th onclick="setSort(\'code\')">코드<span class="sort-ind">' + indicator('code') + '</span></th>' +
     '<th onclick="setSort(\'name\')">상품명<span class="sort-ind">' + indicator('name') + '</span></th>' +
     '<th class="num" onclick="setSort(\'price\')">단가<span class="sort-ind">' + indicator('price') + '</span></th>' +
@@ -644,19 +814,17 @@ function renderCatSection(r, cur) {
 
 function renderSingle(data) {
   const cur = data.grand.currency;
-  const sorted = sortCategoriesArr(data.results);
-  document.getElementById('results').innerHTML = sorted.map(r => renderCatSection(r, cur)).join('');
+  document.getElementById('results').innerHTML = data.results.map(r => renderCatSection(r, cur)).join('');
 }
 
 function renderTabs(data) {
   const tabs = document.getElementById('tabs');
   tabs.innerHTML = '';
-  const sorted = sortCategoriesArr(data.results);
-  sorted.forEach((r, i) => {
+  data.results.forEach((r, i) => {
     const btn = document.createElement('button');
     btn.textContent = '[' + r.category_no + '] ' + r.category_name + ' (' + r.qty + ')';
-    btn.dataset.idx = data.results.indexOf(r);
-    btn.onclick = () => switchTab(parseInt(btn.dataset.idx, 10));
+    btn.dataset.idx = i;
+    btn.onclick = () => switchTab(i);
     tabs.appendChild(btn);
   });
 }
@@ -695,26 +863,50 @@ function reRenderResults() {
   }
 }
 
+let summarySort = 'rev:-1';
+
+function renderSummaryCards() {
+  if (!lastResult) return;
+  const cur = lastResult.grand.currency;
+  let arr = [...lastResult.results];
+  if (summarySort !== 'user') {
+    const [by, dirStr] = summarySort.split(':');
+    const d = parseInt(dirStr, 10);
+    arr.sort((a, b) => {
+      const va = by === 'rev' ? (a.rev || 0) : (a.qty || 0);
+      const vb = by === 'rev' ? (b.rev || 0) : (b.qty || 0);
+      return d === -1 ? (vb - va) : (va - vb);
+    });
+  }
+  document.getElementById('catCards').innerHTML = arr.map(r =>
+    '<div class="cat-card">' +
+      '<span class="cat-no-pill">' + r.category_no + '</span>' +
+      '<span class="cat-card-name">' + escapeHtml(r.category_name) + '</span>' +
+      '<span class="cat-card-stats">판매수<strong>' + r.qty.toLocaleString('ko-KR') + '</strong>· 매출<strong>' + fmt(r.rev, cur) + '</strong></span>' +
+    '</div>'
+  ).join('');
+}
+
+function renderSummary(data, elapsed) {
+  document.getElementById('summaryWrap').classList.remove('hidden');
+  document.getElementById('rightTitle').textContent = '처리 로그 (완료)';
+
+  const cur = data.grand.currency;
+  let label = '총 합계 · ' + escapeHtml(data.start) + ' ~ ' + escapeHtml(data.end) + ' · 주문 ' + (data.grand.order_count || 0).toLocaleString('ko-KR') + '건';
+  if (typeof elapsed === 'number') label += ' · 처리 ' + elapsed.toFixed(1) + '초';
+  document.getElementById('grandSummary').innerHTML =
+    '<div class="label">' + label + '</div>' +
+    '<div class="num">판매수 <em>' + data.grand.qty.toLocaleString('ko-KR') + '</em>개<span class="sep">·</span>매출 <em>' + fmt(data.grand.rev, cur) + '</em> <span style="font-size:13px;color:var(--c-grand-muted)">(' + cur + ')</span></div>';
+
+  renderSummaryCards();
+}
+
 function renderResults(data) {
   lastResult = data;
   _gidCounter = 0;
   document.getElementById('grandWrap').classList.remove('hidden');
   reRenderResults();
-  refreshGrand();
   document.getElementById('dl').disabled = false;
-}
-
-function refreshGrand(elapsed) {
-  const data = lastResult;
-  if (!data) return;
-  const cur = data.grand.currency;
-  let label = '총 합계 · ' + escapeHtml(data.start) + ' ~ ' + escapeHtml(data.end) + ' · 주문 ' + (data.grand.order_count || 0).toLocaleString('ko-KR') + '건';
-  if (typeof elapsed === 'number') {
-    label += ' · 처리 ' + elapsed.toFixed(1) + '초';
-  }
-  document.getElementById('grand').innerHTML =
-    '<div class="label">' + label + '</div>' +
-    '<div class="num">판매수 <em>' + data.grand.qty.toLocaleString('ko-KR') + '</em>개<span class="sep">·</span>매출 <em>' + fmt(data.grand.rev, cur) + '</em> <span style="font-size:14px;color:var(--c-grand-muted)">(' + cur + ')</span></div>';
 }
 
 function run() {
@@ -723,9 +915,12 @@ function run() {
   const cats = selectedCats();
   if (!start || !end) { showError('기간을 입력하세요'); return; }
   if (start > end) { showError('시작일이 종료일보다 늦습니다'); return; }
+  if (!cats) { showError('카테고리를 1개 이상 선택하세요'); return; }
   lastQuery = { start, end, categories: cats, mode: document.getElementById('mode').value };
   clearError();
   document.getElementById('grandWrap').classList.add('hidden');
+  document.getElementById('summaryWrap').classList.add('hidden');
+  document.getElementById('rightTitle').textContent = '진행 상황';
   document.getElementById('tabs').innerHTML = '';
   document.getElementById('results').innerHTML = '';
   const prog = document.getElementById('progress');
@@ -747,8 +942,7 @@ function run() {
       renderResults(m);
     } else if (m.type === 'done') {
       const elapsed = (Date.now() - runStartedAt) / 1000;
-      refreshGrand(elapsed);
-      hideProgress();
+      if (lastResult) renderSummary(lastResult, elapsed);
       evt.close();
     }
   };
@@ -768,6 +962,10 @@ function download() {
 document.getElementById('run').onclick = run;
 document.getElementById('dl').onclick = download;
 document.getElementById('mode').onchange = () => { if (lastResult) reRenderResults(); };
+document.getElementById('catSortSummary').onchange = function() {
+  summarySort = this.value;
+  renderSummaryCards();
+};
 loadCats();
 </script>
 </body>
