@@ -360,8 +360,10 @@ def api_excel(
                         c.fill = parent_fill
                         c.font = bold
                     for v in sort_variants(g["variants"], g["price"], sort_by, sort_dir):
+                        suffix = v["variant_code"][len(g["product_code"]):] if v["variant_code"] and v["variant_code"].startswith(g["product_code"]) else (v["variant_code"] or "")
                         label = "  └ " + (v["option"] or v["variant_code"])
-                        ws.append([v["variant_code"], label, g["price"], v["qty"], v["rev"]])
+                        ws.append([suffix, label, g["price"], v["qty"], v["rev"]])
+                        ws.row_dimensions[ws.max_row].outline_level = 1
                 else:
                     ws.append([g["product_code"], g["product_name"], g["price"], g["qty"], g["rev"]])
 
@@ -414,8 +416,10 @@ def api_excel(
                         c.fill = parent_fill
                         c.font = bold
                     for v in sort_variants(g["variants"], g["price"], sort_by, sort_dir):
+                        suffix = v["variant_code"][len(g["product_code"]):] if v["variant_code"] and v["variant_code"].startswith(g["product_code"]) else (v["variant_code"] or "")
                         label = "  └ " + (v["option"] or v["variant_code"])
-                        ws.append([cat_label, v["variant_code"], label, g["price"], v["qty"], v["rev"]])
+                        ws.append([cat_label, suffix, label, g["price"], v["qty"], v["rev"]])
+                        ws.row_dimensions[ws.max_row].outline_level = 1
                 else:
                     ws.append([cat_label, g["product_code"], g["product_name"], g["price"], g["qty"], g["rev"]])
 

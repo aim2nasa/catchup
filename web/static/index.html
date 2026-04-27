@@ -306,7 +306,26 @@
     color: var(--c-row-child-text);
     font-size: 11px;
     font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+    padding-left: 38px;
   }
+  .toggle-btn {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    line-height: 14px;
+    padding: 0;
+    margin-right: 6px;
+    border: 1px solid var(--c-border-strong);
+    background: var(--c-surface);
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--c-text);
+    border-radius: 3px;
+    vertical-align: middle;
+  }
+  .toggle-btn:hover { background: var(--c-row-hover); }
+  tr.row-child.collapsed { display: none; }
   table tbody tr.row-child td.name-cell {
     color: var(--c-row-child-text);
     padding-left: 24px;
@@ -405,6 +424,15 @@ let sortDir = -1;
 let catSortBy = 'rev';
 let catSortDir = -1;
 let runStartedAt = null;
+let _gidCounter = 0;
+
+function toggleGroup(btn, gid) {
+  const willCollapse = btn.textContent === '−';
+  document.querySelectorAll('tr[data-group="' + gid + '"]').forEach(tr => {
+    tr.classList.toggle('collapsed', willCollapse);
+  });
+  btn.textContent = willCollapse ? '+' : '−';
+}
 
 const today = new Date();
 const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -553,24 +581,29 @@ function renderTable(groups, totals, cur) {
   const body = sortedGroups.map(g => {
     const cls = g.is_multi ? 'row-parent' : 'row-single';
     const tag = g.is_multi ? '<span class="multi-tag">' + g.variants.length + '개 옵션</span>' : '';
+    const gid = g.is_multi ? 'g' + (++_gidCounter) : '';
+    const toggleBtn = g.is_multi ? '<button class="toggle-btn" type="button" onclick="toggleGroup(this,\'' + gid + '\')">−</button>' : '';
     const parent =
       '<tr class="' + cls + '">' +
-        '<td class="code-cell">' + escapeHtml(g.product_code) + '</td>' +
+        '<td class="code-cell">' + toggleBtn + escapeHtml(g.product_code) + '</td>' +
         '<td class="name-cell">' + escapeHtml(g.product_name) + tag + '</td>' +
         '<td class="num">' + fmt(g.price, cur) + '</td>' +
         '<td class="num">' + g.qty.toLocaleString('ko-KR') + '</td>' +
         '<td class="num">' + fmt(g.rev, cur) + '</td>' +
       '</tr>';
     if (!g.is_multi) return parent;
-    const children = sortVariants(g.variants, g.price).map(v =>
-      '<tr class="row-child">' +
-        '<td class="code-cell">' + escapeHtml(v.variant_code) + '</td>' +
+    const children = sortVariants(g.variants, g.price).map(v => {
+      const suffix = v.variant_code && v.variant_code.startsWith(g.product_code)
+        ? v.variant_code.slice(g.product_code.length)
+        : (v.variant_code || '');
+      return '<tr class="row-child" data-group="' + gid + '">' +
+        '<td class="code-cell">' + escapeHtml(suffix) + '</td>' +
         '<td class="name-cell">└ ' + escapeHtml(v.option || v.variant_code) + '</td>' +
         '<td class="num">' + fmt(g.price, cur) + '</td>' +
         '<td class="num">' + v.qty.toLocaleString('ko-KR') + '</td>' +
         '<td class="num">' + fmt(v.rev, cur) + '</td>' +
-      '</tr>'
-    ).join('');
+      '</tr>';
+    }).join('');
     return parent + children;
   }).join('');
   const foot = '<tr><td colspan="3">합계</td><td class="num">' + totals.qty.toLocaleString('ko-KR') + '</td><td class="num">' + fmt(totals.rev, cur) + '</td></tr>';
@@ -597,26 +630,31 @@ function renderFlatTable(data, cur) {
     const catLabel = '[' + g._cat_no + '] ' + g._cat_name;
     const cls = g.is_multi ? 'row-parent' : 'row-single';
     const tag = g.is_multi ? '<span class="multi-tag">' + g.variants.length + '개 옵션</span>' : '';
+    const gid = g.is_multi ? 'g' + (++_gidCounter) : '';
+    const toggleBtn = g.is_multi ? '<button class="toggle-btn" type="button" onclick="toggleGroup(this,\'' + gid + '\')">−</button>' : '';
     const parent =
       '<tr class="' + cls + '">' +
         '<td class="cat-cell">' + escapeHtml(catLabel) + '</td>' +
-        '<td class="code-cell">' + escapeHtml(g.product_code) + '</td>' +
+        '<td class="code-cell">' + toggleBtn + escapeHtml(g.product_code) + '</td>' +
         '<td class="name-cell">' + escapeHtml(g.product_name) + tag + '</td>' +
         '<td class="num">' + fmt(g.price, cur) + '</td>' +
         '<td class="num">' + g.qty.toLocaleString('ko-KR') + '</td>' +
         '<td class="num">' + fmt(g.rev, cur) + '</td>' +
       '</tr>';
     if (!g.is_multi) return parent;
-    const children = sortVariants(g.variants, g.price).map(v =>
-      '<tr class="row-child">' +
+    const children = sortVariants(g.variants, g.price).map(v => {
+      const suffix = v.variant_code && v.variant_code.startsWith(g.product_code)
+        ? v.variant_code.slice(g.product_code.length)
+        : (v.variant_code || '');
+      return '<tr class="row-child" data-group="' + gid + '">' +
         '<td class="cat-cell"></td>' +
-        '<td class="code-cell">' + escapeHtml(v.variant_code) + '</td>' +
+        '<td class="code-cell">' + escapeHtml(suffix) + '</td>' +
         '<td class="name-cell">└ ' + escapeHtml(v.option || v.variant_code) + '</td>' +
         '<td class="num">' + fmt(g.price, cur) + '</td>' +
         '<td class="num">' + v.qty.toLocaleString('ko-KR') + '</td>' +
         '<td class="num">' + fmt(v.rev, cur) + '</td>' +
-      '</tr>'
-    ).join('');
+      '</tr>';
+    }).join('');
     return parent + children;
   }).join('');
   const foot = '<tr><td colspan="4">합계</td><td class="num">' + data.grand.qty.toLocaleString('ko-KR') + '</td><td class="num">' + fmt(data.grand.rev, cur) + '</td></tr>';
@@ -690,6 +728,7 @@ function reRenderResults() {
 
 function renderResults(data) {
   lastResult = data;
+  _gidCounter = 0;
   document.getElementById('grandWrap').classList.remove('hidden');
   reRenderResults();
   refreshGrand();
