@@ -1,3 +1,6 @@
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
+
 import requests
 from cafe24_auth import get_access_token, MALL_ID
 
