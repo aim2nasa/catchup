@@ -515,6 +515,16 @@
   }
 
   .hidden { display: none; }
+
+  .version-footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--c-text-muted);
+    padding: 12px 0 4px;
+    margin-top: 16px;
+    font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  }
+  .version-footer .vm { color: var(--c-text-muted); margin: 0 6px; opacity: 0.5; }
 </style>
 </head>
 <body>
@@ -586,6 +596,7 @@
   <div id="results"></div>
 </div>
 
+<footer class="version-footer" id="versionFooter">v...</footer>
 </div>
 <script>
 let allCats = [];
@@ -1087,6 +1098,13 @@ window.addEventListener('unhandledrejection', (ev) => {
   const msg = (r && r.stack) ? r.stack : String(r);
   try { showError('Promise 에러: ' + msg); } catch (e) {}
 });
+fetch('/api/version').then(r => r.json()).then(d => {
+  const el = document.getElementById('versionFooter');
+  if (el && d.version) {
+    const started = d.started_at ? d.started_at.replace('T', ' ') : '';
+    el.innerHTML = escapeHtml(d.version) + (started ? '<span class="vm">·</span>started ' + escapeHtml(started) : '');
+  }
+}).catch(() => {});
 loadCats();
 </script>
 </body>

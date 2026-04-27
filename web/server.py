@@ -9,7 +9,9 @@
 import sys
 import json
 import io
+import subprocess
 import traceback
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +38,20 @@ from aggregation import (
 BASE = f"https://{MALL_ID}.cafe24api.com/api/v2/admin"
 WEB_DIR = Path(__file__).resolve().parent
 INVALID_SHEET = '\\/?*[]:'
+
+SERVER_STARTED_AT = datetime.now().isoformat(timespec="seconds")
+
+
+def get_version() -> str:
+    """git describe로 자동 산출. 태그 없으면 짧은 SHA, dirty 시 -dirty 접미."""
+    try:
+        return subprocess.check_output(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            cwd=str(ROOT), text=True, stderr=subprocess.DEVNULL,
+        ).strip() or "unknown"
+    except Exception:
+        return "unknown"
+
 
 app = FastAPI(title="catchup sales report")
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
@@ -192,6 +208,11 @@ def sse(data):
 @app.get("/")
 def index():
     return FileResponse(WEB_DIR / "static" / "index.html")
+
+
+@app.get("/api/version")
+def api_version():
+    return {"version": get_version(), "started_at": SERVER_STARTED_AT}
 
 
 @app.get("/api/categories")
