@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { apiUrl } from '@/api/client'
 import type { ReportData, SSEEvent } from '@/features/sales-report/types'
 
 export interface ReportState {
@@ -39,9 +40,11 @@ export function useReport() {
       })
       startedAtRef.current = Date.now()
 
-      const url = `/api/report?start=${encodeURIComponent(params.start)}&end=${encodeURIComponent(
-        params.end,
-      )}&categories=${encodeURIComponent(params.categories)}`
+      const url = apiUrl(
+        `/api/report?start=${encodeURIComponent(params.start)}&end=${encodeURIComponent(
+          params.end,
+        )}&categories=${encodeURIComponent(params.categories)}`,
+      )
       const evt = new EventSource(url)
       evtRef.current = evt
 

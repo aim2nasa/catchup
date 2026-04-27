@@ -1,11 +1,21 @@
 /**
  * 백엔드 API 호출 헬퍼.
- * Vite dev 서버는 /api 를 backend (127.0.0.1:8000) 로 proxy.
- * Production build 시에는 backend가 동일 호스트에서 정적 파일 + API 함께 서빙.
+ * Vite의 base(import.meta.env.BASE_URL)에 따라 prefix 자동 부여.
+ *  - 운영(reverse proxy): BASE_URL = "/catchup/" → "/catchup/api/foo"
+ *  - dev: 동일하나 vite proxy가 /catchup/api → backend로 rewrite
  */
 
-export async function getJson<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-  const url = new URL(path, window.location.origin)
+export function apiUrl(path: string): string {
+  const base = import.meta.env.BASE_URL || '/'
+  const clean = path.replace(/^\//, '')
+  return base + clean
+}
+
+export async function getJson<T>(
+  path: string,
+  params?: Record<string, string | number>,
+): Promise<T> {
+  const url = new URL(apiUrl(path), window.location.origin)
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
   }
