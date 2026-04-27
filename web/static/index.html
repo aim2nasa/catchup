@@ -172,13 +172,14 @@
   .cat-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
+    gap: 6px;
+    padding: 2px 6px;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: grab;
     user-select: none;
-    margin-bottom: 2px;
+    margin-bottom: 0;
+    line-height: 1.3;
   }
   .cat-item:hover {
     background: var(--c-row-hover);
@@ -203,13 +204,6 @@
     min-width: 36px;
   }
   .cat-item .cat-name { flex: 1; font-size: 12px; }
-
-  .left-actions {
-    display: flex;
-    gap: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--c-border);
-  }
 
   .progress {
     background: var(--c-progress-bg);
@@ -497,6 +491,8 @@
         <option value="flat">통합 (카테고리 무관 한 표)</option>
       </select>
     </label>
+    <button id="run" class="primary" style="margin-left:auto">조회</button>
+    <button id="dl" disabled>Excel 다운로드</button>
   </div>
 </div>
 
@@ -510,10 +506,6 @@
       </div>
     </div>
     <div class="cat-list" id="cats">로딩...</div>
-    <div class="left-actions">
-      <button id="run" class="primary">조회</button>
-      <button id="dl" disabled>Excel 다운로드</button>
-    </div>
   </div>
 
   <div class="right-pane card">
@@ -559,6 +551,29 @@ let runStartedAt = null;
 let _gidCounter = 0;
 let catOrder = [];
 
+const STORAGE_KEY = 'catchup-settings-v1';
+function saveSettings() {
+  try {
+    const cb = {};
+    document.querySelectorAll('.cat-cb').forEach(c => { cb[c.value] = c.checked; });
+    const s = {
+      start: document.getElementById('start').value,
+      end: document.getElementById('end').value,
+      mode: document.getElementById('mode').value,
+      summarySort: summarySort,
+      catOrder: catOrder,
+      catChecked: cb,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  } catch (e) { /* ignore quota/storage errors */ }
+}
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
 function toggleGroup(btn, gid) {
   const willCollapse = btn.textContent === '−';
   document.querySelectorAll('tr[data-group="' + gid + '"]').forEach(tr => {
@@ -571,8 +586,11 @@ const today = new Date();
 const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
 const lmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
 function toIso(d) { return d.toISOString().slice(0, 10); }
-document.getElementById('start').value = toIso(lm);
-document.getElementById('end').value = toIso(lmEnd);
+const _saved = loadSettings();
+document.getElementById('start').value = (_saved && _saved.start) || toIso(lm);
+document.getElementById('end').value = (_saved && _saved.end) || toIso(lmEnd);
+if (_saved && _saved.mode) document.getElementById('mode').value = _saved.mode;
+if (_saved && _saved.summarySort) summarySort = _saved.summarySort;
 
 async function loadCats() {
   try {
@@ -583,8 +601,23 @@ async function loadCats() {
     }
     const data = await r.json();
     allCats = data.filter(c => c.depth === 1);
-    catOrder = allCats.map(c => c.no);
+    const saved = loadSettings();
+    if (saved && Array.isArray(saved.catOrder)) {
+      const have = new Set(allCats.map(c => c.no));
+      const savedFiltered = saved.catOrder.filter(no => have.has(no));
+      const newOnes = allCats.map(c => c.no).filter(no => !saved.catOrder.includes(no));
+      catOrder = savedFiltered.concat(newOnes);
+    } else {
+      catOrder = allCats.map(c => c.no);
+    }
     buildCatList();
+    if (saved && saved.catChecked) {
+      document.querySelectorAll('.cat-cb').forEach(cb => {
+        if (Object.prototype.hasOwnProperty.call(saved.catChecked, cb.value)) {
+          cb.checked = !!saved.catChecked[cb.value];
+        }
+      });
+    }
   } catch (e) {
     document.getElementById('cats').innerHTML = '<span style="color:var(--c-error-text)">카테고리 로딩 실패: ' + escapeHtml(String(e)) + '</span>';
   }
@@ -609,7 +642,9 @@ function buildCatList() {
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
       catOrder = Array.from(container.children).map(it => parseInt(it.dataset.no, 10));
+      saveSettings();
     });
+    item.querySelector('.cat-cb').addEventListener('change', saveSettings);
     container.appendChild(item);
   });
   container.addEventListener('dragover', (e) => {
@@ -634,6 +669,7 @@ function getDragAfterElement(container, y) {
 
 function selectAllCats(state) {
   document.querySelectorAll('.cat-cb').forEach(cb => cb.checked = state);
+  saveSettings();
 }
 
 function selectedCats() {
@@ -961,11 +997,22 @@ function download() {
 
 document.getElementById('run').onclick = run;
 document.getElementById('dl').onclick = download;
-document.getElementById('mode').onchange = () => { if (lastResult) reRenderResults(); };
+document.getElementById('start').onchange = saveSettings;
+document.getElementById('end').onchange = saveSettings;
+document.getElementById('mode').onchange = () => {
+  saveSettings();
+  if (lastResult) reRenderResults();
+};
 document.getElementById('catSortSummary').onchange = function() {
   summarySort = this.value;
+  saveSettings();
   renderSummaryCards();
 };
+// 페이지 로드 시 summarySort dropdown에 저장된 값 반영
+if (_saved && _saved.summarySort) {
+  const sel = document.getElementById('catSortSummary');
+  if (sel) sel.value = _saved.summarySort;
+}
 loadCats();
 </script>
 </body>
