@@ -656,6 +656,7 @@ function renderTabs(data) {
 
 function switchTab(i) {
   const data = lastResult;
+  if (!data || !data.results[i]) return;
   const cur = data.grand.currency;
   document.getElementById('tabs').querySelectorAll('button').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.idx, 10) === i);
@@ -674,9 +675,10 @@ function reRenderResults() {
     tabs.classList.remove('hidden');
     results.classList.add('tab-content-tabs');
     const activeBtn = document.querySelector('#tabs button.active');
-    const activeIdx = activeBtn ? parseInt(activeBtn.dataset.idx, 10) : 0;
+    let activeIdx = activeBtn ? parseInt(activeBtn.dataset.idx, 10) : 0;
+    if (!Number.isFinite(activeIdx) || activeIdx < 0 || activeIdx >= lastResult.results.length) activeIdx = 0;
     renderTabs(lastResult);
-    if (lastResult.results.length > 0) switchTab(activeIdx >= 0 ? activeIdx : 0);
+    if (lastResult.results.length > 0) switchTab(activeIdx);
   } else if (mode === 'flat') {
     tabs.classList.add('hidden');
     results.innerHTML = renderFlatTable(lastResult, lastResult.grand.currency);
@@ -716,6 +718,8 @@ function run() {
   lastQuery = { start, end, categories: cats, mode: document.getElementById('mode').value };
   clearError();
   document.getElementById('grandWrap').classList.add('hidden');
+  document.getElementById('tabs').innerHTML = '';
+  document.getElementById('results').innerHTML = '';
   const prog = document.getElementById('progress');
   prog.textContent = '';
   prog.classList.remove('hidden');
