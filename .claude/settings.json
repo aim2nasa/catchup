@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo *)",
+      "Bash(git clone *)",
+      "Bash(mv /d/catchup-tmp/.git /d/catchup/.git)",
+      "Bash(rmdir /d/catchup-tmp)"
+    ]
+  }
+}
