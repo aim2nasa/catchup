@@ -180,7 +180,7 @@ target = next((v for v in res2.json()["variants"] if v["variant_code"] == varian
 |------|------|------|
 | 상품번호 (product_no) | 정수 (예: 651) | 내부 식별자 |
 | 상품코드 (product_code) | `P` + 7자리 (예: `P00000ZB`) | 사용자 식별자 |
-| 품목코드 (variant_code) | 상품코드 + 옵션 3자리 (예: `P00000ZB000A`) | 옵션별 SKU |
+| 품목코드 (variant_code) | 상품코드 + 옵션 4자리 (예: `P00000ZB000A`) | 옵션별 SKU |
 
 ## 다음 단계 후보
 
