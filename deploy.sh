@@ -18,8 +18,13 @@ cd "$(dirname "$0")"
 echo "[1/4] git pull"
 git pull --ff-only
 
-echo "[2/4] Python 의존성"
-python3 -m pip install --user --upgrade fastapi uvicorn requests openpyxl python-dotenv > /dev/null
+echo "[2/4] Python 의존성 (venv)"
+if [[ ! -d .venv ]]; then
+  echo "  .venv 생성"
+  python3 -m venv .venv
+fi
+.venv/bin/pip install --upgrade --quiet pip
+.venv/bin/pip install --upgrade --quiet fastapi uvicorn requests openpyxl python-dotenv
 
 echo "[3/4] frontend build"
 cd frontend
@@ -34,7 +39,7 @@ echo "[4/4] PM2 reload"
 if pm2 describe catchup > /dev/null 2>&1; then
   pm2 restart catchup --update-env
 else
-  pm2 start "python3 backend/main.py" \
+  pm2 start ".venv/bin/python backend/main.py" \
     --name catchup \
     --cwd "$PWD" \
     --interpreter none
