@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 디렉토리 구조
 
+- `docs/` — 현행 업무 참고 자료 (엑셀, 양식 등 캐치업코리아가 실제 사용 중인 파일).
 - `web/` — PC/모바일 웹 산출물.
 - `python/` — 파이썬 스크립트/도구. 도메인별 하위 폴더에 코드와 그 코드에 관련된 메모(`CONTEXT.md` 등)를 함께 둠. 예: `python/cafe24/CONTEXT.md`, `python/cafe24/tests/`.
 
