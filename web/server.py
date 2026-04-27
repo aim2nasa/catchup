@@ -100,7 +100,6 @@ def fetch_orders(start, end):
 
 
 def aggregate(products, orders):
-    """상품별 그룹 리스트 반환. 각 그룹 = 한 product + 그 variants 합계."""
     accums = {}
     for o in orders:
         for it in (o.get("items") or []):
@@ -182,16 +181,52 @@ def sse(data):
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-def emit_group_rows(ws, group, prefix, parent_fill, bold):
-    """그룹 1개를 rows로 추가. prefix가 [cat_label] 같은 리스트면 매 행 앞에 붙임."""
+def _group_sort_key(g, sort_by):
+    if sort_by == "code": return g["product_code"]
+    if sort_by == "name": return g["product_name"]
+    if sort_by == "price": return g["price"]
+    if sort_by == "qty": return g["qty"]
+    if sort_by == "rev": return g["rev"]
+    return g["rev"]
+
+
+def _variant_sort_key(v, parent_price, sort_by):
+    if sort_by == "code": return v["variant_code"]
+    if sort_by == "name": return v["option"] or v["variant_code"]
+    if sort_by == "price": return parent_price
+    if sort_by == "qty": return v["qty"]
+    if sort_by == "rev": return v["rev"]
+    return v["rev"]
+
+
+def _cat_sort_key(r, sort_by):
+    if sort_by == "rev": return r["rev"]
+    if sort_by == "qty": return r["qty"]
+    if sort_by in ("cat", "code"): return r["category_no"]
+    if sort_by == "name": return r["category_name"]
+    return r["rev"]
+
+
+def sort_groups(groups, sort_by, sort_dir):
+    return sorted(groups, key=lambda g: _group_sort_key(g, sort_by), reverse=(sort_dir == -1))
+
+
+def sort_variants(variants, parent_price, sort_by, sort_dir):
+    return sorted(variants, key=lambda v: _variant_sort_key(v, parent_price, sort_by), reverse=(sort_dir == -1))
+
+
+def sort_categories(results, sort_by, sort_dir):
+    return sorted(results, key=lambda r: _cat_sort_key(r, sort_by), reverse=(sort_dir == -1))
+
+
+def emit_group_rows(ws, group, prefix, parent_fill, bold, sort_by, sort_dir):
     pre = list(prefix) if prefix else []
     ws.append(pre + [group["product_code"], group["product_name"], group["price"], group["qty"], group["rev"]])
     if group["is_multi"]:
         for c in ws[ws.max_row]:
             c.font = bold
             c.fill = parent_fill
-        sorted_vars = sorted(group["variants"], key=lambda v: -v["rev"])
-        for v in sorted_vars:
+        for v in sort_variants(group["variants"], group["price"], sort_by, sort_dir):
             label = "  └ " + (v["option"] or v["variant_code"])
             ws.append(pre + [v["variant_code"], label, group["price"], v["qty"], v["rev"]])
 
@@ -223,8 +258,6 @@ def api_categories():
 
 @app.get("/api/report")
 def api_report(start: str, end: str, categories: str = "all"):
-    """SSE: 진행상황 + 최종 데이터(상품 그룹 리스트)."""
-
     def gen():
         try:
             yield sse({"type": "progress", "msg": "[1/4] 카테고리 목록 조회"})
@@ -301,7 +334,16 @@ def api_report(start: str, end: str, categories: str = "all"):
 
 
 @app.get("/api/excel")
-def api_excel(start: str, end: str, categories: str = "all", mode: str = "single"):
+def api_excel(
+    start: str,
+    end: str,
+    categories: str = "all",
+    mode: str = "single",
+    sort_by: str = "rev",
+    sort_dir: int = -1,
+    cat_sort_by: str = "rev",
+    cat_sort_dir: int = -1,
+):
     try:
         all_cats = fetch_categories()
         target = parse_categories(categories, all_cats)
@@ -330,7 +372,8 @@ def api_excel(start: str, end: str, categories: str = "all", mode: str = "single
 
         if mode == "tabs":
             used = set()
-            for r in results:
+            sorted_results = sort_categories(results, cat_sort_by, cat_sort_dir)
+            for r in sorted_results:
                 title = sanitize_sheet_name(f"{r['category_no']}_{r['category_name']}", used)
                 ws = wb.create_sheet(title=title)
                 ws.append([f"기간: {start} ~ {end} / 통화: {currency}"])
@@ -340,9 +383,8 @@ def api_excel(start: str, end: str, categories: str = "all", mode: str = "single
                     c.fill = header_fill
                 first_data_row = 3
                 tq = tr = 0
-                groups = sorted(r["groups"], key=lambda g: -g["rev"])
-                for g in groups:
-                    emit_group_rows(ws, g, prefix=None, parent_fill=parent_fill, bold=bold)
+                for g in sort_groups(r["groups"], sort_by, sort_dir):
+                    emit_group_rows(ws, g, prefix=None, parent_fill=parent_fill, bold=bold, sort_by=sort_by, sort_dir=sort_dir)
                     tq += g["qty"]
                     tr += g["rev"]
                 last_data_row = ws.max_row
@@ -354,6 +396,36 @@ def api_excel(start: str, end: str, categories: str = "all", mode: str = "single
                     ws.auto_filter.ref = f"A2:E{last_data_row}"
                 size_cols(ws)
                 ws.freeze_panes = "A3"
+
+        elif mode == "flat":
+            ws = wb.create_sheet(title="전체")
+            ws.append([f"기간: {start} ~ {end} / 통화: {currency}"])
+            ws.append(["카테고리", "코드", "상품명", "단가", "판매수", "매출"])
+            for c in ws[2]:
+                c.font = header_font
+                c.fill = header_fill
+            first_data_row = 3
+            tq = tr = 0
+            all_groups = []
+            for r in results:
+                cat_label = f"[{r['category_no']}] {r['category_name']}"
+                for g in r["groups"]:
+                    all_groups.append((cat_label, g))
+                    tq += g["qty"]
+                    tr += g["rev"]
+            all_groups.sort(key=lambda x: _group_sort_key(x[1], sort_by), reverse=(sort_dir == -1))
+            for cat_label, g in all_groups:
+                emit_group_rows(ws, g, prefix=[cat_label], parent_fill=parent_fill, bold=bold, sort_by=sort_by, sort_dir=sort_dir)
+            last_data_row = ws.max_row
+            ws.append(["합계", "", "", "", tq, tr])
+            for c in ws[ws.max_row]:
+                c.font = bold
+                c.fill = sum_fill
+            if last_data_row >= first_data_row:
+                ws.auto_filter.ref = f"A2:F{last_data_row}"
+            size_cols(ws)
+            ws.freeze_panes = "A3"
+
         else:
             ws = wb.create_sheet(title="합산")
             ws.append([f"기간: {start} ~ {end} / 통화: {currency}"])
@@ -363,12 +435,11 @@ def api_excel(start: str, end: str, categories: str = "all", mode: str = "single
                 c.fill = header_fill
             first_data_row = 3
             tq = tr = 0
-            sorted_results = sorted(results, key=lambda r: -r["rev"])
+            sorted_results = sort_categories(results, cat_sort_by, cat_sort_dir)
             for r in sorted_results:
                 cat_label = f"[{r['category_no']}] {r['category_name']}"
-                groups = sorted(r["groups"], key=lambda g: -g["rev"])
-                for g in groups:
-                    emit_group_rows(ws, g, prefix=[cat_label], parent_fill=parent_fill, bold=bold)
+                for g in sort_groups(r["groups"], sort_by, sort_dir):
+                    emit_group_rows(ws, g, prefix=[cat_label], parent_fill=parent_fill, bold=bold, sort_by=sort_by, sort_dir=sort_dir)
                     tq += g["qty"]
                     tr += g["rev"]
             last_data_row = ws.max_row
