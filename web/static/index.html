@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>cafe24 판매 집계 — 캐치업코리아</title>
+<style>
+  :root {
+    --c-bg: #f5f7fa;
+    --c-surface: #ffffff;
+    --c-text: #111827;
+    --c-text-muted: #6b7280;
+    --c-border: #e5e7eb;
+    --c-border-strong: #cbd5e1;
+    --c-primary: #2563eb;
+    --c-primary-dark: #1d4ed8;
+    --c-grand-bg: #0f172a;
+    --c-grand-text: #f1f5f9;
+    --c-grand-muted: #94a3b8;
+    --c-grand-accent: #fbbf24;
+    --c-cat-bar: #1e40af;
+    --c-cat-bar-text: #f8fafc;
+    --c-cat-bar-muted: #cbd5e1;
+    --c-cat-num-bg: #fbbf24;
+    --c-cat-num-text: #422006;
+    --c-table-head: #334155;
+    --c-table-head-text: #f8fafc;
+    --c-row-alt: #f8fafc;
+    --c-row-hover: #eff6ff;
+    --c-sum-bg: #fef3c7;
+    --c-sum-text: #78350f;
+    --c-sum-border: #d97706;
+    --c-error-bg: #fee2e2;
+    --c-error-text: #991b1b;
+    --c-error-border: #fca5a5;
+    --c-progress-bg: #1e293b;
+    --c-progress-text: #cbd5e1;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "맑은 고딕", sans-serif;
+    background: var(--c-bg);
+    color: var(--c-text);
+    margin: 0;
+    padding: clamp(10px, 2vw, 18px);
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  .filters { padding: 14px 16px; margin-bottom: 12px; }
+  .filters .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .filters .row:last-child { margin-bottom: 0; }
+  .filters label {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .filters input[type=date], .filters select {
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: 4px;
+    background: var(--c-surface);
+    color: var(--c-text);
+  }
+
+  .cats {
+    flex: 1 1 100%;
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid var(--c-border);
+    padding: 8px 10px;
+    background: var(--c-bg);
+    border-radius: 4px;
+  }
+  .cats label.cat {
+    display: inline-block;
+    margin: 2px 10px 2px 0;
+    font-size: 12px;
+    color: var(--c-text);
+    cursor: pointer;
+    font-weight: 400;
+  }
+  .cats label.cat input { vertical-align: middle; margin-right: 4px; }
+
+  button {
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border: 1px solid var(--c-border-strong);
+    background: var(--c-surface);
+    border-radius: 4px;
+    color: var(--c-text);
+    font-weight: 600;
+  }
+  button:hover:not([disabled]) { background: var(--c-row-hover); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary {
+    background: var(--c-primary);
+    color: white;
+    border-color: var(--c-primary);
+  }
+  button.primary:hover:not([disabled]) {
+    background: var(--c-primary-dark);
+    border-color: var(--c-primary-dark);
+  }
+
+  .progress {
+    background: var(--c-progress-bg);
+    color: var(--c-progress-text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    margin-bottom: 12px;
+    min-height: 40px;
+  }
+
+  .error {
+    background: var(--c-error-bg);
+    color: var(--c-error-text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    display: none;
+    border: 1px solid var(--c-error-border);
+  }
+
+  .grand {
+    background: var(--c-grand-bg);
+    color: var(--c-grand-text);
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  }
+  .grand .label {
+    color: var(--c-grand-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .grand .num {
+    font-size: 26px;
+    font-weight: 700;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .grand .num em {
+    color: var(--c-grand-accent);
+    font-style: normal;
+  }
+  .grand .num .sep { color: var(--c-grand-muted); margin: 0 10px; font-weight: 400; }
+
+  .tabs {
+    border-bottom: 2px solid var(--c-border-strong);
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 0;
+    display: flex;
+    gap: 2px;
+  }
+  .tabs button {
+    background: var(--c-bg);
+    border: 1px solid var(--c-border-strong);
+    border-bottom: none;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    color: var(--c-text-muted);
+    font-weight: 500;
+  }
+  .tabs button.active {
+    background: var(--c-surface);
+    color: var(--c-text);
+    font-weight: 700;
+    border-bottom: 2px solid var(--c-surface);
+    position: relative;
+    top: 2px;
+  }
+  .tab-content-tabs {
+    border: 1px solid var(--c-border);
+    border-top: none;
+    background: var(--c-surface);
+    max-height: 65vh;
+    overflow: auto;
+  }
+
+  .cat-section {
+    background: var(--c-surface);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    border: 1px solid var(--c-border);
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+  .cat-bar {
+    background: var(--c-cat-bar);
+    color: var(--c-cat-bar-text);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 14px;
+    flex-wrap: wrap;
+  }
+  .cat-bar .cat-num {
+    background: var(--c-cat-num-bg);
+    color: var(--c-cat-num-text);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .cat-bar .cat-name { flex: 1; min-width: 200px; font-weight: 600; }
+  .cat-bar .cat-stat {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--c-cat-bar-muted);
+  }
+  .cat-bar .cat-stat strong {
+    color: var(--c-cat-bar-text);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+  }
+  table th, table td {
+    border-bottom: 1px solid var(--c-border);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  table th {
+    background: var(--c-table-head);
+    color: var(--c-table-head-text);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  table tbody tr:nth-child(even) { background: var(--c-row-alt); }
+  table tbody tr:hover { background: var(--c-row-hover); }
+  table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  table tfoot td {
+    font-weight: 700;
+    background: var(--c-sum-bg);
+    color: var(--c-sum-text);
+    border-top: 2px solid var(--c-sum-border);
+    border-bottom: none;
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>cafe24 판매 집계 — 캐치업코리아</h1>
+
+<div class="filters card">
+  <div class="row">
+    <label>시작일 <input type="date" id="start"></label>
+    <label>종료일 <input type="date" id="end"></label>
+    <label>표시
+      <select id="mode">
+        <option value="single" selected>한 화면 (카테고리별 그룹)</option>
+        <option value="tabs">카테고리별 탭 분리</option>
+      </select>
+    </label>
+  </div>
+  <div class="row">
+    <span style="font-size:12px;color:var(--c-text-muted);font-weight:600;">카테고리 (depth=1):</span>
+    <button type="button" onclick="selectAllCats(true)">전체 선택</button>
+    <button type="button" onclick="selectAllCats(false)">전체 해제</button>
+  </div>
+  <div class="row">
+    <div class="cats" id="cats">로딩...</div>
+  </div>
+  <div class="row">
+    <button id="run" class="primary">조회</button>
+    <button id="dl" disabled>Excel 다운로드</button>
+  </div>
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="error" id="error"></div>
+
+<div id="grandWrap" class="hidden">
+  <div class="grand" id="grand"></div>
+  <div class="tabs hidden" id="tabs"></div>
+  <div id="results"></div>
+</div>
+
+</div>
+<script>
+let allCats = [];
+let lastResult = null;
+let lastQuery = null;
+let evt = null;
+
+const today = new Date();
+const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+const lmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+function toIso(d) { return d.toISOString().slice(0, 10); }
+document.getElementById('start').value = toIso(lm);
+document.getElementById('end').value = toIso(lmEnd);
+
+async function loadCats() {
+  try {
+    const r = await fetch('/api/categories');
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error || ('HTTP ' + r.status));
+    }
+    const data = await r.json();
+    allCats = data.filter(c => c.depth === 1);
+    document.getElementById('cats').innerHTML = allCats.map(c =>
+      '<label class="cat"><input type="checkbox" class="cat-cb" value="' + c.no + '" checked> ' + c.no + ' ' + escapeHtml(c.name) + '</label>'
+    ).join('');
+  } catch (e) {
+    document.getElementById('cats').innerHTML = '<span style="color:var(--c-error-text)">카테고리 로딩 실패: ' + escapeHtml(String(e)) + '</span>';
+  }
+}
+
+function selectAllCats(state) {
+  document.querySelectorAll('.cat-cb').forEach(cb => cb.checked = state);
+}
+
+function selectedCats() {
+  const all = document.querySelectorAll('.cat-cb');
+  const checked = document.querySelectorAll('.cat-cb:checked');
+  if (all.length === 0) return 'all';
+  if (checked.length === all.length) return 'all';
+  return Array.from(checked).map(cb => cb.value).join(',');
+}
+
+function fmt(n, currency) {
+  const sign = currency === 'KRW' ? '₩' : '';
+  return sign + Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+}
+
+function pushProgress(msg) {
+  const el = document.getElementById('progress');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error');
+  el.style.display = 'block';
+  el.textContent = msg;
+}
+
+function clearError() {
+  const el = document.getElementById('error');
+  el.style.display = 'none';
+  el.textContent = '';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderTable(rows, tot, cur) {
+  const head = '<tr><th>코드</th><th>상품명</th><th class="num">단가</th><th class="num">판매수</th><th class="num">매출</th></tr>';
+  const body = rows.map(r =>
+    '<tr><td>' + escapeHtml(r.display_code) + '</td><td>' + escapeHtml(r.name) + '</td>' +
+    '<td class="num">' + fmt(r.price, cur) + '</td>' +
+    '<td class="num">' + r.qty.toLocaleString('ko-KR') + '</td>' +
+    '<td class="num">' + fmt(r.rev, cur) + '</td></tr>'
+  ).join('');
+  const foot = '<tr><td colspan="3">합계</td><td class="num">' + tot.qty.toLocaleString('ko-KR') + '</td><td class="num">' + fmt(tot.rev, cur) + '</td></tr>';
+  return '<table><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table>';
+}
+
+function renderCatSection(r, cur) {
+  const rows = [...r.rows].sort((a, b) => b.rev - a.rev);
+  return (
+    '<section class="cat-section">' +
+      '<header class="cat-bar">' +
+        '<span class="cat-num">' + r.category_no + '</span>' +
+        '<span class="cat-name">' + escapeHtml(r.category_name) + '</span>' +
+        '<span class="cat-stat">판매수<strong>' + r.qty.toLocaleString('ko-KR') + '</strong></span>' +
+        '<span class="cat-stat">매출<strong>' + fmt(r.rev, cur) + '</strong></span>' +
+      '</header>' +
+      renderTable(rows, { qty: r.qty, rev: r.rev }, cur) +
+    '</section>'
+  );
+}
+
+function renderResults(data) {
+  lastResult = data;
+  const wrap = document.getElementById('grandWrap');
+  wrap.classList.remove('hidden');
+  const cur = data.grand.currency;
+  document.getElementById('grand').innerHTML =
+    '<div class="label">총 합계 · ' + escapeHtml(data.start) + ' ~ ' + escapeHtml(data.end) + ' · 주문 ' + (data.grand.order_count || 0).toLocaleString('ko-KR') + '건</div>' +
+    '<div class="num">판매수 <em>' + data.grand.qty.toLocaleString('ko-KR') + '</em>개<span class="sep">·</span>매출 <em>' + fmt(data.grand.rev, cur) + '</em> <span style="font-size:14px;color:var(--c-grand-muted)">(' + cur + ')</span></div>';
+
+  const mode = document.getElementById('mode').value;
+  const tabs = document.getElementById('tabs');
+  const results = document.getElementById('results');
+  tabs.innerHTML = '';
+  results.innerHTML = '';
+  results.className = '';
+
+  if (mode === 'tabs') {
+    tabs.classList.remove('hidden');
+    results.classList.add('tab-content-tabs');
+    data.results.forEach((r, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = '[' + r.category_no + '] ' + r.category_name + ' (' + r.qty + ')';
+      btn.onclick = () => switchTab(i);
+      tabs.appendChild(btn);
+    });
+    if (data.results.length > 0) switchTab(0);
+  } else {
+    tabs.classList.add('hidden');
+    const sorted = [...data.results].sort((a, b) => b.rev - a.rev);
+    results.innerHTML = sorted.map(r => renderCatSection(r, cur)).join('');
+  }
+
+  document.getElementById('dl').disabled = false;
+}
+
+function switchTab(i) {
+  const data = lastResult;
+  const cur = data.grand.currency;
+  document.getElementById('tabs').querySelectorAll('button').forEach((b, j) => b.classList.toggle('active', i === j));
+  const r = data.results[i];
+  const rows = [...r.rows].sort((a, b) => b.rev - a.rev);
+  document.getElementById('results').innerHTML = renderTable(rows, { qty: r.qty, rev: r.rev }, cur);
+}
+
+function run() {
+  const start = document.getElementById('start').value;
+  const end = document.getElementById('end').value;
+  const cats = selectedCats();
+  if (!start || !end) { showError('기간을 입력하세요'); return; }
+  if (start > end) { showError('시작일이 종료일보다 늦습니다'); return; }
+  lastQuery = { start, end, categories: cats, mode: document.getElementById('mode').value };
+  clearError();
+  document.getElementById('grandWrap').classList.add('hidden');
+  document.getElementById('progress').textContent = '';
+  document.getElementById('dl').disabled = true;
+
+  if (evt) evt.close();
+  const url = '/api/report?start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end) + '&categories=' + encodeURIComponent(cats);
+  evt = new EventSource(url);
+  evt.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'progress') pushProgress(m.msg);
+    else if (m.type === 'error') {
+      showError(m.msg + '\n\n' + (m.trace || ''));
+      evt.close();
+    } else if (m.type === 'data') {
+      renderResults(m);
+    } else if (m.type === 'done') {
+      evt.close();
+    }
+  };
+  evt.onerror = () => {
+    showError('SSE 연결 오류 (네트워크/서버 확인)');
+    if (evt) evt.close();
+  };
+}
+
+function download() {
+  if (!lastQuery) return;
+  const q = lastQuery;
+  const url = '/api/excel?start=' + encodeURIComponent(q.start) + '&end=' + encodeURIComponent(q.end) + '&categories=' + encodeURIComponent(q.categories) + '&mode=' + encodeURIComponent(q.mode);
+  window.location.href = url;
+}
+
+document.getElementById('run').onclick = run;
+document.getElementById('dl').onclick = download;
+loadCats();
+</script>
+</body>
+</html>
