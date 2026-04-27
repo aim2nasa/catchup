@@ -54,17 +54,35 @@ npm install      # 최초 1회
 npm run dev      # 127.0.0.1:5173, /api → 8000 proxy
 ```
 
-### 프론트엔드 build
+### 프론트엔드 build (운영)
 ```
 cd frontend
 npm run build    # frontend/dist/ 산출
 ```
 
-### 회귀 테스트 (Python)
+`backend/main.py`는 `frontend/dist/index.html` 존재 여부로 라우팅을 분기:
+- **dist 있음**: `/` → 신규 React UI 서빙, `/legacy` → 옛 정적 UI
+- **dist 없음**: `/` → 옛 정적 UI fallback
+
+⇒ 운영 모드는 `npm run build` 후 `py backend/main.py` 만 띄우면 됨.
+⇒ 개발 모드는 backend(8000) + `npm run dev`(5173)를 양쪽에서 띄우고
+  /api는 vite proxy로 8000으로 포워딩. dist를 매번 빌드할 필요 없음.
+
+### 회귀 테스트 (Python, 40건)
 ```
-py tests/test_api_regression.py            # 14건 — API endpoint 회귀
-py python/cafe24/tests/test_aggregation.py # 26건 — 집계/정렬 로직
+py tests/test_api_regression.py            # 14건 — API endpoint 회귀 (cafe24 mock)
+py python/cafe24/tests/test_aggregation.py # 26건 — 집계/정렬 로직 단위 테스트
 ```
+
+### E2E 테스트 (Playwright, 3건)
+```
+npx playwright test                # baseline 3건 (~11초, 실 cafe24 호출 1건 포함)
+npx playwright test --ui           # UI 모드로 디버깅
+```
+- baseline 시나리오: 페이지 로드 + 카테고리 + 버전 / 전체해제+조회 alert / 짧은기간 실조회 → 결과 요약 + 모드 토글
+- 사전 조건: `frontend/dist`가 빌드되어 있어야 React UI 검증 가능 (`cd frontend && npm run build`).
+  Playwright 설정에 `webServer.command = "py backend/main.py"`로 백엔드 자동 기동.
+- cafe24 호출 시나리오는 토큰이 만료되면 실패 — `cafe24-token-keepalive` 작업 스케줄러로 주 1회 자동 갱신 중.
 
 ### 자동 토큰 갱신 (Windows 작업 스케줄러)
 이미 등록되어 있음 (이름: `cafe24-token-keepalive`). 매주 월요일 09:00 실행.
