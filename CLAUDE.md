@@ -12,9 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 디렉토리 구조
 
-- `docs/` — 분석/참고 문서. 예: `docs/cafe24/CONTEXT.md` (cafe24 OpenAPI 연동 메모).
 - `web/` — PC/모바일 웹 산출물.
-- `python/` — 파이썬 스크립트/도구.
+- `python/` — 파이썬 스크립트/도구. 도메인별 하위 폴더에 코드와 그 코드에 관련된 메모(`CONTEXT.md` 등)를 함께 둠. 예: `python/cafe24/CONTEXT.md`, `python/cafe24/tests/`.
 
 초기 단계라 구조는 단순하게 유지. 새로운 카테고리가 필요해질 때만 추가.
 
@@ -30,4 +29,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 작업 시 고려사항
 
 - "엑셀 업무를 그대로 자동화"하기보다, 그 엑셀이 무엇을 위해 존재하는지(어떤 의사결정/리포트를 위한 것인지)를 먼저 파악한 뒤 개선안을 제안할 것.
-- 도메인 이해가 깊어지거나 워크플로우 결정이 내려지면 `README.md`의 "현재 파악된 상황" 항목과 `docs/` 산하 문서를 함께 갱신.
+- 도메인 이해가 깊어지거나 워크플로우 결정이 내려지면 `README.md`의 "현재 파악된 상황" 항목과 관련 `CONTEXT.md`를 함께 갱신.
