@@ -100,27 +100,46 @@ def fetch_orders(start, end):
 
 
 def aggregate(products, orders):
-    vmap = {}
-    for pn, info in products.items():
-        multi = len(info["variants"]) > 1
-        for v in info["variants"]:
-            vc = v["vcode"]
-            vmap[vc] = {
-                "display_code": vc if multi else info["code"],
-                "name": info["name"] + (f" [{v['opt']}]" if multi and v["opt"] else ""),
-                "price": info["price"],
-                "qty": 0,
-                "rev": 0.0,
-            }
+    """상품별 그룹 리스트 반환. 각 그룹 = 한 product + 그 variants 합계."""
+    accums = {}
     for o in orders:
         for it in (o.get("items") or []):
             vc = it.get("variant_code")
-            if vc in vmap:
-                qty = (it.get("quantity") or 0) - (it.get("claim_quantity") or 0)
-                price = float(it.get("product_price") or 0)
-                vmap[vc]["qty"] += qty
-                vmap[vc]["rev"] += qty * price
-    return vmap
+            if not vc:
+                continue
+            qty = (it.get("quantity") or 0) - (it.get("claim_quantity") or 0)
+            price = float(it.get("product_price") or 0)
+            a = accums.setdefault(vc, {"qty": 0, "rev": 0.0})
+            a["qty"] += qty
+            a["rev"] += qty * price
+
+    groups = []
+    for pn, info in products.items():
+        multi = len(info["variants"]) > 1
+        gqty = 0
+        grev = 0.0
+        variants = []
+        for v in info["variants"]:
+            vc = v["vcode"]
+            a = accums.get(vc, {"qty": 0, "rev": 0.0})
+            gqty += a["qty"]
+            grev += a["rev"]
+            variants.append({
+                "variant_code": vc,
+                "option": v.get("opt", ""),
+                "qty": a["qty"],
+                "rev": a["rev"],
+            })
+        groups.append({
+            "is_multi": multi,
+            "product_code": info["code"],
+            "product_name": info["name"],
+            "price": info["price"],
+            "qty": gqty,
+            "rev": grev,
+            "variants": variants,
+        })
+    return groups
 
 
 def sanitize_sheet_name(name, used):
@@ -163,6 +182,20 @@ def sse(data):
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def emit_group_rows(ws, group, prefix, parent_fill, bold):
+    """그룹 1개를 rows로 추가. prefix가 [cat_label] 같은 리스트면 매 행 앞에 붙임."""
+    pre = list(prefix) if prefix else []
+    ws.append(pre + [group["product_code"], group["product_name"], group["price"], group["qty"], group["rev"]])
+    if group["is_multi"]:
+        for c in ws[ws.max_row]:
+            c.font = bold
+            c.fill = parent_fill
+        sorted_vars = sorted(group["variants"], key=lambda v: -v["rev"])
+        for v in sorted_vars:
+            label = "  └ " + (v["option"] or v["variant_code"])
+            ws.append(pre + [v["variant_code"], label, group["price"], v["qty"], v["rev"]])
+
+
 @app.get("/")
 def index():
     return FileResponse(WEB_DIR / "static" / "index.html")
@@ -190,7 +223,7 @@ def api_categories():
 
 @app.get("/api/report")
 def api_report(start: str, end: str, categories: str = "all"):
-    """SSE 스트림: 진행상황 + 최종 데이터."""
+    """SSE: 진행상황 + 최종 데이터(상품 그룹 리스트)."""
 
     def gen():
         try:
@@ -229,20 +262,20 @@ def api_report(start: str, end: str, categories: str = "all"):
                 cname = c["category_name"]
                 yield sse({"type": "progress", "msg": f"  ({i}/{len(target)}) [{cn}] {cname}"})
                 products = fetch_products_by_category(cn)
-                vmap = aggregate(products, orders)
-                rows = sorted(vmap.values(), key=lambda r: -r["rev"])
-                cqty = sum(r["qty"] for r in rows)
-                crev = sum(r["rev"] for r in rows)
+                groups = aggregate(products, orders)
+                cqty = sum(g["qty"] for g in groups)
+                crev = sum(g["rev"] for g in groups)
                 grand_qty += cqty
                 grand_rev += crev
+                multi_count = sum(1 for g in groups if g["is_multi"])
                 results.append({
                     "category_no": cn,
                     "category_name": cname,
-                    "rows": rows,
+                    "groups": groups,
                     "qty": cqty,
                     "rev": crev,
                 })
-                yield sse({"type": "progress", "msg": f"    → 상품 {len(products)} / variant {len(vmap)} / 판매수 {cqty} / 매출 {crev:,.0f}"})
+                yield sse({"type": "progress", "msg": f"    → 상품 {len(groups)} (옵션상품 {multi_count}) / 판매수 {cqty} / 매출 {crev:,.0f}"})
 
             yield sse({"type": "progress", "msg": "[4/4] 완료"})
             yield sse({
@@ -278,19 +311,22 @@ def api_excel(start: str, end: str, categories: str = "all", mode: str = "single
         results = []
         for c in target:
             products = fetch_products_by_category(c["category_no"])
-            vmap = aggregate(products, orders)
-            rows = sorted(vmap.values(), key=lambda r: -r["rev"])
+            groups = aggregate(products, orders)
             results.append({
                 "category_no": c["category_no"],
                 "category_name": c["category_name"],
-                "rows": rows,
+                "groups": groups,
+                "qty": sum(g["qty"] for g in groups),
+                "rev": sum(g["rev"] for g in groups),
             })
 
         wb = openpyxl.Workbook()
         wb.remove(wb.active)
         bold = Font(bold=True)
-        header_fill = PatternFill(start_color="FFE0E0E0", end_color="FFE0E0E0", fill_type="solid")
-        sum_fill = PatternFill(start_color="FFFFF2CC", end_color="FFFFF2CC", fill_type="solid")
+        header_font = Font(bold=True, color="FFF8FAFC")
+        header_fill = PatternFill(start_color="FF334155", end_color="FF334155", fill_type="solid")
+        sum_fill = PatternFill(start_color="FFFEF3C7", end_color="FFFEF3C7", fill_type="solid")
+        parent_fill = PatternFill(start_color="FFF1F5F9", end_color="FFF1F5F9", fill_type="solid")
 
         if mode == "tabs":
             used = set()
@@ -300,17 +336,22 @@ def api_excel(start: str, end: str, categories: str = "all", mode: str = "single
                 ws.append([f"기간: {start} ~ {end} / 통화: {currency}"])
                 ws.append(["코드", "상품명", "단가", "판매수", "매출"])
                 for c in ws[2]:
-                    c.font = bold
+                    c.font = header_font
                     c.fill = header_fill
+                first_data_row = 3
                 tq = tr = 0
-                for row in r["rows"]:
-                    ws.append([row["display_code"], row["name"], row["price"], row["qty"], row["rev"]])
-                    tq += row["qty"]
-                    tr += row["rev"]
+                groups = sorted(r["groups"], key=lambda g: -g["rev"])
+                for g in groups:
+                    emit_group_rows(ws, g, prefix=None, parent_fill=parent_fill, bold=bold)
+                    tq += g["qty"]
+                    tr += g["rev"]
+                last_data_row = ws.max_row
                 ws.append(["합계", "", "", tq, tr])
                 for c in ws[ws.max_row]:
                     c.font = bold
                     c.fill = sum_fill
+                if last_data_row >= first_data_row:
+                    ws.auto_filter.ref = f"A2:E{last_data_row}"
                 size_cols(ws)
                 ws.freeze_panes = "A3"
         else:
@@ -318,23 +359,25 @@ def api_excel(start: str, end: str, categories: str = "all", mode: str = "single
             ws.append([f"기간: {start} ~ {end} / 통화: {currency}"])
             ws.append(["카테고리", "코드", "상품명", "단가", "판매수", "매출"])
             for c in ws[2]:
-                c.font = bold
+                c.font = header_font
                 c.fill = header_fill
-            all_rows = []
-            for r in results:
-                cat_label = f"[{r['category_no']}] {r['category_name']}"
-                for row in r["rows"]:
-                    all_rows.append((cat_label, row))
-            all_rows.sort(key=lambda x: -x[1]["rev"])
+            first_data_row = 3
             tq = tr = 0
-            for cat_label, row in all_rows:
-                ws.append([cat_label, row["display_code"], row["name"], row["price"], row["qty"], row["rev"]])
-                tq += row["qty"]
-                tr += row["rev"]
+            sorted_results = sorted(results, key=lambda r: -r["rev"])
+            for r in sorted_results:
+                cat_label = f"[{r['category_no']}] {r['category_name']}"
+                groups = sorted(r["groups"], key=lambda g: -g["rev"])
+                for g in groups:
+                    emit_group_rows(ws, g, prefix=[cat_label], parent_fill=parent_fill, bold=bold)
+                    tq += g["qty"]
+                    tr += g["rev"]
+            last_data_row = ws.max_row
             ws.append(["합계", "", "", "", tq, tr])
             for c in ws[ws.max_row]:
                 c.font = bold
                 c.fill = sum_fill
+            if last_data_row >= first_data_row:
+                ws.auto_filter.ref = f"A2:F{last_data_row}"
             size_cols(ws)
             ws.freeze_panes = "A3"
 

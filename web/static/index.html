@@ -23,9 +23,12 @@
     --c-cat-num-bg: #fbbf24;
     --c-cat-num-text: #422006;
     --c-table-head: #334155;
+    --c-table-head-hover: #475569;
     --c-table-head-text: #f8fafc;
     --c-row-alt: #f8fafc;
     --c-row-hover: #eff6ff;
+    --c-row-parent-bg: #f1f5f9;
+    --c-row-child-text: #6b7280;
     --c-sum-bg: #fef3c7;
     --c-sum-text: #78350f;
     --c-sum-border: #d97706;
@@ -34,6 +37,8 @@
     --c-error-border: #fca5a5;
     --c-progress-bg: #1e293b;
     --c-progress-text: #cbd5e1;
+    --c-multi-tag-bg: #fbbf24;
+    --c-multi-tag-text: #422006;
   }
 
   * { box-sizing: border-box; }
@@ -274,9 +279,34 @@
     position: sticky;
     top: 0;
     z-index: 1;
+    cursor: pointer;
+    user-select: none;
   }
-  table tbody tr:nth-child(even) { background: var(--c-row-alt); }
-  table tbody tr:hover { background: var(--c-row-hover); }
+  table th:hover { background: var(--c-table-head-hover); }
+  table th .sort-ind {
+    display: inline-block;
+    width: 12px;
+    margin-left: 3px;
+    opacity: 0.85;
+    font-size: 10px;
+  }
+
+  table tbody tr.row-parent { background: var(--c-row-parent-bg); }
+  table tbody tr.row-parent td:nth-child(1),
+  table tbody tr.row-parent td:nth-child(2) { font-weight: 600; }
+  table tbody tr.row-child td:nth-child(1) {
+    color: var(--c-row-child-text);
+    font-size: 11px;
+    font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  }
+  table tbody tr.row-child td:nth-child(2) {
+    color: var(--c-row-child-text);
+    padding-left: 24px;
+  }
+  table tbody tr.row-single:hover,
+  table tbody tr.row-parent:hover,
+  table tbody tr.row-child:hover { background: var(--c-row-hover); }
+
   table .num {
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -287,6 +317,18 @@
     color: var(--c-sum-text);
     border-top: 2px solid var(--c-sum-border);
     border-bottom: none;
+  }
+
+  .multi-tag {
+    display: inline-block;
+    background: var(--c-multi-tag-bg);
+    color: var(--c-multi-tag-text);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+    vertical-align: 1px;
   }
 
   .hidden { display: none; }
@@ -336,6 +378,8 @@ let allCats = [];
 let lastResult = null;
 let lastQuery = null;
 let evt = null;
+let sortBy = 'rev';
+let sortDir = -1;
 
 const today = new Date();
 const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -400,37 +444,134 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function renderTable(rows, tot, cur) {
-  const head = '<tr><th>코드</th><th>상품명</th><th class="num">단가</th><th class="num">판매수</th><th class="num">매출</th></tr>';
-  const body = rows.map(r =>
-    '<tr><td>' + escapeHtml(r.display_code) + '</td><td>' + escapeHtml(r.name) + '</td>' +
-    '<td class="num">' + fmt(r.price, cur) + '</td>' +
-    '<td class="num">' + r.qty.toLocaleString('ko-KR') + '</td>' +
-    '<td class="num">' + fmt(r.rev, cur) + '</td></tr>'
-  ).join('');
-  const foot = '<tr><td colspan="3">합계</td><td class="num">' + tot.qty.toLocaleString('ko-KR') + '</td><td class="num">' + fmt(tot.rev, cur) + '</td></tr>';
+function getGroupVal(g, key) {
+  if (key === 'code') return g.product_code || '';
+  if (key === 'name') return g.product_name || '';
+  if (key === 'price') return g.price || 0;
+  if (key === 'qty') return g.qty || 0;
+  if (key === 'rev') return g.rev || 0;
+  return 0;
+}
+function getVariantVal(v, parentPrice, key) {
+  if (key === 'code') return v.variant_code || '';
+  if (key === 'name') return v.option || v.variant_code || '';
+  if (key === 'price') return parentPrice || 0;
+  if (key === 'qty') return v.qty || 0;
+  if (key === 'rev') return v.rev || 0;
+  return 0;
+}
+function cmp(a, b, dir) {
+  if (typeof a === 'string' || typeof b === 'string') {
+    return String(a).localeCompare(String(b), 'ko-KR') * dir;
+  }
+  return ((a < b) ? -1 : (a > b) ? 1 : 0) * dir;
+}
+function sortGroups(groups) {
+  return [...groups].sort((a, b) => cmp(getGroupVal(a, sortBy), getGroupVal(b, sortBy), sortDir));
+}
+function sortVariants(vars, parentPrice) {
+  return [...vars].sort((a, b) => cmp(getVariantVal(a, parentPrice, sortBy), getVariantVal(b, parentPrice, sortBy), sortDir));
+}
+
+function setSort(col) {
+  if (sortBy === col) sortDir = -sortDir;
+  else { sortBy = col; sortDir = -1; }
+  reRenderResults();
+}
+
+function indicator(col) {
+  if (col !== sortBy) return '';
+  return sortDir === -1 ? '▼' : '▲';
+}
+
+function renderTable(groups, totals, cur) {
+  const head = '<tr>' +
+    '<th onclick="setSort(\'code\')">코드<span class="sort-ind">' + indicator('code') + '</span></th>' +
+    '<th onclick="setSort(\'name\')">상품명<span class="sort-ind">' + indicator('name') + '</span></th>' +
+    '<th class="num" onclick="setSort(\'price\')">단가<span class="sort-ind">' + indicator('price') + '</span></th>' +
+    '<th class="num" onclick="setSort(\'qty\')">판매수<span class="sort-ind">' + indicator('qty') + '</span></th>' +
+    '<th class="num" onclick="setSort(\'rev\')">매출<span class="sort-ind">' + indicator('rev') + '</span></th>' +
+  '</tr>';
+  const sortedGroups = sortGroups(groups);
+  const body = sortedGroups.map(g => {
+    const cls = g.is_multi ? 'row-parent' : 'row-single';
+    const tag = g.is_multi ? '<span class="multi-tag">' + g.variants.length + '개 옵션</span>' : '';
+    const parent =
+      '<tr class="' + cls + '">' +
+        '<td>' + escapeHtml(g.product_code) + '</td>' +
+        '<td>' + escapeHtml(g.product_name) + tag + '</td>' +
+        '<td class="num">' + fmt(g.price, cur) + '</td>' +
+        '<td class="num">' + g.qty.toLocaleString('ko-KR') + '</td>' +
+        '<td class="num">' + fmt(g.rev, cur) + '</td>' +
+      '</tr>';
+    if (!g.is_multi) return parent;
+    const children = sortVariants(g.variants, g.price).map(v =>
+      '<tr class="row-child">' +
+        '<td>' + escapeHtml(v.variant_code) + '</td>' +
+        '<td>└ ' + escapeHtml(v.option || v.variant_code) + '</td>' +
+        '<td class="num">' + fmt(g.price, cur) + '</td>' +
+        '<td class="num">' + v.qty.toLocaleString('ko-KR') + '</td>' +
+        '<td class="num">' + fmt(v.rev, cur) + '</td>' +
+      '</tr>'
+    ).join('');
+    return parent + children;
+  }).join('');
+  const foot = '<tr><td colspan="3">합계</td><td class="num">' + totals.qty.toLocaleString('ko-KR') + '</td><td class="num">' + fmt(totals.rev, cur) + '</td></tr>';
   return '<table><thead>' + head + '</thead><tbody>' + body + '</tbody><tfoot>' + foot + '</tfoot></table>';
 }
 
 function renderCatSection(r, cur) {
-  const rows = [...r.rows].sort((a, b) => b.rev - a.rev);
-  return (
-    '<section class="cat-section">' +
+  return '<section class="cat-section">' +
       '<header class="cat-bar">' +
         '<span class="cat-num">' + r.category_no + '</span>' +
         '<span class="cat-name">' + escapeHtml(r.category_name) + '</span>' +
         '<span class="cat-stat">판매수<strong>' + r.qty.toLocaleString('ko-KR') + '</strong></span>' +
         '<span class="cat-stat">매출<strong>' + fmt(r.rev, cur) + '</strong></span>' +
       '</header>' +
-      renderTable(rows, { qty: r.qty, rev: r.rev }, cur) +
-    '</section>'
-  );
+      renderTable(r.groups, { qty: r.qty, rev: r.rev }, cur) +
+    '</section>';
+}
+
+function renderSingle(data) {
+  const cur = data.grand.currency;
+  const sorted = [...data.results].sort((a, b) => b.rev - a.rev);
+  document.getElementById('results').innerHTML = sorted.map(r => renderCatSection(r, cur)).join('');
+}
+
+function renderTabs(data) {
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  data.results.forEach((r, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = '[' + r.category_no + '] ' + r.category_name + ' (' + r.qty + ')';
+    btn.onclick = () => switchTab(i);
+    tabs.appendChild(btn);
+  });
+}
+
+function switchTab(i) {
+  const data = lastResult;
+  const cur = data.grand.currency;
+  document.getElementById('tabs').querySelectorAll('button').forEach((b, j) => b.classList.toggle('active', i === j));
+  const r = data.results[i];
+  document.getElementById('results').innerHTML = renderTable(r.groups, { qty: r.qty, rev: r.rev }, cur);
+}
+
+function reRenderResults() {
+  if (!lastResult) return;
+  const mode = document.getElementById('mode').value;
+  if (mode === 'tabs') {
+    const idx = Array.from(document.querySelectorAll('#tabs button')).findIndex(b => b.classList.contains('active'));
+    const ai = idx >= 0 ? idx : 0;
+    if (lastResult.results.length > 0) switchTab(ai);
+  } else {
+    renderSingle(lastResult);
+  }
 }
 
 function renderResults(data) {
   lastResult = data;
-  const wrap = document.getElementById('grandWrap');
-  wrap.classList.remove('hidden');
+  document.getElementById('grandWrap').classList.remove('hidden');
   const cur = data.grand.currency;
   document.getElementById('grand').innerHTML =
     '<div class="label">총 합계 · ' + escapeHtml(data.start) + ' ~ ' + escapeHtml(data.end) + ' · 주문 ' + (data.grand.order_count || 0).toLocaleString('ko-KR') + '건</div>' +
@@ -439,36 +580,19 @@ function renderResults(data) {
   const mode = document.getElementById('mode').value;
   const tabs = document.getElementById('tabs');
   const results = document.getElementById('results');
-  tabs.innerHTML = '';
   results.innerHTML = '';
   results.className = '';
 
   if (mode === 'tabs') {
     tabs.classList.remove('hidden');
     results.classList.add('tab-content-tabs');
-    data.results.forEach((r, i) => {
-      const btn = document.createElement('button');
-      btn.textContent = '[' + r.category_no + '] ' + r.category_name + ' (' + r.qty + ')';
-      btn.onclick = () => switchTab(i);
-      tabs.appendChild(btn);
-    });
+    renderTabs(data);
     if (data.results.length > 0) switchTab(0);
   } else {
     tabs.classList.add('hidden');
-    const sorted = [...data.results].sort((a, b) => b.rev - a.rev);
-    results.innerHTML = sorted.map(r => renderCatSection(r, cur)).join('');
+    renderSingle(data);
   }
-
   document.getElementById('dl').disabled = false;
-}
-
-function switchTab(i) {
-  const data = lastResult;
-  const cur = data.grand.currency;
-  document.getElementById('tabs').querySelectorAll('button').forEach((b, j) => b.classList.toggle('active', i === j));
-  const r = data.results[i];
-  const rows = [...r.rows].sort((a, b) => b.rev - a.rev);
-  document.getElementById('results').innerHTML = renderTable(rows, { qty: r.qty, rev: r.rev }, cur);
 }
 
 function run() {
