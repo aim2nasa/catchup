@@ -133,6 +133,10 @@
     padding: 14px;
     margin-bottom: 14px;
   }
+  .summary-section .cat-cards {
+    max-height: 380px;
+    overflow-y: auto;
+  }
   .summary-section .pane-header label {
     font-size: 12px;
     color: var(--c-text-muted);
@@ -473,6 +477,43 @@
     vertical-align: 1px;
   }
 
+  .view-toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .view-toggle-wrap .view-label {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 600;
+  }
+  .view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--c-border-strong);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .view-toggle button {
+    border: none;
+    border-right: 1px solid var(--c-border-strong);
+    background: var(--c-surface);
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--c-text-muted);
+    border-radius: 0;
+  }
+  .view-toggle button:last-child { border-right: none; }
+  .view-toggle button.active {
+    background: var(--c-primary);
+    color: white;
+  }
+  .view-toggle button:not(.active):hover {
+    background: var(--c-row-hover);
+  }
+
   .hidden { display: none; }
 </style>
 </head>
@@ -484,13 +525,11 @@
   <div class="row">
     <label>시작일 <input type="date" id="start"></label>
     <label>종료일 <input type="date" id="end"></label>
-    <label>표시
-      <select id="mode">
-        <option value="single" selected>한 화면 (카테고리별 그룹)</option>
-        <option value="tabs">카테고리별 탭 분리</option>
-        <option value="flat">통합 (카테고리 무관 한 표)</option>
-      </select>
-    </label>
+    <select id="mode" style="display:none">
+      <option value="single" selected>한 화면 (카테고리별 그룹)</option>
+      <option value="tabs">카테고리별 탭 분리</option>
+      <option value="flat">통합 (카테고리 무관 한 표)</option>
+    </select>
     <button id="run" class="primary" style="margin-left:auto">조회</button>
     <button id="dl" disabled>Excel 다운로드</button>
   </div>
@@ -535,6 +574,14 @@
 </div>
 
 <div id="grandWrap" class="hidden">
+  <div class="view-toggle-wrap">
+    <span class="view-label">표시</span>
+    <div class="view-toggle" id="viewToggle">
+      <button type="button" data-mode="single" class="active">한 화면 (카테고리별 그룹)</button>
+      <button type="button" data-mode="tabs">카테고리별 탭 분리</button>
+      <button type="button" data-mode="flat">통합 (카테고리 무관 한 표)</button>
+    </div>
+  </div>
   <div class="tabs hidden" id="tabs"></div>
   <div id="results"></div>
 </div>
@@ -550,6 +597,7 @@ let sortDir = -1;
 let runStartedAt = null;
 let _gidCounter = 0;
 let catOrder = [];
+let summarySort = 'rev:-1';
 
 const STORAGE_KEY = 'catchup-settings-v1';
 function saveSettings() {
@@ -591,6 +639,7 @@ document.getElementById('start').value = (_saved && _saved.start) || toIso(lm);
 document.getElementById('end').value = (_saved && _saved.end) || toIso(lmEnd);
 if (_saved && _saved.mode) document.getElementById('mode').value = _saved.mode;
 if (_saved && _saved.summarySort) summarySort = _saved.summarySort;
+window.addEventListener('DOMContentLoaded', () => { try { syncViewToggle(); } catch (e) {} });
 
 async function loadCats() {
   try {
@@ -899,8 +948,6 @@ function reRenderResults() {
   }
 }
 
-let summarySort = 'rev:-1';
-
 function renderSummaryCards() {
   if (!lastResult) return;
   const cur = lastResult.grand.currency;
@@ -1001,8 +1048,26 @@ document.getElementById('start').onchange = saveSettings;
 document.getElementById('end').onchange = saveSettings;
 document.getElementById('mode').onchange = () => {
   saveSettings();
+  syncViewToggle();
   if (lastResult) reRenderResults();
 };
+
+function syncViewToggle() {
+  const mode = document.getElementById('mode').value;
+  document.querySelectorAll('#viewToggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+
+document.querySelectorAll('#viewToggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const newMode = btn.dataset.mode;
+    const sel = document.getElementById('mode');
+    if (sel.value === newMode) return;
+    sel.value = newMode;
+    sel.dispatchEvent(new Event('change'));
+  });
+});
 document.getElementById('catSortSummary').onchange = function() {
   summarySort = this.value;
   saveSettings();
@@ -1013,6 +1078,15 @@ if (_saved && _saved.summarySort) {
   const sel = document.getElementById('catSortSummary');
   if (sel) sel.value = _saved.summarySort;
 }
+window.addEventListener('error', (ev) => {
+  const msg = (ev.error && ev.error.stack) ? ev.error.stack : (ev.message + '\n' + (ev.filename || '') + ':' + (ev.lineno || ''));
+  try { showError('JS 에러: ' + msg); } catch (e) {}
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  const r = ev.reason;
+  const msg = (r && r.stack) ? r.stack : String(r);
+  try { showError('Promise 에러: ' + msg); } catch (e) {}
+});
 loadCats();
 </script>
 </body>
