@@ -377,18 +377,6 @@
         <option value="flat">통합 (카테고리 무관 한 표)</option>
       </select>
     </label>
-    <label id="catSortLabel">카테고리 순서
-      <select id="catSort">
-        <option value="rev:-1" selected>카테고리 매출 ↓</option>
-        <option value="rev:1">카테고리 매출 ↑</option>
-        <option value="qty:-1">카테고리 판매수 ↓</option>
-        <option value="qty:1">카테고리 판매수 ↑</option>
-        <option value="code:1">카테고리 번호 ↑</option>
-        <option value="code:-1">카테고리 번호 ↓</option>
-        <option value="name:1">카테고리명 (가나다)</option>
-        <option value="name:-1">카테고리명 (가나다 역순)</option>
-      </select>
-    </label>
   </div>
   <div class="row">
     <span style="font-size:12px;color:var(--c-text-muted);font-weight:600;">카테고리 (depth=1):</span>
@@ -421,8 +409,6 @@ let lastQuery = null;
 let evt = null;
 let sortBy = 'rev';
 let sortDir = -1;
-let catSortBy = 'rev';
-let catSortDir = -1;
 let runStartedAt = null;
 let _gidCounter = 0;
 
@@ -538,30 +524,13 @@ function sortVariants(vars, parentPrice) {
   return [...vars].sort((a, b) => cmp(getVariantVal(a, parentPrice, sortBy), getVariantVal(b, parentPrice, sortBy), sortDir));
 }
 function sortCategoriesArr(results) {
-  return [...results].sort((a, b) => cmp(getCatSortVal(a, catSortBy), getCatSortVal(b, catSortBy), catSortDir));
+  return [...results].sort((a, b) => (b.rev || 0) - (a.rev || 0));
 }
 
 function setSort(col) {
   if (sortBy === col) sortDir = -sortDir;
   else { sortBy = col; sortDir = -1; }
   reRenderResults();
-}
-
-function onCatSortChanged() {
-  const v = document.getElementById('catSort').value;
-  const [by, dirStr] = v.split(':');
-  catSortBy = by;
-  catSortDir = parseInt(dirStr, 10);
-  reRenderResults();
-}
-
-function updateCatSortAvailability() {
-  const mode = document.getElementById('mode').value;
-  const sel = document.getElementById('catSort');
-  const lbl = document.getElementById('catSortLabel');
-  const flat = mode === 'flat';
-  sel.disabled = flat;
-  if (lbl) lbl.style.opacity = flat ? '0.4' : '';
 }
 
 function indicator(col) {
@@ -792,15 +761,13 @@ function run() {
 function download() {
   if (!lastQuery) return;
   const q = lastQuery;
-  const url = '/api/excel?start=' + encodeURIComponent(q.start) + '&end=' + encodeURIComponent(q.end) + '&categories=' + encodeURIComponent(q.categories) + '&mode=' + encodeURIComponent(q.mode) + '&sort_by=' + encodeURIComponent(sortBy) + '&sort_dir=' + encodeURIComponent(sortDir) + '&cat_sort_by=' + encodeURIComponent(catSortBy) + '&cat_sort_dir=' + encodeURIComponent(catSortDir);
+  const url = '/api/excel?start=' + encodeURIComponent(q.start) + '&end=' + encodeURIComponent(q.end) + '&categories=' + encodeURIComponent(q.categories) + '&mode=' + encodeURIComponent(q.mode) + '&sort_by=' + encodeURIComponent(sortBy) + '&sort_dir=' + encodeURIComponent(sortDir);
   window.location.href = url;
 }
 
 document.getElementById('run').onclick = run;
 document.getElementById('dl').onclick = download;
-document.getElementById('catSort').onchange = onCatSortChanged;
-document.getElementById('mode').onchange = () => { updateCatSortAvailability(); if (lastResult) reRenderResults(); };
-updateCatSortAvailability();
+document.getElementById('mode').onchange = () => { if (lastResult) reRenderResults(); };
 loadCats();
 </script>
 </body>
