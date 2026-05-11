@@ -51,6 +51,8 @@ export interface AppSettings {
   summarySort: SummarySort
   catOrder: number[]
   catChecked: Record<string, boolean>
+  /** 하드왁스 페이지에서 multi-variant 옵션 행을 한 번에 펼쳐 보일지. */
+  expandAllVariants: boolean
 }
 
 export interface SSEEvent {

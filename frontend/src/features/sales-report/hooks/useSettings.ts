@@ -12,6 +12,7 @@ const FALLBACK: AppSettings = (() => {
     summarySort: 'rev:-1',
     catOrder: [],
     catChecked: {},
+    expandAllVariants: true,
   }
 })()
 
@@ -34,5 +35,7 @@ export function useSettings() {
     setCatOrder: (catOrder: number[]) => setSettings((s) => ({ ...s, catOrder })),
     setCatChecked: (catChecked: Record<string, boolean>) =>
       setSettings((s) => ({ ...s, catChecked })),
+    setExpandAllVariants: (expandAllVariants: boolean) =>
+      setSettings((s) => ({ ...s, expandAllVariants })),
   }
 }

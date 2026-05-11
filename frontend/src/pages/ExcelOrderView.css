@@ -63,7 +63,6 @@
 .excel-period {
   font-size: 12px;
   color: var(--c-text-muted);
-  margin-left: auto;
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
 }
 
@@ -119,4 +118,19 @@
   text-align: center;
   color: var(--c-text-muted);
   font-size: 13px;
+}
+
+.filter-label.expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.filter-label.expand-toggle input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin: 0;
 }

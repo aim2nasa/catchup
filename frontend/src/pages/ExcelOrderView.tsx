@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
@@ -31,9 +31,8 @@ interface GroupRows {
   subtotalRev: number
 }
 
-// 엑셀 양식의 표시 대상 — 카테고리 24 하드왁스. 그룹별 소계 산출.
-const CATEGORY_NO = 24
-const CATEGORY_NAME = '하드왁스'
+// 엑셀 양식의 표시 대상 — 하드왁스. product_code 직접 조회 방식이라 cafe24
+// 카테고리 매핑과 독립. 그룹별 소계 산출.
 const GROUPS: { label: string; codes: string[] }[] = [
   {
     label: '500g 총합계',
@@ -53,10 +52,38 @@ const GROUPS: { label: string; codes: string[] }[] = [
 ]
 
 export function ExcelOrderView() {
-  const { settings, setStart, setEnd } = useSettings()
-  const { start, end } = settings
+  const { settings, setStart, setEnd, setExpandAllVariants } = useSettings()
+  const { start, end, expandAllVariants } = settings
   const { state, run } = useReport()
+  // 개별 +/- 토글 상태. 체크박스가 일괄 트리거하면 useEffect 가 다시 초기화하고,
+  // 그 후 사용자가 개별 토글 버튼으로 부분 조정 가능.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  // 체크박스 변경 또는 새 데이터 도착 시 collapsed 를 expandAllVariants 에 맞춰
+  // 일괄 재설정. 그 후 사용자가 개별 +/- 토글로 부분 조정 가능.
+  useEffect(() => {
+    if (!state.data) return
+    if (expandAllVariants) {
+      setCollapsed(new Set())
+    } else {
+      const all = new Set<string>()
+      state.data.results.forEach((r) =>
+        r.groups.forEach((g) => {
+          if (g.is_multi) all.add(g.product_code)
+        }),
+      )
+      setCollapsed(all)
+    }
+  }, [state.data, expandAllVariants])
+
+  function toggleGroup(code: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
 
   // 시작일 변경 시, 기존 종료일이 새 시작일보다 이전이면 종료일도 시작일로 보정.
   function handleStartChange(newStart: string) {
@@ -78,15 +105,6 @@ export function ExcelOrderView() {
     // 카테고리 무관 직접 조회 — PRODUCT_CODES 가 어느 카테고리에 있든 정확히 잡음
     const allCodes = GROUPS.flatMap((g) => g.codes).join(',')
     run({ start, end, codes: allCodes })
-  }
-
-  function toggleGroup(code: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(code)) next.delete(code)
-      else next.add(code)
-      return next
-    })
   }
 
   const groupRows = useMemo<GroupRows[]>(() => {
@@ -150,6 +168,14 @@ export function ExcelOrderView() {
             onEndChange={setEnd}
             endMin={start}
           />
+          <label className="filter-label expand-toggle">
+            <input
+              type="checkbox"
+              checked={expandAllVariants}
+              onChange={(e) => setExpandAllVariants(e.target.checked)}
+            />
+            <span>상품품목 모두 보기</span>
+          </label>
           <div className="filter-spacer" />
           <button
             type="button"
@@ -169,8 +195,6 @@ export function ExcelOrderView() {
       {dataReady && (
         <div className="excel-section card">
           <div className="excel-cat-label">
-            <span className="cat-no-pill">{CATEGORY_NO}</span>
-            <span className="excel-cat-name">{CATEGORY_NAME}</span>
             <span className="excel-period">
               {state.data!.start} ~ {state.data!.end}
             </span>
