@@ -52,6 +52,22 @@
   margin: 0 0 14px;
   letter-spacing: -0.01em;
 }
+.sr-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sr-titlebar h1 { margin: 0 0 0; }
+.sr-titlebar .home-link {
+  font-size: 13px;
+  color: var(--c-primary);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.sr-titlebar .home-link:hover { background: var(--c-row-hover); }
+.sr-container > .sr-titlebar { margin-bottom: 14px; }
 
 .card {
   background: var(--c-surface);

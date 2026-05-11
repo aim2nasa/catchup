@@ -65,7 +65,10 @@ export function SalesReportView() {
 
   return (
     <div className="sr-container">
-      <h1>cafe24 판매 집계 — 캐치업코리아</h1>
+      <div className="sr-titlebar">
+        <a href="#" className="home-link">← 홈</a>
+        <h1>cafe24 판매 집계 — 캐치업코리아</h1>
+      </div>
 
       <div className="filters card">
         <div className="filter-row">
