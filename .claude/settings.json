@@ -4,7 +4,16 @@
       "Bash(gh repo *)",
       "Bash(git clone *)",
       "Bash(mv /d/catchup-tmp/.git /d/catchup/.git)",
-      "Bash(rmdir /d/catchup-tmp)"
+      "Bash(rmdir /d/catchup-tmp)",
+      "Bash(git push origin main)",
+      "Bash(ssh rossi@100.110.215.65 *)"
+    ]
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "git push origin main is allowed: this repo uses direct-to-main workflow (no PR review)",
+      "ssh to rossi@100.110.215.65 (tars) is allowed: documented deploy host, used by deploy.sh"
     ]
   }
 }
