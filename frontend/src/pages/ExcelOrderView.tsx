@@ -1,8 +1,9 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
 import { useSettings } from '@/features/sales-report/hooks/useSettings'
+import type { Variant } from '@/features/sales-report/types'
 import { fmtCurrency, fmtNumber } from '@/shared/lib/format'
 import '@/features/sales-report/SalesReportView.css'
 import './ExcelOrderView.css'
@@ -14,6 +15,8 @@ interface Row {
   qty: number
   rev: number
   missing: boolean
+  is_multi: boolean
+  variants: Variant[]
 }
 
 interface GroupRows {
@@ -48,6 +51,7 @@ export function ExcelOrderView() {
   const { settings, setStart, setEnd } = useSettings()
   const { start, end } = settings
   const { state, run } = useReport()
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   // 시작일 변경 시, 기존 종료일이 새 시작일보다 이전이면 종료일도 시작일로 보정.
   function handleStartChange(newStart: string) {
@@ -69,6 +73,15 @@ export function ExcelOrderView() {
     run({ start, end, categories: String(CATEGORY_NO) })
   }
 
+  function toggleGroup(code: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
+
   const groupRows = useMemo<GroupRows[]>(() => {
     const cat = state.data?.results.find((r) => r.category_no === CATEGORY_NO)
     const byCode = new Map((cat?.groups ?? []).map((g) => [g.product_code, g]))
@@ -83,6 +96,8 @@ export function ExcelOrderView() {
             qty: g.qty,
             rev: g.rev,
             missing: false,
+            is_multi: g.is_multi,
+            variants: g.variants,
           }
         }
         return {
@@ -92,6 +107,8 @@ export function ExcelOrderView() {
           qty: 0,
           rev: 0,
           missing: true,
+          is_multi: false,
+          variants: [],
         }
       })
       return {
@@ -163,24 +180,83 @@ export function ExcelOrderView() {
             <tbody>
               {groupRows.map((grp) => (
                 <Fragment key={grp.label}>
-                  {grp.rows.map((g) => (
-                    <tr
-                      key={g.product_code}
-                      className={g.missing ? 'row-missing' : undefined}
-                    >
-                      <td className="code-cell">{g.product_code}</td>
-                      <td className="name-cell">{g.product_name}</td>
-                      <td className="num">
-                        {g.missing ? '—' : fmtCurrency(g.price, currency)}
-                      </td>
-                      <td className="num">
-                        {g.missing ? '—' : fmtNumber(g.qty)}
-                      </td>
-                      <td className="num">
-                        {g.missing ? '—' : fmtCurrency(g.rev, currency)}
-                      </td>
-                    </tr>
-                  ))}
+                  {grp.rows.map((g) => {
+                    const isCollapsed = collapsed.has(g.product_code)
+                    const parentClass = [
+                      g.missing ? 'row-missing' : null,
+                      g.is_multi ? 'row-parent' : 'row-single',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')
+
+                    const parentRow = (
+                      <tr key={`p-${g.product_code}`} className={parentClass}>
+                        <td className="code-cell">
+                          {g.is_multi && (
+                            <button
+                              type="button"
+                              className="toggle-btn"
+                              onClick={() => toggleGroup(g.product_code)}
+                              aria-label={isCollapsed ? '펼치기' : '접기'}
+                            >
+                              {isCollapsed ? '+' : '−'}
+                            </button>
+                          )}
+                          {g.product_code}
+                        </td>
+                        <td className="name-cell">
+                          {g.product_name}
+                          {g.is_multi && (
+                            <span className="multi-tag">
+                              {g.variants.length}개 옵션
+                            </span>
+                          )}
+                        </td>
+                        <td className="num">
+                          {g.missing ? '—' : fmtCurrency(g.price, currency)}
+                        </td>
+                        <td className="num">
+                          {g.missing ? '—' : fmtNumber(g.qty)}
+                        </td>
+                        <td className="num">
+                          {g.missing ? '—' : fmtCurrency(g.rev, currency)}
+                        </td>
+                      </tr>
+                    )
+
+                    if (!g.is_multi) return parentRow
+
+                    return (
+                      <Fragment key={`pg-${g.product_code}`}>
+                        {parentRow}
+                        {g.variants.map((v) => {
+                          const suffix = v.variant_code.startsWith(
+                            g.product_code,
+                          )
+                            ? v.variant_code.slice(g.product_code.length)
+                            : v.variant_code
+                          return (
+                            <tr
+                              key={`c-${g.product_code}-${v.variant_code}`}
+                              className={`row-child${isCollapsed ? ' collapsed' : ''}`}
+                            >
+                              <td className="code-cell">{suffix}</td>
+                              <td className="name-cell">
+                                └ {v.option || v.variant_code}
+                              </td>
+                              <td className="num">
+                                {fmtCurrency(g.price, currency)}
+                              </td>
+                              <td className="num">{fmtNumber(v.qty)}</td>
+                              <td className="num">
+                                {fmtCurrency(v.rev, currency)}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </Fragment>
+                    )
+                  })}
                   <tr className="subtotal-row">
                     <td colSpan={3}>{grp.label}</td>
                     <td className="num">{fmtNumber(grp.subtotalQty)}</td>
