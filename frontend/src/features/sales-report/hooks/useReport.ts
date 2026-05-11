@@ -29,7 +29,11 @@ export function useReport() {
   }, [])
 
   const run = useCallback(
-    (params: { start: string; end: string; categories: string }) => {
+    (
+      params:
+        | { start: string; end: string; categories: string }
+        | { start: string; end: string; codes: string },
+    ) => {
       cancel()
       setState({
         status: 'running',
@@ -40,11 +44,19 @@ export function useReport() {
       })
       startedAtRef.current = Date.now()
 
-      const url = apiUrl(
-        `/api/report?start=${encodeURIComponent(params.start)}&end=${encodeURIComponent(
-          params.end,
-        )}&categories=${encodeURIComponent(params.categories)}`,
-      )
+      // codes 가 있으면 카테고리 무관 product 직접 조회 endpoint 사용
+      const url =
+        'codes' in params
+          ? apiUrl(
+              `/api/products-report?start=${encodeURIComponent(params.start)}&end=${encodeURIComponent(
+                params.end,
+              )}&codes=${encodeURIComponent(params.codes)}`,
+            )
+          : apiUrl(
+              `/api/report?start=${encodeURIComponent(params.start)}&end=${encodeURIComponent(
+                params.end,
+              )}&categories=${encodeURIComponent(params.categories)}`,
+            )
       const evt = new EventSource(url)
       evtRef.current = evt
 

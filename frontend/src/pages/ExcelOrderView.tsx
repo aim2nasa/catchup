@@ -70,7 +70,9 @@ export function ExcelOrderView() {
       alert('시작일이 종료일보다 늦습니다')
       return
     }
-    run({ start, end, categories: String(CATEGORY_NO) })
+    // 카테고리 무관 직접 조회 — PRODUCT_CODES 가 어느 카테고리에 있든 정확히 잡음
+    const allCodes = GROUPS.flatMap((g) => g.codes).join(',')
+    run({ start, end, codes: allCodes })
   }
 
   function toggleGroup(code: string) {
@@ -83,8 +85,9 @@ export function ExcelOrderView() {
   }
 
   const groupRows = useMemo<GroupRows[]>(() => {
-    const cat = state.data?.results.find((r) => r.category_no === CATEGORY_NO)
-    const byCode = new Map((cat?.groups ?? []).map((g) => [g.product_code, g]))
+    // /api/products-report 는 category_no=0 단일 results 로 반환. 첫 results 의 groups 사용.
+    const allGroups = state.data?.results.flatMap((r) => r.groups) ?? []
+    const byCode = new Map(allGroups.map((g) => [g.product_code, g]))
     return GROUPS.map((group): GroupRows => {
       const rows: Row[] = group.codes.map((code): Row => {
         const g = byCode.get(code)

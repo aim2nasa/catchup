@@ -55,6 +55,39 @@ def fetch_products_by_category(cat_no):
     return products
 
 
+def fetch_products_by_codes(codes):
+    """카테고리 무관, product_code 리스트로 직접 조회.
+
+    cafe24 /products?product_code=X 은 단건만 받으므로 code마다 1회 호출.
+    누락 code(존재하지 않는 코드)는 응답 dict에 안 들어감 — 호출자가 그것까지
+    placeholder로 처리하려면 별도 로직 필요.
+    """
+    products: dict = {}
+    for code in codes:
+        res = requests.get(
+            f"{BASE}/products", headers=auth_headers(),
+            params={"product_code": code, "embed": "variants"},
+        )
+        res.raise_for_status()
+        items = res.json().get("products", [])
+        for p in items:
+            vs = []
+            for v in (p.get("variants") or []):
+                opts = v.get("options") or []
+                opt_str = ", ".join(
+                    f"{o.get('name')}={o.get('value')}"
+                    for o in opts if o.get("value")
+                ) if opts else ""
+                vs.append({"vcode": v.get("variant_code"), "opt": opt_str})
+            products[p["product_no"]] = {
+                "code": p["product_code"],
+                "name": p["product_name"],
+                "price": float(p.get("price") or 0),
+                "variants": vs,
+            }
+    return products
+
+
 def fetch_orders(start, end):
     orders = []
     offset = 0
