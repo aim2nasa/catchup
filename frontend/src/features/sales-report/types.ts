@@ -3,6 +3,8 @@ export interface Variant {
   option: string
   qty: number
   rev: number
+  /** 옵션별 단가 (product_price + option_price). 데이터 없으면 0. */
+  price: number
 }
 
 export interface Group {

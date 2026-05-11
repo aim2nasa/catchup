@@ -21,10 +21,15 @@ def aggregate(products: dict, orders: list) -> list:
             if status and status[0] in ("C", "R", "F"):
                 continue
             qty = (it.get("quantity") or 0) - (it.get("claim_quantity") or 0)
-            price = float(it.get("product_price") or 0)
-            a = accums.setdefault(vc, {"qty": 0, "rev": 0.0})
+            # 묶음할인/옵션상품은 product_price=0이고 단가가 option_price에 들어옴.
+            # 둘을 합쳐야 cafe24 어드민의 실 매출과 일치 (P0000BIF 케이스 검증).
+            price = float(it.get("product_price") or 0) + float(it.get("option_price") or 0)
+            a = accums.setdefault(vc, {"qty": 0, "rev": 0.0, "unit_price": 0.0})
             a["qty"] += qty
             a["rev"] += qty * price
+            # variant 단가는 첫 nonzero 값 채택 (라인별 가격이 흔들리면 대표 1개만)
+            if price and not a["unit_price"]:
+                a["unit_price"] = price
 
     groups = []
     for pn, info in products.items():
@@ -32,9 +37,10 @@ def aggregate(products: dict, orders: list) -> list:
         gqty = 0
         grev = 0.0
         variants = []
+        variant_unit_prices = []
         for v in info["variants"]:
             vc = v["vcode"]
-            a = accums.get(vc, {"qty": 0, "rev": 0.0})
+            a = accums.get(vc, {"qty": 0, "rev": 0.0, "unit_price": 0.0})
             gqty += a["qty"]
             grev += a["rev"]
             variants.append({
@@ -42,12 +48,24 @@ def aggregate(products: dict, orders: list) -> list:
                 "option": v.get("opt", ""),
                 "qty": a["qty"],
                 "rev": a["rev"],
+                "price": a["unit_price"],
             })
+            if a["unit_price"]:
+                variant_unit_prices.append(a["unit_price"])
+        # parent 단가:
+        #  - catalog 가격이 있으면 그대로 (single variant 또는 일관된 multi)
+        #  - catalog 0인 multi라도 variant 단가가 모두 동일하면 그 값 채택
+        #  - 다양하면 0으로 두고 frontend가 "—"로 표시
+        effective_price = float(info["price"] or 0)
+        if multi and not effective_price and variant_unit_prices:
+            uniq = {round(p, 2) for p in variant_unit_prices}
+            if len(uniq) == 1:
+                effective_price = variant_unit_prices[0]
         groups.append({
             "is_multi": multi,
             "product_code": info["code"],
             "product_name": info["name"],
-            "price": info["price"],
+            "price": effective_price,
             "qty": gqty,
             "rev": grev,
             "variants": variants,

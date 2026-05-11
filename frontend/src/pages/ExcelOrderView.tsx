@@ -189,6 +189,9 @@ export function ExcelOrderView() {
                       .filter(Boolean)
                       .join(' ')
 
+                    // multi인데 옵션별 단가가 제각각이면 parent price=0 → "옵션별"
+                    const showDashPrice =
+                      g.is_multi && !g.missing && !g.price
                     const parentRow = (
                       <tr key={`p-${g.product_code}`} className={parentClass}>
                         <td className="code-cell">
@@ -213,7 +216,11 @@ export function ExcelOrderView() {
                           )}
                         </td>
                         <td className="num">
-                          {g.missing ? '—' : fmtCurrency(g.price, currency)}
+                          {g.missing
+                            ? '—'
+                            : showDashPrice
+                              ? '옵션별'
+                              : fmtCurrency(g.price, currency)}
                         </td>
                         <td className="num">
                           {g.missing ? '—' : fmtNumber(g.qty)}
@@ -235,6 +242,8 @@ export function ExcelOrderView() {
                           )
                             ? v.variant_code.slice(g.product_code.length)
                             : v.variant_code
+                          // variant 단가 우선, 없으면 parent의 대표 단가 폴백
+                          const unit = v.price || g.price
                           return (
                             <tr
                               key={`c-${g.product_code}-${v.variant_code}`}
@@ -245,7 +254,7 @@ export function ExcelOrderView() {
                                 └ {v.option || v.variant_code}
                               </td>
                               <td className="num">
-                                {fmtCurrency(g.price, currency)}
+                                {unit ? fmtCurrency(unit, currency) : '—'}
                               </td>
                               <td className="num">{fmtNumber(v.qty)}</td>
                               <td className="num">

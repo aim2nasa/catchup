@@ -34,13 +34,14 @@ def make_products(*args):
 
 
 def make_order(items):
-    """items = [(variant_code, quantity, product_price[, claim_quantity[, order_status]]), ...]"""
+    """items = [(variant_code, quantity, product_price[, claim_quantity[, order_status[, option_price]]]), ...]"""
     return {"items": [{
         "variant_code": it[0],
         "quantity": it[1],
         "product_price": float(it[2]),
         "claim_quantity": it[3] if len(it) > 3 else 0,
         "order_status": it[4] if len(it) > 4 else "N30",
+        "option_price": float(it[5]) if len(it) > 5 else 0.0,
     } for it in items]}
 
 
@@ -200,6 +201,52 @@ class TestAggregate(unittest.TestCase):
         g = aggregate(products, orders)[0]
         self.assertEqual(g["qty"], 15)  # 10 + 5 (교환만 정상으로 카운트)
         self.assertEqual(g["rev"], 1500.0)
+
+    def test_option_price_included_in_revenue(self):
+        """묶음할인 상품처럼 product_price=0, option_price에 실 단가가 들어오는 경우.
+
+        실데이터 검증: P0000BIF 라인 — product_price=0, option_price=40000~206000.
+        둘을 합쳐야 매출이 정확함.
+        """
+        products = make_products(make_product(1, "PBND", "Bundle", 0, [("PBND000A", "")]))
+        # product_price=0, option_price=34000, qty=5 → 매출 170000
+        orders = [make_order([("PBND000A", 5, 0, 0, "N30", 34000)])]
+        g = aggregate(products, orders)[0]
+        self.assertEqual(g["qty"], 5)
+        self.assertEqual(g["rev"], 170000.0)
+        # variant.price 도 노출
+        self.assertEqual(g["variants"][0]["price"], 34000.0)
+
+    def test_multi_variant_price_uniform_propagates_to_parent(self):
+        """multi에서 variant 단가가 모두 같으면 parent.price도 그 값 채택."""
+        products = make_products(make_product(1, "PMU", "M", 0, [
+            ("PMU000A", "A"), ("PMU000B", "B"),
+        ]))
+        # 두 variant 모두 단가 50000 (product_price 0 + option_price 50000)
+        orders = [make_order([
+            ("PMU000A", 2, 0, 0, "N30", 50000),
+            ("PMU000B", 3, 0, 0, "N30", 50000),
+        ])]
+        g = aggregate(products, orders)[0]
+        self.assertEqual(g["price"], 50000.0)
+        self.assertEqual(g["qty"], 5)
+        self.assertEqual(g["rev"], 250000.0)
+
+    def test_multi_variant_price_mixed_keeps_parent_zero(self):
+        """variant 단가가 제각각이면 parent.price=0 — frontend가 '옵션별'로 표시."""
+        products = make_products(make_product(1, "PMX", "M", 0, [
+            ("PMX000A", "A"), ("PMX000B", "B"),
+        ]))
+        orders = [make_order([
+            ("PMX000A", 1, 0, 0, "N30", 40000),
+            ("PMX000B", 1, 0, 0, "N30", 190000),
+        ])]
+        g = aggregate(products, orders)[0]
+        self.assertEqual(g["price"], 0)
+        # variant별 단가는 정확히 노출
+        v_by_code = {v["variant_code"]: v for v in g["variants"]}
+        self.assertEqual(v_by_code["PMX000A"]["price"], 40000.0)
+        self.assertEqual(v_by_code["PMX000B"]["price"], 190000.0)
 
     def test_missing_status_treated_as_normal(self):
         """order_status 없는 라인(기존 fixture 호환)은 정상으로 집계."""
