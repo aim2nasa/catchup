@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
+import { useSettings } from '@/features/sales-report/hooks/useSettings'
 import type { Group } from '@/features/sales-report/types'
-import { fmtCurrency, fmtNumber, defaultPeriod } from '@/shared/lib/format'
+import { fmtCurrency, fmtNumber } from '@/shared/lib/format'
 import '@/features/sales-report/SalesReportView.css'
 import './ExcelOrderView.css'
 
@@ -19,10 +20,17 @@ const PRODUCT_CODES = [
 ]
 
 export function ExcelOrderView() {
-  const initial = defaultPeriod()
-  const [start, setStart] = useState(initial.start)
-  const [end, setEnd] = useState(initial.end)
+  const { settings, setStart, setEnd } = useSettings()
+  const { start, end } = settings
   const { state, run } = useReport()
+
+  // 시작일 변경 시, 기존 종료일이 새 시작일보다 이전이면 종료일도 시작일로 보정.
+  function handleStartChange(newStart: string) {
+    setStart(newStart)
+    if (newStart && end && end < newStart) {
+      setEnd(newStart)
+    }
+  }
 
   function handleRun() {
     if (!start || !end) {
@@ -63,8 +71,9 @@ export function ExcelOrderView() {
           <DateFilter
             start={start}
             end={end}
-            onStartChange={setStart}
+            onStartChange={handleStartChange}
             onEndChange={setEnd}
+            endMin={start}
           />
           <div className="filter-spacer" />
           <button
