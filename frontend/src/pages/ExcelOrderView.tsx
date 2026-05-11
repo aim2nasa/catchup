@@ -10,7 +10,13 @@ import './ExcelOrderView.css'
 // 엑셀 양식의 표시 대상 — 카테고리 24 하드왁스 내 4개 상품 (사용자 지정 순서)
 const CATEGORY_NO = 24
 const CATEGORY_NAME = '하드왁스'
-const PRODUCT_CODES = ['P00000HT', 'P00000BV', 'P00000CB', 'P00000BX']
+const PRODUCT_CODES = [
+  'P00000HT', 'P00000BV', 'P00000CB', 'P00000BX',
+  'P00000XE', 'P0000BIF', 'P0000BLD', 'P0000BMJ', 'P0000BMI',
+  'P00000ZB', 'P00000UH', 'P00000TI', 'P00000BY', 'P00000BZ',
+  'P00000CH', 'P00000CG', 'P00000CA', 'P00000BW', 'P00000CI',
+  'P00000CE', 'P00000KH', 'P00000CD', 'P00000CF',
+]
 
 export function ExcelOrderView() {
   const initial = defaultPeriod()
