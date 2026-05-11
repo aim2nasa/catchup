@@ -77,6 +77,35 @@ def fetch_orders(start, end):
     return orders
 
 
+def fetch_salesvolume(product_no, start, end):
+    """cafe24 /reports/salesvolume — product_no별 시간 슬롯 판매 통계.
+
+    각 row 필드: settle_count(결제), cancel_product_count(취소), return_product_count(반품),
+    exchane_product_count(교환), total_sales(=settle-cancel-return, cafe24가 직접 계산한 판매수량),
+    product_price, product_option_price, variants_code, collection_date, collection_hour.
+    """
+    rows = []
+    offset = 0
+    while True:
+        res = requests.get(
+            f"{BASE}/reports/salesvolume", headers=auth_headers(),
+            params={
+                "start_date": start, "end_date": end,
+                "product_no": product_no,
+                "limit": 100, "offset": offset,
+            },
+        )
+        res.raise_for_status()
+        page = res.json().get("salesvolume", [])
+        if not page:
+            break
+        rows.extend(page)
+        if len(page) < 100:
+            break
+        offset += 100
+    return rows
+
+
 def parse_categories(s, all_cats):
     """사용자 입력 순서를 보존."""
     if s == "all":

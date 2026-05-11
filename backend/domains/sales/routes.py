@@ -2,18 +2,16 @@
 import json
 import traceback
 
-import requests
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from backend.shared.aggregation import aggregate
+from backend.shared.aggregation import aggregate_from_salesvolume
 from backend.shared.cafe24 import (
-    BASE,
-    auth_headers,
     detect_currency,
     fetch_categories,
     fetch_orders,
     fetch_products_by_category,
+    fetch_salesvolume,
     parse_categories,
 )
 from backend.shared.excel_writer import build_workbook
@@ -38,26 +36,11 @@ def api_report(start: str, end: str, categories: str = "all"):
             yield _sse({"type": "progress", "msg": f"  → 처리 대상: {len(target)}개"})
 
             yield _sse({"type": "progress", "msg": f"[2/4] 주문 조회 ({start} ~ {end})"})
-            orders = []
-            offset = 0
-            while True:
-                res = requests.get(f"{BASE}/orders", headers=auth_headers(), params={
-                    "start_date": start, "end_date": end,
-                    "embed": "items", "limit": 100, "offset": offset,
-                })
-                res.raise_for_status()
-                page = res.json().get("orders", [])
-                if not page:
-                    break
-                orders.extend(page)
-                yield _sse({"type": "progress", "msg": f"    ... {len(orders)}건 누적"})
-                if len(page) < 100:
-                    break
-                offset += 100
+            orders = fetch_orders(start, end)
             currency = detect_currency(orders)
             yield _sse({"type": "progress", "msg": f"  → 총 {len(orders)}건 / 통화 {currency}"})
 
-            yield _sse({"type": "progress", "msg": "[3/4] 카테고리별 상품 + 집계"})
+            yield _sse({"type": "progress", "msg": "[3/4] 카테고리별 상품 + 판매통계 + 집계"})
             results = []
             grand_qty = 0
             grand_rev = 0.0
@@ -66,7 +49,12 @@ def api_report(start: str, end: str, categories: str = "all"):
                 cname = c["category_name"]
                 yield _sse({"type": "progress", "msg": f"  ({i}/{len(target)}) [{cn}] {cname}"})
                 products = fetch_products_by_category(cn)
-                groups = aggregate(products, orders)
+                svol = {}
+                for j, pn in enumerate(products.keys(), 1):
+                    svol[pn] = fetch_salesvolume(pn, start, end)
+                    if j % 10 == 0 or j == len(products):
+                        yield _sse({"type": "progress", "msg": f"    ... 판매통계 {j}/{len(products)}"})
+                groups = aggregate_from_salesvolume(products, svol)
                 cqty = sum(g["qty"] for g in groups)
                 crev = sum(g["rev"] for g in groups)
                 grand_qty += cqty
@@ -122,7 +110,8 @@ def api_excel(
         results = []
         for c in target:
             products = fetch_products_by_category(c["category_no"])
-            groups = aggregate(products, orders)
+            svol = {pn: fetch_salesvolume(pn, start, end) for pn in products.keys()}
+            groups = aggregate_from_salesvolume(products, svol)
             results.append({
                 "category_no": c["category_no"],
                 "category_name": c["category_name"],

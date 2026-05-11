@@ -49,6 +49,57 @@ def aggregate(products: dict, orders: list) -> list:
     return groups
 
 
+def aggregate_from_salesvolume(products: dict, salesvolume_by_product: dict) -> list:
+    """cafe24 /reports/salesvolume 응답으로 product/variant 집계.
+
+    products: { product_no: {'code', 'name', 'price', 'variants': [{'vcode', 'opt'}, ...]} }
+    salesvolume_by_product: { product_no: [salesvolume rows] }
+
+    total_sales는 cafe24가 직접 계산한 "판매수량" (= settle - cancel - return).
+    매출은 row 단위 qty × (product_price + product_option_price) 누적.
+    """
+    groups = []
+    for pn, info in products.items():
+        multi = len(info["variants"]) > 1
+        rows = salesvolume_by_product.get(pn, [])
+
+        vc_accums: dict = {}
+        for row in rows:
+            vc = row.get("variants_code")
+            if not vc:
+                continue
+            qty = int(row.get("total_sales") or 0)
+            unit_price = float(row.get("product_price") or 0) + float(row.get("product_option_price") or 0)
+            a = vc_accums.setdefault(vc, {"qty": 0, "rev": 0.0})
+            a["qty"] += qty
+            a["rev"] += qty * unit_price
+
+        gqty = 0
+        grev = 0.0
+        variants = []
+        for v in info["variants"]:
+            vc = v["vcode"]
+            a = vc_accums.get(vc, {"qty": 0, "rev": 0.0})
+            gqty += a["qty"]
+            grev += a["rev"]
+            variants.append({
+                "variant_code": vc,
+                "option": v.get("opt", ""),
+                "qty": a["qty"],
+                "rev": a["rev"],
+            })
+        groups.append({
+            "is_multi": multi,
+            "product_code": info["code"],
+            "product_name": info["name"],
+            "price": info["price"],
+            "qty": gqty,
+            "rev": grev,
+            "variants": variants,
+        })
+    return groups
+
+
 def _group_sort_key(g, sort_by):
     if sort_by == "code": return g["product_code"]
     if sort_by == "name": return g["product_name"]
