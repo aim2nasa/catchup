@@ -74,10 +74,6 @@ def fake_requests_get(url, headers=None, params=None, **kw):
         if offset > 0:
             return FakeResp({"orders": []})
         return FakeResp(_load_fixture("cafe24_orders_small.json"))
-    if url.endswith("/reports/salesvolume"):
-        # product_no 단위로 호출됨. fixture가 product별 분기를 가지지 않으므로
-        # 빈 응답 반환 (집계 결과는 모두 qty=0, rev=0이 되어 shape 검증은 통과).
-        return FakeResp({"salesvolume": []})
     raise AssertionError(f"unmocked url: {url}")
 
 
