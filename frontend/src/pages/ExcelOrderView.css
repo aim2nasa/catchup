@@ -92,6 +92,15 @@
 .excel-table tbody tr:hover { background: var(--c-row-hover); }
 .excel-table tbody tr.row-missing td { color: var(--c-text-muted); font-style: italic; }
 .excel-table tbody tr.row-missing td.code-cell { color: var(--c-text-muted); font-style: normal; }
+.excel-table tbody tr.subtotal-row td {
+  font-weight: 700;
+  background: var(--c-sum-bg);
+  color: var(--c-sum-text);
+  border-top: 1px solid var(--c-sum-border);
+  border-bottom: 1px solid var(--c-sum-border);
+}
+.excel-table tbody tr.subtotal-row:hover td { background: var(--c-sum-bg); }
+.excel-table tbody tr.subtotal-row td.code-cell { color: var(--c-sum-text); font-style: normal; font-family: inherit; }
 .excel-table td.code-cell {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
   color: var(--c-primary);
