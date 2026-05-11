@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react'
-import { fmtCurrency, fmtNumber } from '@/shared/lib/format'
+import {
+  fmtCurrency,
+  fmtNumber,
+  fmtParentPrice,
+  fmtVariantPrice,
+} from '@/shared/lib/format'
 import type { Group, SortDir, SortKey, Variant } from '@/features/sales-report/types'
 
 interface Props {
@@ -116,7 +121,7 @@ export function DetailTable({ groups, totals, currency, sortBy, sortDir, onSortC
                 {g.product_name}
                 {tag}
               </td>
-              <td className="num">{fmtCurrency(g.price, currency)}</td>
+              <td className="num">{fmtParentPrice(g, currency)}</td>
               <td className="num">{fmtNumber(g.qty)}</td>
               <td className="num">{fmtCurrency(g.rev, currency)}</td>
             </tr>
@@ -142,7 +147,7 @@ export function DetailTable({ groups, totals, currency, sortBy, sortDir, onSortC
                 >
                   <td className="code-cell">{suffix}</td>
                   <td className="name-cell">└ {v.option || v.variant_code}</td>
-                  <td className="num">{fmtCurrency(g.price, currency)}</td>
+                  <td className="num">{fmtVariantPrice(v.price, g.price, currency)}</td>
                   <td className="num">{fmtNumber(v.qty)}</td>
                   <td className="num">{fmtCurrency(v.rev, currency)}</td>
                 </tr>

@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react'
-import { fmtCurrency, fmtNumber } from '@/shared/lib/format'
+import {
+  fmtCurrency,
+  fmtNumber,
+  fmtParentPrice,
+  fmtVariantPrice,
+} from '@/shared/lib/format'
 import type {
   CategoryResult,
   GrandTotal,
@@ -136,7 +141,7 @@ export function FlatTable({ results, grand, sortBy, sortDir, onSortChange }: Pro
                   {g.product_name}
                   {tag}
                 </td>
-                <td className="num">{fmtCurrency(g.price, grand.currency)}</td>
+                <td className="num">{fmtParentPrice(g, grand.currency)}</td>
                 <td className="num">{fmtNumber(g.qty)}</td>
                 <td className="num">{fmtCurrency(g.rev, grand.currency)}</td>
               </tr>
@@ -167,7 +172,7 @@ export function FlatTable({ results, grand, sortBy, sortDir, onSortChange }: Pro
                     <td className="cat-cell"></td>
                     <td className="code-cell">{suffix}</td>
                     <td className="name-cell">└ {v.option || v.variant_code}</td>
-                    <td className="num">{fmtCurrency(g.price, grand.currency)}</td>
+                    <td className="num">{fmtVariantPrice(v.price, g.price, grand.currency)}</td>
                     <td className="num">{fmtNumber(v.qty)}</td>
                     <td className="num">{fmtCurrency(v.rev, grand.currency)}</td>
                   </tr>
