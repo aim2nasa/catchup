@@ -14,6 +14,12 @@ def aggregate(products: dict, orders: list) -> list:
             vc = it.get("variant_code")
             if not vc:
                 continue
+            # cafe24 order_status: N=정상, C=취소(환불), R=반품, E=교환, F=실패
+            # 어드민 "판매수량" 정의와 일치시키려면 취소/반품/실패 라인 제외.
+            # 실데이터 검증: P00000HT 4월 환불 4건 = order_status="C40" 두 라인(qty 1+3).
+            status = (it.get("order_status") or it.get("status_code") or "").upper()
+            if status and status[0] in ("C", "R", "F"):
+                continue
             qty = (it.get("quantity") or 0) - (it.get("claim_quantity") or 0)
             price = float(it.get("product_price") or 0)
             a = accums.setdefault(vc, {"qty": 0, "rev": 0.0})

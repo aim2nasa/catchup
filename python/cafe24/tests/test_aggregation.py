@@ -34,12 +34,13 @@ def make_products(*args):
 
 
 def make_order(items):
-    """items = [(variant_code, quantity, product_price[, claim_quantity]), ...]"""
+    """items = [(variant_code, quantity, product_price[, claim_quantity[, order_status]]), ...]"""
     return {"items": [{
         "variant_code": it[0],
         "quantity": it[1],
         "product_price": float(it[2]),
         "claim_quantity": it[3] if len(it) > 3 else 0,
+        "order_status": it[4] if len(it) > 4 else "N30",
     } for it in items]}
 
 
@@ -169,6 +170,46 @@ class TestAggregate(unittest.TestCase):
         g = aggregate(products, orders)[0]
         self.assertEqual(g["qty"], -3)
         self.assertEqual(g["rev"], -300.0)
+
+    def test_cancel_status_lines_excluded(self):
+        """order_status가 C40(취소완료)인 라인은 판매수량/매출에서 제외.
+
+        실데이터 검증 (P00000HT 4월): cafe24가 같은 product에 대해
+        N* 라인 합 75 + C40 라인 합 4 = 결제수량 79로 카운트하고,
+        판매수량은 C40을 뺀 75. 우리 집계가 그 정의와 일치.
+        """
+        products = make_products(make_product(1, "P0001", "X", 100, [("P0001000A", "")]))
+        orders = [make_order([
+            ("P0001000A", 75, 100, 0, "N30"),  # 정상 결제 75
+            ("P0001000A", 1, 100, 0, "C40"),   # 환불 1 — 제외 대상
+            ("P0001000A", 3, 100, 0, "C40"),   # 환불 3 — 제외 대상
+        ])]
+        g = aggregate(products, orders)[0]
+        self.assertEqual(g["qty"], 75)
+        self.assertEqual(g["rev"], 7500.0)
+
+    def test_return_and_failed_status_excluded(self):
+        """R*(반품), F*(실패) 시작 status도 제외."""
+        products = make_products(make_product(1, "P0001", "X", 100, [("P0001000A", "")]))
+        orders = [make_order([
+            ("P0001000A", 10, 100, 0, "N30"),
+            ("P0001000A", 2, 100, 0, "R40"),   # 반품
+            ("P0001000A", 1, 100, 0, "F40"),   # 실패
+            ("P0001000A", 5, 100, 0, "E40"),   # 교환은 포함 (매출 유지)
+        ])]
+        g = aggregate(products, orders)[0]
+        self.assertEqual(g["qty"], 15)  # 10 + 5 (교환만 정상으로 카운트)
+        self.assertEqual(g["rev"], 1500.0)
+
+    def test_missing_status_treated_as_normal(self):
+        """order_status 없는 라인(기존 fixture 호환)은 정상으로 집계."""
+        products = make_products(make_product(1, "P0001", "X", 100, [("P0001000A", "")]))
+        orders = [{"items": [
+            {"variant_code": "P0001000A", "quantity": 5, "product_price": 100, "claim_quantity": 0},
+        ]}]
+        g = aggregate(products, orders)[0]
+        self.assertEqual(g["qty"], 5)
+        self.assertEqual(g["rev"], 500.0)
 
     def test_missing_variant_code_in_order_skipped(self):
         products = make_products(make_product(1, "P001", "X", 100, [("P001000A", "")]))
