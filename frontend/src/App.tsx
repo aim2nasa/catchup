@@ -3,11 +3,11 @@ import { SalesReportView } from '@/features/sales-report/SalesReportView'
 import { HomeView } from '@/pages/HomeView'
 import { ExcelOrderView } from '@/pages/ExcelOrderView'
 
-type Route = 'home' | 'excel' | 'sales'
+type Route = 'home' | 'hardwax' | 'sales'
 
 function parseRoute(): Route {
   const h = window.location.hash.replace(/^#/, '')
-  if (h === 'excel') return 'excel'
+  if (h === 'hardwax') return 'hardwax'
   if (h === 'sales') return 'sales'
   return 'home'
 }
@@ -21,7 +21,7 @@ function App() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  if (route === 'excel') return <ExcelOrderView />
+  if (route === 'hardwax') return <ExcelOrderView />
   if (route === 'sales') return <SalesReportView />
   return <HomeView />
 }

@@ -130,7 +130,7 @@ export function ExcelOrderView() {
     <div className="excel-container">
       <header className="excel-header">
         <a href="#" className="home-link">← 홈</a>
-        <h1>엑셀 기준 판매 보기</h1>
+        <h1>하드왁스</h1>
       </header>
 
       <div className="filters card">

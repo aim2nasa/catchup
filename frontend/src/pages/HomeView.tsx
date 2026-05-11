@@ -13,9 +13,9 @@ type MenuItem = {
 
 const MENUS: MenuItem[] = [
   {
-    key: 'excel',
-    hash: '#excel',
-    title: '엑셀 기준 판매 보기',
+    key: 'hardwax',
+    hash: '#hardwax',
+    title: '하드왁스',
     desc: '엑셀 양식 순서대로 상품별 판매수/매출 확인',
     tag: '신규',
     tagKind: 'new',
