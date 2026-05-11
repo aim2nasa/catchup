@@ -3,10 +3,18 @@ import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
 import { useSettings } from '@/features/sales-report/hooks/useSettings'
-import type { Group } from '@/features/sales-report/types'
 import { fmtCurrency, fmtNumber } from '@/shared/lib/format'
 import '@/features/sales-report/SalesReportView.css'
 import './ExcelOrderView.css'
+
+interface Row {
+  product_code: string
+  product_name: string
+  price: number
+  qty: number
+  rev: number
+  missing: boolean
+}
 
 // 엑셀 양식의 표시 대상 — 카테고리 24 하드왁스 내 4개 상품 (사용자 지정 순서)
 const CATEGORY_NO = 24
@@ -44,13 +52,30 @@ export function ExcelOrderView() {
     run({ start, end, categories: String(CATEGORY_NO) })
   }
 
-  const rows = useMemo<Group[]>(() => {
+  const rows = useMemo<Row[]>(() => {
     const cat = state.data?.results.find((r) => r.category_no === CATEGORY_NO)
-    if (!cat) return []
-    const byCode = new Map(cat.groups.map((g) => [g.product_code, g]))
-    return PRODUCT_CODES.map((code) => byCode.get(code)).filter(
-      (g): g is Group => !!g,
-    )
+    const byCode = new Map((cat?.groups ?? []).map((g) => [g.product_code, g]))
+    return PRODUCT_CODES.map((code): Row => {
+      const g = byCode.get(code)
+      if (g) {
+        return {
+          product_code: g.product_code,
+          product_name: g.product_name,
+          price: g.price,
+          qty: g.qty,
+          rev: g.rev,
+          missing: false,
+        }
+      }
+      return {
+        product_code: code,
+        product_name: '—',
+        price: 0,
+        qty: 0,
+        rev: 0,
+        missing: true,
+      }
+    })
   }, [state.data])
 
   const totalQty = rows.reduce((s, g) => s + g.qty, 0)
@@ -117,12 +142,21 @@ export function ExcelOrderView() {
               </thead>
               <tbody>
                 {rows.map((g) => (
-                  <tr key={g.product_code}>
+                  <tr
+                    key={g.product_code}
+                    className={g.missing ? 'row-missing' : undefined}
+                  >
                     <td className="code-cell">{g.product_code}</td>
                     <td className="name-cell">{g.product_name}</td>
-                    <td className="num">{fmtCurrency(g.price, currency)}</td>
-                    <td className="num">{fmtNumber(g.qty)}</td>
-                    <td className="num">{fmtCurrency(g.rev, currency)}</td>
+                    <td className="num">
+                      {g.missing ? '—' : fmtCurrency(g.price, currency)}
+                    </td>
+                    <td className="num">
+                      {g.missing ? '—' : fmtNumber(g.qty)}
+                    </td>
+                    <td className="num">
+                      {g.missing ? '—' : fmtCurrency(g.rev, currency)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

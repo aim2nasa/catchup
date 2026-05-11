@@ -90,6 +90,8 @@
   font-variant-numeric: tabular-nums;
 }
 .excel-table tbody tr:hover { background: var(--c-row-hover); }
+.excel-table tbody tr.row-missing td { color: var(--c-text-muted); font-style: italic; }
+.excel-table tbody tr.row-missing td.code-cell { color: var(--c-text-muted); font-style: normal; }
 .excel-table td.code-cell {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
   color: var(--c-primary);
