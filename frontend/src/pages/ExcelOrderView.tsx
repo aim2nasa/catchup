@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
@@ -292,7 +292,6 @@ const CUPBIZ_PRODUCT_CODES = new Set(
 
 export function ExcelOrderView() {
   const { settings, setStart, setEnd } = useSettings()
-  const [collapsedProducts, setCollapsedProducts] = useState<Set<string>>(new Set())
   const { start, end } = settings
   const { state, run } = useReport()
 
@@ -342,18 +341,6 @@ export function ExcelOrderView() {
     () => uDirectQtyByColumn.reduce((s, item) => s + item.qty, 0),
     [uDirectQtyByColumn],
   )
-
-  function toggleProductExpand(productCode: string) {
-    setCollapsedProducts((prev) => {
-      const next = new Set(prev)
-      if (next.has(productCode)) {
-        next.delete(productCode)
-      } else {
-        next.add(productCode)
-      }
-      return next
-    })
-  }
 
   const groupRows = useMemo<GroupRows[]>(() => {
     const byCode = new Map(allGroups.map((g) => [g.product_code, g]))
@@ -538,31 +525,6 @@ export function ExcelOrderView() {
       0,
     ),
   )
-  const expandableProductIds = useMemo(
-    () =>
-      groupRows.flatMap((g) =>
-        g.rows
-          .map((row, ri) => ({
-            id: `${g.label}-${row.product_code}-${ri}`,
-            hasVariants: row.variants.length > 1,
-          }))
-          .filter((x) => x.hasVariants)
-          .map((x) => x.id),
-      ),
-    [groupRows],
-  )
-  const allCollapsed = expandableProductIds.length > 0 &&
-    expandableProductIds.every((id) => collapsedProducts.has(id))
-  const allExpanded = expandableProductIds.length > 0 &&
-    expandableProductIds.every((id) => !collapsedProducts.has(id))
-
-  function expandAllProducts() {
-    setCollapsedProducts(new Set())
-  }
-
-  function collapseAllProducts() {
-    setCollapsedProducts(new Set(expandableProductIds))
-  }
 
   const currency = state.data?.grand.currency ?? 'KRW'
   const isRunning = state.status === 'running'
@@ -611,31 +573,16 @@ export function ExcelOrderView() {
               <span className="lu-pill lu-pill--unmapped">매핑(미정의)</span>
               <span className="lu-pill lu-pill--excluded">매핑(예외)</span>
             </span>
-            <span className="excel-toggle-all">
-              <button
-                type="button"
-                className="toggle-all-btn"
-                onClick={expandAllProducts}
-                disabled={expandableProductIds.length === 0 || allExpanded}
-              >
-                전체 펼치기
-              </button>
-              <button
-                type="button"
-                className="toggle-all-btn"
-                onClick={collapseAllProducts}
-                disabled={expandableProductIds.length === 0 || allCollapsed}
-              >
-                전체 접기
-              </button>
-            </span>
           </div>
           <div className="excel-table-wrap">
             <table className="excel-table excel-matrix">
               <thead>
                 <tr>
                   <th rowSpan={2} className="sticky sticky-code">
-                    코드
+                    상품코드
+                  </th>
+                  <th rowSpan={2} className="sticky sticky-variant">
+                    opt
                   </th>
                   <th rowSpan={2} className="sticky sticky-name">
                     상품명
@@ -686,7 +633,7 @@ export function ExcelOrderView() {
               </thead>
               <tbody>
                 <tr className="u-direct-row">
-                  <td colSpan={4} className="num sticky sticky-code u-direct-label">
+                  <td colSpan={5} className="num sticky sticky-code u-direct-label">
                     U상품 판매수
                   </td>
                   {uDirectQtyByColumn.map((item, idx) => (
@@ -701,21 +648,24 @@ export function ExcelOrderView() {
                   <Fragment key={grp.label}>
                     {grp.rows.map((g, gi) => {
                       const gid = `${grp.label}-${g.product_code}-${gi}`
-                      const isCollapsed = collapsedProducts.has(gid)
-                      const hasVariantRows = g.variants.length > 1
-                      const mergedParentQtyByColumn = hasVariantRows && isCollapsed
-                        ? g.mappingQtyByColumn.map((q, idx) =>
-                            q +
-                            g.variantMappingQtyByColumn.reduce((sum, row) => sum + (row[idx] ?? 0), 0),
-                          )
+                      const hasVariantRows = g.variants.length > 0
+                      const firstVariant = hasVariantRows ? g.variants[0] : null
+                      const firstVariantSuffix = firstVariant
+                        ? normalizeVariantSuffix(g.product_code, firstVariant.variant_code)
+                        : ''
+                      const remainingVariants = hasVariantRows ? g.variants.slice(1) : []
+                      const parentQtyByColumn = hasVariantRows
+                        ? g.mappingQtyByColumn.map((q, idx) => {
+                            const mappedFirstVariantQty = g.variantMappingQtyByColumn[0]?.[idx] ?? 0
+                            return q + mappedFirstVariantQty
+                          })
                         : g.mappingQtyByColumn
-                      const mergedParentStateByColumn = hasVariantRows && isCollapsed
+                      const parentStateByColumn = hasVariantRows
                         ? g.mappingStateByColumn.map((state, idx) => {
-                            if (state === 'excluded') return state
-                            if (state === 'mapped') return state
-                            return g.variantMappingQtyByColumn.some((row) => (row[idx] ?? 0) > 0)
-                              ? 'mapped'
-                              : state
+                            if (state === 'excluded' || state === 'mapped') {
+                              return state
+                            }
+                            return (g.variantMappingQtyByColumn[0]?.[idx] ?? 0) > 0 ? 'mapped' : state
                           })
                         : g.mappingStateByColumn
                       return (
@@ -724,18 +674,10 @@ export function ExcelOrderView() {
                           className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent' : 'row-single'}`.trim()}
                         >
                           <td className="code-cell sticky sticky-code">
-                            {hasVariantRows ? (
-                              <button
-                                type="button"
-                                className="row-toggle-btn"
-                                onClick={() => toggleProductExpand(gid)}
-                              >
-                                {isCollapsed ? '+' : '−'}
-                              </button>
-                            ) : (
-                              <span className="row-toggle-placeholder" />
-                            )}
                             {g.product_code}
+                          </td>
+                          <td className="variant-cell sticky sticky-variant">
+                            {hasVariantRows ? firstVariantSuffix : ''}
                           </td>
                           <td className="name-cell sticky sticky-name">
                             {g.product_name}
@@ -746,16 +688,14 @@ export function ExcelOrderView() {
                           <td className="num sticky sticky-direct">
                             {g.missing ? '—' : fmtNumber(g.directQty)}
                           </td>
-                          {mergedParentQtyByColumn.map((q, idx) => {
-                            const state = mergedParentStateByColumn[idx]
-                            const shouldShowParentCell = !(hasVariantRows && !isCollapsed)
+                          {parentQtyByColumn.map((q, idx) => {
+                            const state = parentStateByColumn[idx]
                             return (
                               <td
                                 key={`${g.product_code}-${idx}`}
                                 className={columnCellClass(state)}
                               >
-                                {shouldShowParentCell &&
-                                state !== 'excluded' &&
+                                {state !== 'excluded' &&
                                 !(state === 'unmapped' && q === 0)
                                   ? fmtNumber(q)
                                   : ''}
@@ -767,18 +707,22 @@ export function ExcelOrderView() {
                             {fmtCurrency(g.rev, currency)}
                           </td>
                         </tr>
-                        {hasVariantRows ? g.variants.map((v, vIdx) => {
+                        {hasVariantRows ? remainingVariants.map((v, vIdx) => {
+                            const idx = vIdx + 1
                             const suffix = normalizeVariantSuffix(g.product_code, v.variant_code)
-                            const variantMapQty = g.variantMappingQtyByColumn[vIdx] ?? []
-                            const variantMapRev = g.variantMappingRevByColumn[vIdx] ?? []
+                            const variantMapQty = g.variantMappingQtyByColumn[idx] ?? []
+                            const variantMapRev = g.variantMappingRevByColumn[idx] ?? []
                             const totalQty = v.qty + variantMapQty.reduce((s, q) => s + q, 0)
                             const totalRev = (v.rev ?? 0) + variantMapRev.reduce((s, r) => s + r, 0)
                             return (
                               <tr
                                 key={`${g.product_code}-${v.variant_code}`}
-                                className={`row-child variant-row${isCollapsed ? ' collapsed' : ''}`}
+                                className="row-child variant-row"
                               >
                                 <td className="code-cell sticky sticky-code variant-code-cell">
+                                  {' '}
+                                </td>
+                                <td className="variant-code-cell sticky sticky-variant">
                                   {suffix || '—'}
                                 </td>
                                 <td className="name-cell sticky sticky-name variant-name-cell">
@@ -790,11 +734,11 @@ export function ExcelOrderView() {
                                 <td className="num sticky sticky-direct">
                                   {g.missing ? '—' : fmtNumber(v.qty)}
                                 </td>
-                                {g.variantMappingQtyByColumn[vIdx].map((q, idx) => {
-                                  const state = g.variantMappingStateByColumn[vIdx]?.[idx] ?? 'unmapped'
+                                {g.variantMappingQtyByColumn[idx].map((q, cellIdx) => {
+                                  const state = g.variantMappingStateByColumn[idx]?.[cellIdx] ?? 'unmapped'
                                   return (
                                     <td
-                                      key={`${g.product_code}-${v.variant_code}-map-${idx}`}
+                                      key={`${g.product_code}-${v.variant_code}-map-${cellIdx}`}
                                       className={columnCellClass(state)}
                                     >
                                       {state !== 'excluded' && !(state === 'unmapped' && q === 0)
@@ -818,7 +762,7 @@ export function ExcelOrderView() {
                     {grp.withSubtotal === false ? null : (
                       <tr className="subtotal-row">
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="subtotal-label"
                         >
                           {grp.label}
@@ -837,7 +781,7 @@ export function ExcelOrderView() {
               </tbody>
               <tfoot>
                     <tr>
-                      <td colSpan={4} className="subtotal-label">
+                      <td colSpan={5} className="subtotal-label">
                         합계
                       </td>
                       {totalMappingQtyByColumn.map((q, idx) => (
