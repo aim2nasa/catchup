@@ -236,9 +236,9 @@ function normalizeVariantSuffix(productCode: string, variantCode: string) {
   return raw.replace(/^0+/, '') || raw
 }
 
-function columnCellState(uProduct: string, hasRule: boolean, qty: number): CellState {
+function columnCellState(uProduct: string, qty: number): CellState {
   if (EXCLUDED_U_PRODUCTS.has(uProduct)) return 'excluded'
-  if (!hasRule) return 'unmapped'
+  if (qty <= 0) return 'unmapped'
   return 'mapped'
 }
 
@@ -258,37 +258,32 @@ function getRuleMatchQty(
   price: number,
   hasLVariants: boolean,
 ) {
-  if (!candidates || candidates.length === 0) return { qty: 0, rev: 0, hasRule: false }
+  if (!candidates || candidates.length === 0) return { qty: 0, rev: 0 }
 
   let totalQty = 0
   let totalRev = 0
-  let hasRule = false
-
   candidates.forEach((rule) => {
     if (rule.lProduct !== targetLProduct) return
     if (rule.lVariant) {
       if (!targetLVariant || rule.lVariant !== targetLVariant) return
-      hasRule = true
       totalQty += qty * rule.ratio
       totalRev += qty * price * rule.ratio
       return
     }
     if (!targetLVariant) {
       if (!hasLVariants) {
-        hasRule = true
         totalQty += qty * rule.ratio
         totalRev += qty * price * rule.ratio
       }
       return
     }
     if (targetLVariantIndex >= 0 && ruleUVariantIndex === targetLVariantIndex) {
-      hasRule = true
       totalQty += qty * rule.ratio
       totalRev += qty * price * rule.ratio
     }
   })
 
-  return { qty: totalQty, rev: totalRev, hasRule }
+  return { qty: totalQty, rev: totalRev }
 }
 
 const CUPBIZ_PRODUCT_CODES = new Set(
@@ -395,7 +390,7 @@ export function ExcelOrderView() {
           uPrice = targetVariant?.price ?? 0
         }
 
-        const { qty, rev, hasRule: hasParentRule } = rule
+        const { qty, rev } = rule
           ? getRuleMatchQty(
               rule,
               code,
@@ -406,19 +401,15 @@ export function ExcelOrderView() {
               uPrice,
               hasLVariants,
             )
-          : { qty: 0, rev: 0, hasRule: false }
+          : { qty: 0, rev: 0 }
         mappingQtyByColumn[idx] = qty
         mappingRevByColumn[idx] = rev
-        mappingStateByColumn[idx] = columnCellState(
-          col.uProduct,
-          rule !== undefined && hasParentRule,
-          qty,
-        )
+        mappingStateByColumn[idx] = columnCellState(col.uProduct, qty)
 
         variants.forEach((v, vIdx) => {
           const targetLVariant = normalizeVariantSuffix(code, v.variant_code).toUpperCase()
           const targetLVariantIndex = vIdx
-          const { qty: variantQty, rev: variantRev, hasRule: hasVariantRule } = rule
+          const { qty: variantQty, rev: variantRev } = rule
             ? getRuleMatchQty(
                 rule,
                 code,
@@ -429,12 +420,11 @@ export function ExcelOrderView() {
                 uPrice,
                 hasLVariants,
               )
-            : { qty: 0, rev: 0, hasRule: false }
+            : { qty: 0, rev: 0 }
           variantMappingQtyByColumn[vIdx][idx] = variantQty
           variantMappingRevByColumn[vIdx][idx] = variantRev
           variantMappingStateByColumn[vIdx][idx] = columnCellState(
             col.uProduct,
-            rule !== undefined && hasVariantRule,
             variantQty,
           )
         })
