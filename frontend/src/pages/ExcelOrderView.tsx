@@ -248,6 +248,10 @@ function columnCellClass(state: CellState) {
   return 'map-cell map-cell--excluded'
 }
 
+function displayOptionName(option?: string) {
+  return option ? option.replaceAll('=', ' : ') : '—'
+}
+
 function getRuleMatchQty(
   candidates: MappingRule[] | undefined,
   targetLProduct: string,
@@ -581,11 +585,14 @@ export function ExcelOrderView() {
                   <th rowSpan={2} className="sticky sticky-code">
                     상품코드
                   </th>
-                  <th rowSpan={2} className="sticky sticky-variant">
-                    opt
-                  </th>
                   <th rowSpan={2} className="sticky sticky-name">
                     상품명
+                  </th>
+                  <th rowSpan={2} className="sticky sticky-option-code">
+                    코드
+                  </th>
+                  <th rowSpan={2} className="sticky sticky-option-name">
+                    옵션명
                   </th>
                   <th rowSpan={2} className="sticky sticky-price">
                     단가
@@ -633,7 +640,7 @@ export function ExcelOrderView() {
               </thead>
               <tbody>
                 <tr className="u-direct-row">
-                  <td colSpan={5} className="num sticky sticky-code u-direct-label">
+                  <td colSpan={6} className="num sticky sticky-code u-direct-label">
                     U상품 판매수
                   </td>
                   {uDirectQtyByColumn.map((item, idx) => (
@@ -651,8 +658,9 @@ export function ExcelOrderView() {
                       const hasVariantRows = g.variants.length > 0
                       const firstVariant = hasVariantRows ? g.variants[0] : null
                       const firstVariantSuffix = firstVariant
-                        ? normalizeVariantSuffix(g.product_code, firstVariant.variant_code)
+                        ? normalizeVariantSuffix(g.product_code, firstVariant.variant_code).toUpperCase()
                         : ''
+                      const firstVariantOption = firstVariant ? firstVariant.option : '—'
                       const remainingVariants = hasVariantRows ? g.variants.slice(1) : []
                       const parentQtyByColumn = hasVariantRows
                         ? g.mappingQtyByColumn.map((q, idx) => {
@@ -676,11 +684,14 @@ export function ExcelOrderView() {
                           <td className="code-cell sticky sticky-code">
                             {g.product_code}
                           </td>
-                          <td className="variant-cell sticky sticky-variant">
-                            {hasVariantRows ? firstVariantSuffix : ''}
-                          </td>
                           <td className="name-cell sticky sticky-name">
                             {g.product_name}
+                          </td>
+                          <td className="sticky sticky-option-code">
+                            {hasVariantRows ? firstVariantSuffix : ''}
+                          </td>
+                          <td className="sticky sticky-option-name">
+                            {hasVariantRows ? displayOptionName(firstVariantOption) : ''}
                           </td>
                           <td className="num sticky sticky-price">
                             {g.missing ? '—' : fmtParentPrice(g, currency)}
@@ -722,11 +733,14 @@ export function ExcelOrderView() {
                                 <td className="code-cell sticky sticky-code variant-code-cell">
                                   {' '}
                                 </td>
-                                <td className="variant-code-cell sticky sticky-variant">
+                                <td className="name-cell sticky sticky-name variant-name-cell">
+                                  {' '}
+                                </td>
+                                <td className="sticky sticky-option-code">
                                   {suffix || '—'}
                                 </td>
-                                <td className="name-cell sticky sticky-name variant-name-cell">
-                                  {v.option || '—'}
+                                <td className="sticky sticky-option-name">
+                                  {displayOptionName(v.option || v.variant_code)}
                                 </td>
                                 <td className="num sticky sticky-price">
                                   {g.missing ? '—' : fmtVariantPrice(v.price, g.price, currency)}
@@ -762,7 +776,7 @@ export function ExcelOrderView() {
                     {grp.withSubtotal === false ? null : (
                       <tr className="subtotal-row">
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="subtotal-label"
                         >
                           {grp.label}
@@ -781,7 +795,7 @@ export function ExcelOrderView() {
               </tbody>
               <tfoot>
                     <tr>
-                      <td colSpan={5} className="subtotal-label">
+                      <td colSpan={6} className="subtotal-label">
                         합계
                       </td>
                       {totalMappingQtyByColumn.map((q, idx) => (
