@@ -238,7 +238,7 @@ function normalizeVariantSuffix(productCode: string, variantCode: string) {
 
 function columnCellState(uProduct: string, qty: number): CellState {
   if (EXCLUDED_U_PRODUCTS.has(uProduct)) return 'excluded'
-  if (qty <= 0) return 'unmapped'
+  if (!Number.isFinite(qty) || qty <= 0) return 'unmapped'
   return 'mapped'
 }
 
