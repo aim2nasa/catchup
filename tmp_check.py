@@ -33,7 +33,6 @@ U_COLUMNS = [(u, variant) for u, variants in U_BLOCKS for variant in variants]
 
 RULES = [
     ('P00000QE', 'G', 'P00000BV', None, 1),
-    ('P00000QE', 'H', 'P00000HT', None, 1),
     ('P00000QE', 'I', 'P00000CB', None, 1),
     ('P00000QE', 'J', 'P00000BX', None, 1),
     ('P00000QE', 'K', 'P00000XE', None, 1),

@@ -146,7 +146,6 @@ const COLUMN_KEY_DELIM = '|'
 
 const RULES: MappingRule[] = [
   { uProduct: 'P00000QE', uVariant: 'G', lProduct: 'P00000BV', ratio: 1 },
-  { uProduct: 'P00000QE', uVariant: 'H', lProduct: 'P00000HT', ratio: 1 },
   { uProduct: 'P00000QE', uVariant: 'I', lProduct: 'P00000CB', ratio: 1 },
   { uProduct: 'P00000QE', uVariant: 'J', lProduct: 'P00000BX', ratio: 1 },
   { uProduct: 'P00000QE', uVariant: 'K', lProduct: 'P00000XE', ratio: 1 },
