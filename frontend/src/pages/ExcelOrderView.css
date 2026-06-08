@@ -1,10 +1,10 @@
 .excel-container {
-  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "맑은 고딕", sans-serif;
+  font: 12px/1.4 "Malgun Gothic", "Apple SD Gothic Neo", "맑은 고딕", sans-serif;
   background: var(--c-bg);
   color: var(--c-text);
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: clamp(10px, 2vw, 18px);
+  width: 100%;
+  margin: 0;
+  padding: 10px;
   min-height: 100vh;
 }
 
@@ -35,8 +35,14 @@
 }
 
 .excel-section {
-  padding: 14px;
+  padding: 10px;
   margin-top: 14px;
+}
+
+.excel-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 .excel-cat-label {
   display: flex;
@@ -55,6 +61,29 @@
   font-weight: 700;
   font-family: ui-monospace, monospace;
 }
+.excel-toggle-all {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+.toggle-all-btn {
+  height: 22px;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #1f2937;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.toggle-all-btn:hover:not(:disabled) {
+  background: #eff6ff;
+}
+.toggle-all-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 .excel-cat-name {
   font-size: 15px;
   font-weight: 700;
@@ -66,31 +95,142 @@
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
 }
 
+.lu-legend {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lu-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.lu-pill--confirmed {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.lu-pill--confirmed,
+.lu-pill--unmapped,
+.lu-pill--excluded {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.lu-pill--unmapped {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.lu-pill--excluded {
+  background: #d8b4fe;
+  color: #2e1065;
+}
+
 .excel-table {
   border-collapse: collapse;
-  width: 100%;
-  font-size: 13px;
+  min-width: 1800px;
+  font-size: 11px;
 }
 .excel-table th,
 .excel-table td {
-  border-bottom: 1px solid var(--c-border);
-  padding: 8px 12px;
+  border: 1px solid var(--c-border);
+  padding: 2px 3px;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .excel-table th {
   background: var(--c-table-head);
   color: var(--c-table-head-text);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.04em;
+}
+.excel-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.excel-table thead tr:nth-child(2) th {
+  top: 22px;
+}
+.excel-table thead th.sticky {
+  position: sticky;
+  background: var(--c-table-head);
+}
+
+.excel-table td.sticky {
+  position: sticky;
+  background: var(--c-bg);
+}
+.excel-table .sticky-code { left: 0; z-index: 4; min-width: 98px; }
+.excel-table .sticky-name { left: 98px; z-index: 4; min-width: 158px; }
+.excel-table .sticky-price { left: 256px; z-index: 4; min-width: 68px; }
+.excel-table .sticky-direct { left: 324px; z-index: 4; min-width: 64px; }
+.excel-table .sticky-total { right: 118px; z-index: 3; min-width: 84px; }
+.excel-table .sticky-rev { right: 0; z-index: 3; min-width: 108px; }
+.excel-table .matrix-variant,
+.excel-table .variant-label,
+.excel-table .matrix-label {
+  min-width: 32px;
+  width: 32px;
+  text-align: center;
+}
+.excel-table .u-header {
+  text-align: center;
+  max-width: 92px;
+  min-width: 76px;
+  padding: 2px 3px;
+  vertical-align: top;
+  overflow: visible;
+}
+.excel-table .u-header-code {
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.excel-table .u-header-name {
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--c-text-muted);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  margin-top: 2px;
+  display: block;
 }
 .excel-table .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  word-break: keep-all;
 }
 .excel-table tbody tr:hover { background: var(--c-row-hover); }
+.excel-table tbody tr.u-direct-row td {
+  background: #f8fafc;
+  border-top: 1px solid var(--c-sum-border);
+  border-bottom: 1px solid var(--c-sum-border);
+}
 .excel-table tbody tr.row-missing td { color: var(--c-text-muted); font-style: italic; }
 .excel-table tbody tr.row-missing td.code-cell { color: var(--c-text-muted); font-style: normal; }
+.excel-table tbody tr.variant-row:hover td {
+  background: #fcfcfd;
+}
+.excel-table tbody tr.variant-row td {
+  color: #1f2937;
+}
 .excel-table tbody tr.subtotal-row td {
   font-weight: 700;
   background: var(--c-sum-bg);
@@ -104,6 +244,65 @@
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
   color: var(--c-primary);
   font-weight: 600;
+}
+.row-toggle-btn {
+  width: 13px;
+  min-width: 13px;
+  height: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 9px;
+  line-height: 11px;
+  padding: 0;
+  margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.row-toggle-btn:hover {
+  background: #f3f4f6;
+}
+.row-toggle-placeholder {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  display: inline-block;
+  margin-right: 4px;
+}
+.variant-row .code-cell,
+.variant-row .name-cell {
+  font-weight: 500;
+}
+.variant-code-cell {
+  color: #0f172a;
+}
+.variant-name-cell {
+  color: #0f172a;
+  background: #fcfcfd;
+}
+.excel-table .subtotal-label {
+  font-weight: 700;
+  text-align: left;
+}
+.map-cell {
+  text-align: right;
+}
+.map-cell--mapped {
+  background: #dcfce7;
+  color: #14532d;
+  font-weight: 700;
+}
+.map-cell--unmapped {
+  background: #f3f4f6;
+  color: #374151;
+}
+.map-cell--excluded {
+  background: #ede9fe;
+  color: #4c1d95;
+  font-weight: 700;
 }
 .excel-table tfoot td {
   font-weight: 700;
