@@ -1586,12 +1586,16 @@ export function ExcelOrderView() {
                     </span>
                   )}
                   {selectedCell ? (
-                    <span className="selection-formula">
-                      <span className="selection-item">수식:</span>
-                      <span className="selection-formula-value">
-                        {selectedFormulaText || '값 셀'}
+                    selectedFormulaText ? (
+                      <span className="selection-formula">
+                        <span className="selection-item">수식:</span>
+                        <span className="selection-formula-value">
+                          {selectedFormulaText}
+                        </span>
                       </span>
-                    </span>
+                    ) : (
+                      <span className="selection-cell-kind">값 셀</span>
+                    )
                   ) : null}
                 </div>
               </div>
@@ -1994,7 +1998,7 @@ export function ExcelOrderView() {
                                return (
                                  <td
                                    key={`${g.product_code}-${idx}`}
-                                  className={`${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
+                                  className={`num ${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey,
@@ -2195,7 +2199,7 @@ export function ExcelOrderView() {
                                   return (
                                     <td
                                       key={`${g.product_code}-${v.variant_code}-map-${cellIdx}`}
-                                      className={`${columnCellClass(state)} ${getCellSelectionClass(variantRowKey, colKey)}`}
+                                      className={`num ${columnCellClass(state)} ${getCellSelectionClass(variantRowKey, colKey)}`}
                                       onClick={() =>
                                         handleCellSelect({
                                           rowKey: variantRowKey,
