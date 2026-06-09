@@ -185,6 +185,10 @@
   vertical-align: top;
   overflow: visible;
 }
+.excel-table thead tr:first-child th.u-header:first-of-type,
+.excel-table thead tr:nth-child(2) th.matrix-variant:first-child {
+  border-left: 2px solid var(--c-sum-border);
+}
 .excel-table .u-header-code {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
   font-size: 10px;
@@ -211,6 +215,13 @@
 .excel-table tfoot tr td:nth-last-child(2),
 .excel-table tfoot tr td:last-child {
   border-left: 2px solid var(--c-sum-border);
+}
+.excel-table tbody tr td:nth-child(7),
+.excel-table tfoot tr td:nth-child(7),
+.excel-table .u-direct-row td:nth-child(7),
+.excel-table tr.subtotal-row td:nth-child(7) {
+  border-left: 2px solid var(--c-sum-border);
+  box-shadow: inset 10px 0 0 rgba(217, 119, 6, 0.12);
 }
 .excel-table .num {
   text-align: right;

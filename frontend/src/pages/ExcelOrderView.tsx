@@ -640,9 +640,12 @@ export function ExcelOrderView() {
               </thead>
               <tbody>
                 <tr className="u-direct-row">
-                  <td colSpan={6} className="num sticky sticky-code u-direct-label">
-                    U상품 판매수
-                  </td>
+                  <td className="num sticky sticky-code u-direct-label">U상품 판매수</td>
+                  <td className="sticky sticky-name" />
+                  <td className="sticky sticky-option-code" />
+                  <td className="sticky sticky-option-name" />
+                  <td className="num sticky sticky-price" />
+                  <td className="num sticky sticky-direct" />
                   {uDirectQtyByColumn.map((item, idx) => (
                     <td key={`u-direct-${idx}`} className="num">
                       {item.excluded ? '' : fmtNumber(item.qty)}
@@ -773,14 +776,14 @@ export function ExcelOrderView() {
                       </Fragment>
                     )
                     })}
-                    {grp.withSubtotal === false ? null : (
+                {grp.withSubtotal === false ? null : (
                       <tr className="subtotal-row">
-                        <td
-                          colSpan={6}
-                          className="subtotal-label"
-                        >
-                          {grp.label}
-                        </td>
+                        <td className="subtotal-label sticky sticky-code">{grp.label}</td>
+                        <td className="sticky sticky-name" />
+                        <td className="sticky sticky-option-code" />
+                        <td className="sticky sticky-option-name" />
+                        <td className="num sticky sticky-price" />
+                        <td className="num sticky sticky-direct" />
                         {grp.subtotalMappingQtyByColumn.map((q, idx) => (
                           <td key={`subtotal-${grp.label}-${idx}`} className="num">
                             {fmtNumber(q)}
@@ -795,9 +798,12 @@ export function ExcelOrderView() {
               </tbody>
               <tfoot>
                     <tr>
-                      <td colSpan={6} className="subtotal-label">
-                        합계
-                      </td>
+                      <td className="subtotal-label sticky sticky-code">합계</td>
+                      <td className="sticky sticky-name" />
+                      <td className="sticky sticky-option-code" />
+                      <td className="sticky sticky-option-name" />
+                      <td className="num sticky sticky-price" />
+                      <td className="num sticky sticky-direct" />
                       {totalMappingQtyByColumn.map((q, idx) => (
                         <td key={`total-${idx}`} className="num">
                           {fmtNumber(q)}
