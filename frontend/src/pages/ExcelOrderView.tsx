@@ -1023,6 +1023,10 @@ export function ExcelOrderView() {
                            ? normalizeVariantSuffix(g.product_code, firstVariant.variant_code).toUpperCase()
                            : ''
                          const firstVariantOption = firstVariant ? firstVariant.option : '—'
+                         const firstVariantDisplayPrice = hasVariantRows
+                           ? fmtVariantPrice(firstVariant?.price ?? 0, g.price, currency)
+                           : fmtParentPrice(g, currency)
+                         const firstVariantDirectQty = hasVariantRows ? (firstVariant?.qty ?? 0) : g.directQty
                          const remainingVariants = hasVariantRows ? g.variants.slice(1) : []
                          const rowKey = `parent:${grp.label}:${g.product_code}`
                          const rowLabel = rowHeaderLabelByCode(g.product_code, g.product_name)
@@ -1128,7 +1132,7 @@ export function ExcelOrderView() {
                              data-row-label={rowLabel}
                              data-col-label="단가"
                            >
-                             {g.missing ? '—' : fmtParentPrice(g, currency)}
+                             {g.missing ? '—' : firstVariantDisplayPrice}
                            </td>
                            <td
                              className={`num sticky sticky-direct ${getCellSelectionClass(rowKey, 'A:직접판매')}`}
@@ -1145,7 +1149,7 @@ export function ExcelOrderView() {
                              data-row-label={rowLabel}
                              data-col-label="직접판매"
                            >
-                             {g.missing ? '—' : fmtNumber(g.directQty)}
+                             {g.missing ? '—' : fmtNumber(firstVariantDirectQty)}
                            </td>
                            {parentQtyByColumn.map((q, idx) => {
                               const state = parentStateByColumn[idx]
