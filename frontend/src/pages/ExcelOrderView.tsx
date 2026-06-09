@@ -18,6 +18,27 @@ type LuRuleOverride = {
   lVariant?: string
 }
 
+type LuToggleTarget = {
+  uProduct: string
+  uVariant: string
+  lProduct: string
+  lVariant: string | null
+  lVariantIndex: number | null
+  hasLVariants: boolean
+}
+
+type PendingLuAction = LuToggleTarget & {
+  title: string
+  description: string
+  confirmLabel: string
+  actionTone: 'primary' | 'danger'
+  uLabel: string
+  lLabel: string
+  qty: number
+  price: number
+  revenueImpact: number
+}
+
 type RevenueFormulaTerm = {
   uColOffset: number
   unitPrice: number
@@ -648,6 +669,7 @@ export function ExcelOrderView() {
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
+  const [pendingLuAction, setPendingLuAction] = useState<PendingLuAction | null>(null)
   const [copyToast, setCopyToast] = useState<string | null>(null)
   const copyTimerRef = useRef<number | null>(null)
   const effectiveRuleMap = useMemo(() => makeEffectiveRuleMap(luOverrides), [luOverrides])
@@ -677,14 +699,14 @@ export function ExcelOrderView() {
 
   const clearSelection = () => setSelectedCell(null)
 
-  const toggleLuCell = (
-    uProduct: string,
-    uVariant: string,
-    lProduct: string,
-    lVariant: string | null,
-    lVariantIndex: number | null,
-    hasLVariants: boolean,
-  ) => {
+  const toggleLuCell = ({
+    uProduct,
+    uVariant,
+    lProduct,
+    lVariant,
+    lVariantIndex,
+    hasLVariants,
+  }: LuToggleTarget) => {
     if (EXCLUDED_U_PRODUCTS.has(uProduct)) return
     const targetRule = makeOverrideRule({
       action: 'add',
@@ -753,6 +775,94 @@ export function ExcelOrderView() {
         },
       ]
     })
+  }
+
+  const requestLuCellToggle = (
+    target: LuToggleTarget,
+    context: {
+      uLabel: string
+      lLabel: string
+      qty: number
+      price: number
+    },
+  ) => {
+    if (EXCLUDED_U_PRODUCTS.has(target.uProduct)) return
+
+    const targetRule = makeOverrideRule({
+      action: 'add',
+      uProduct: target.uProduct,
+      uVariant: target.uVariant,
+      lProduct: target.lProduct,
+      lVariant: target.lVariant ?? undefined,
+    })
+    const uKey = makeUCellKey(targetRule.uProduct, targetRule.uVariant)
+    const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(uKey) ?? null
+    const currentRules = effectiveRuleMap.get(uKey) ?? []
+    const isCurrentTarget = hasRuleMatch(
+      currentRules,
+      targetRule.lProduct,
+      targetRule.lVariant ?? null,
+      target.lVariantIndex,
+      ruleUVariantIndex,
+      target.hasLVariants,
+    )
+    const baseRules = RULE_BY_KEY.get(uKey) ?? []
+    const matchingBaseRules = baseRules.filter((rule) => hasRuleMatch(
+      [rule],
+      targetRule.lProduct,
+      targetRule.lVariant ?? null,
+      target.lVariantIndex,
+      ruleUVariantIndex,
+      target.hasLVariants,
+    ))
+    const isManualMapped = isCurrentTarget && matchingBaseRules.length === 0
+    const isBaseMapped = isCurrentTarget && matchingBaseRules.length > 0
+    const existingRule = currentRules[0]
+    const isChangingTarget = !isCurrentTarget && !!existingRule
+    const qty = Number.isFinite(context.qty) ? context.qty : 0
+    const price = Number.isFinite(context.price) ? context.price : 0
+
+    let title = '이 교차셀을 매핑셀로 지정할까요?'
+    let description = qty > 0
+      ? '지정하면 이 U상품 판매가 선택한 L상품의 총판매, 매출, 수식에 포함됩니다.'
+      : '지정하면 수량 0인 매핑셀로 표시되고, 수량이 0이어도 총판매/매출 수식 항에 포함됩니다.'
+    let confirmLabel = '매핑셀로 지정'
+    let actionTone: PendingLuAction['actionTone'] = 'primary'
+
+    if (isBaseMapped) {
+      title = '기본 매핑셀을 해제할까요?'
+      description = '기본 규칙을 삭제하지 않고 사용자 변경사항으로만 비활성화합니다. 해제하면 이 U항은 총판매/매출/수식에서 제외됩니다.'
+      confirmLabel = '매핑셀 해제'
+      actionTone = 'danger'
+    } else if (isManualMapped) {
+      title = '사용자 지정 매핑셀을 취소할까요?'
+      description = '이 셀은 미지정 상태로 돌아가며, 총판매/매출/수식에서 제외됩니다.'
+      confirmLabel = '지정 취소'
+      actionTone = 'danger'
+    } else if (isChangingTarget) {
+      title = '이 U상품의 매핑 대상을 변경할까요?'
+      description = `현재 매핑 대상(${existingRule.lProduct}${existingRule.lVariant ? `/${existingRule.lVariant}` : ''})은 해제되고, 선택한 셀만 매핑셀로 지정됩니다.`
+      confirmLabel = '변경'
+    }
+
+    setPendingLuAction({
+      ...target,
+      title,
+      description,
+      confirmLabel,
+      actionTone,
+      uLabel: context.uLabel,
+      lLabel: context.lLabel,
+      qty,
+      price,
+      revenueImpact: qty * price,
+    })
+  }
+
+  const confirmPendingLuAction = () => {
+    if (!pendingLuAction) return
+    toggleLuCell(pendingLuAction)
+    setPendingLuAction(null)
   }
 
   const getCellSelectionClass = (rowKey: string, colKey: string) => {
@@ -1872,13 +1982,23 @@ export function ExcelOrderView() {
                                      })
                                    }
                                    onDoubleClick={() =>
-                                     toggleLuCell(
-                                       U_COLUMNS[idx]?.uProduct ?? '',
-                                       U_COLUMNS[idx]?.uVariant ?? '',
-                                       g.product_code,
-                                       targetLVariant,
-                                       parentHasLVariants && hasVariantRows ? 0 : null,
-                                       parentHasLVariants,
+                                     requestLuCellToggle(
+                                       {
+                                         uProduct: U_COLUMNS[idx]?.uProduct ?? '',
+                                         uVariant: U_COLUMNS[idx]?.uVariant ?? '',
+                                         lProduct: g.product_code,
+                                         lVariant: targetLVariant,
+                                         lVariantIndex: parentHasLVariants && hasVariantRows ? 0 : null,
+                                         hasLVariants: parentHasLVariants,
+                                       },
+                                       {
+                                         uLabel: `${U_COLUMNS[idx]?.uProduct ?? ''} / ${U_COLUMNS[idx]?.uVariant ?? ''}`,
+                                         lLabel: hasVariantRows
+                                           ? `${g.product_code} / ${firstVariantSuffix || '-'}`
+                                           : g.product_code,
+                                         qty: q > 0 ? q : (uDirectQtyByColumn[idx]?.qty ?? 0),
+                                         price: g.mappingPriceByColumn[idx] ?? 0,
+                                       },
                                      )
                                    }
                                    data-row-key={rowKey}
@@ -2063,13 +2183,21 @@ export function ExcelOrderView() {
                                         })
                                       }
                                       onDoubleClick={() =>
-                                        toggleLuCell(
-                                          U_COLUMNS[cellIdx]?.uProduct ?? '',
-                                          U_COLUMNS[cellIdx]?.uVariant ?? '',
-                                          g.product_code,
-                                          targetLVariant,
-                                          idx,
-                                          !!g.is_multi || g.variants.length > 1,
+                                        requestLuCellToggle(
+                                          {
+                                            uProduct: U_COLUMNS[cellIdx]?.uProduct ?? '',
+                                            uVariant: U_COLUMNS[cellIdx]?.uVariant ?? '',
+                                            lProduct: g.product_code,
+                                            lVariant: targetLVariant,
+                                            lVariantIndex: idx,
+                                            hasLVariants: !!g.is_multi || g.variants.length > 1,
+                                          },
+                                          {
+                                            uLabel: `${U_COLUMNS[cellIdx]?.uProduct ?? ''} / ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`,
+                                            lLabel: `${g.product_code} / ${suffix || '-'}`,
+                                            qty: q > 0 ? q : (uDirectQtyByColumn[cellIdx]?.qty ?? 0),
+                                            price: g.variantMappingPriceByColumn[idx]?.[cellIdx] ?? 0,
+                                          },
                                         )
                                       }
                                       data-row-key={variantRowKey}
@@ -2439,6 +2567,58 @@ export function ExcelOrderView() {
           </div>
         </div>
       )}
+
+      {pendingLuAction ? (
+        <div className="lu-confirm-backdrop" role="presentation">
+          <div
+            className="lu-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lu-confirm-title"
+          >
+            <h2 id="lu-confirm-title">{pendingLuAction.title}</h2>
+            <p className="lu-confirm-desc">{pendingLuAction.description}</p>
+            <dl className="lu-confirm-details">
+              <div>
+                <dt>U상품/옵션</dt>
+                <dd>{pendingLuAction.uLabel}</dd>
+              </div>
+              <div>
+                <dt>L상품/옵션</dt>
+                <dd>{pendingLuAction.lLabel}</dd>
+              </div>
+              <div>
+                <dt>반영 수량</dt>
+                <dd>{fmtNumber(pendingLuAction.qty)}</dd>
+              </div>
+              <div>
+                <dt>U 단가</dt>
+                <dd>{pendingLuAction.price > 0 ? fmtCurrency(pendingLuAction.price, currency) : '단가미확인'}</dd>
+              </div>
+              <div>
+                <dt>예상 매출 반영</dt>
+                <dd>{pendingLuAction.price > 0 ? fmtCurrency(pendingLuAction.revenueImpact, currency) : '단가미확인'}</dd>
+              </div>
+            </dl>
+            <div className="lu-confirm-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPendingLuAction(null)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className={`btn ${pendingLuAction.actionTone === 'danger' ? 'btn-danger' : 'btn-primary'}`}
+                onClick={confirmPendingLuAction}
+              >
+                {pendingLuAction.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <VersionFooter />
     </div>
