@@ -155,8 +155,21 @@
 .excel-table .sticky-option-name { left: 278px; z-index: 4; min-width: 110px; }
 .excel-table .sticky-price { left: 388px; z-index: 4; min-width: 68px; }
 .excel-table .sticky-direct { left: 456px; z-index: 4; min-width: 64px; }
-.excel-table .sticky-total { right: 118px; z-index: 3; min-width: 84px; }
-.excel-table .sticky-rev { right: 0; z-index: 3; min-width: 108px; }
+.excel-table .sticky-total {
+  right: 138px;
+  z-index: 3;
+  min-width: 102px;
+  border-left: 2px solid var(--c-sum-border);
+  box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.18);
+  padding-left: 8px;
+  background: #fffbeb;
+}
+.excel-table .sticky-rev {
+  right: 0;
+  z-index: 3;
+  min-width: 142px;
+  padding-left: 8px;
+}
 .excel-table .matrix-variant,
 .excel-table .variant-label,
 .excel-table .matrix-label {
@@ -191,10 +204,27 @@
   margin-top: 2px;
   display: block;
 }
+.excel-table thead tr:first-child th.sticky-total,
+.excel-table thead tr:first-child th.sticky-rev,
+.excel-table tbody tr td:nth-last-child(2),
+.excel-table tbody tr td:last-child,
+.excel-table tfoot tr td:nth-last-child(2),
+.excel-table tfoot tr td:last-child {
+  border-left: 2px solid var(--c-sum-border);
+}
 .excel-table .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
   word-break: keep-all;
+}
+.excel-table thead tr:first-child th.sticky-total,
+.excel-table thead tr:first-child th.sticky-rev {
+  background: var(--c-sum-bg);
+  color: var(--c-sum-text);
+}
+.excel-table tbody tr td:nth-last-child(2),
+.excel-table tbody tr td:last-child {
+  background: #fffaf0;
 }
 .excel-table tbody tr:hover { background: var(--c-row-hover); }
 .excel-table tbody tr.u-direct-row td {
