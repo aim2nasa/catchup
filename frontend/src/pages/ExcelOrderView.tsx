@@ -1519,31 +1519,84 @@ export function ExcelOrderView() {
 
   return (
     <div className="excel-container">
-      <header className="excel-header">
-        <a href="#" className="home-link">
-          ← 홈
-        </a>
-        <h1>하드왁스</h1>
-      </header>
+      <div className="excel-sticky-top">
+        <header className="excel-header">
+          <a href="#" className="home-link">
+            ← 홈
+          </a>
+          <h1>하드왁스</h1>
+        </header>
 
-      <div className="filters card">
-        <div className="filter-row">
-          <DateFilter
-            start={start}
-            end={end}
-            onStartChange={handleStartChange}
-            onEndChange={setEnd}
-            endMin={start}
-          />
-          <div className="filter-spacer" />
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleRun}
-            disabled={isRunning}
-          >
-            {isRunning ? '조회 중…' : '조회'}
-          </button>
+        <div className="filters card">
+          <div className="filter-row hardwax-filter-row">
+            <DateFilter
+              start={start}
+              end={end}
+              onStartChange={handleStartChange}
+              onEndChange={setEnd}
+              endMin={start}
+            />
+            {dataReady ? (
+              <div className="hardwax-filter-status">
+                <span className="excel-period">
+                  {state.data!.start} ~ {state.data!.end}
+                </span>
+                <div className="excel-selection-indicator">
+                  {selectedCell ? (
+                    <span
+                      className="selection-coordinates selection-copy-trigger"
+                      role="button"
+                      tabIndex={0}
+                      title="좌표 복사"
+                      onClick={handleCopySelection}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          handleCopySelection()
+                        }
+                      }}
+                    >
+                      <span className="selection-pin">📍</span>
+                      <span className="selection-item">
+                        <span className="selection-dot selection-dot-row" aria-hidden="true" />
+                        {`R${rowCoordinates.get(selectedCell.rowKey) ?? '-'}`}
+                      </span>
+                      <span className="selection-separator" aria-hidden="true">
+                        |
+                      </span>
+                      <span className="selection-item">
+                        <span className="selection-dot selection-dot-col" aria-hidden="true" />
+                        {`C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
+                      </span>
+                      {copyToast ? <span className="selection-copy-toast">{copyToast}</span> : null}
+                    </span>
+                  ) : (
+                    <span className="selection-empty">
+                      <span className="selection-pin">📍</span>
+                      <span>선택 없음</span>
+                    </span>
+                  )}
+                  {selectedCell ? (
+                    <span className="selection-formula">
+                      <span className="selection-item">수식:</span>
+                      <span className="selection-formula-value">
+                        {selectedFormulaText || '값 셀'}
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            <div className="filter-spacer" />
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleRun}
+              disabled={isRunning}
+            >
+              {isRunning ? '조회 중…' : '조회'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1551,55 +1604,6 @@ export function ExcelOrderView() {
 
       {dataReady && (
         <div className="excel-section card">
-          <div className="excel-cat-label">
-            <span className="excel-period">
-              {state.data!.start} ~ {state.data!.end}
-            </span>
-          </div>
-          <div className="excel-selection-indicator">
-            {selectedCell ? (
-              <span
-                className="selection-coordinates selection-copy-trigger"
-                role="button"
-                tabIndex={0}
-                title="좌표 복사"
-                onClick={handleCopySelection}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    handleCopySelection()
-                  }
-                }}
-              >
-                <span className="selection-pin">📍</span>
-                <span className="selection-item">
-                  <span className="selection-dot selection-dot-row" aria-hidden="true" />
-                  {`R${rowCoordinates.get(selectedCell.rowKey) ?? '-'}`}
-                </span>
-                <span className="selection-separator" aria-hidden="true">
-                  |
-                </span>
-                <span className="selection-item">
-                  <span className="selection-dot selection-dot-col" aria-hidden="true" />
-                  {`C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
-                </span>
-                {copyToast ? <span className="selection-copy-toast">{copyToast}</span> : null}
-              </span>
-            ) : (
-              <span className="selection-empty">
-                <span className="selection-pin">📍</span>
-                <span>선택 없음</span>
-              </span>
-            )}
-            {selectedCell ? (
-              <span className="selection-formula">
-                <span className="selection-item">수식:</span>
-                <span className="selection-formula-value">
-                  {selectedFormulaText || '값 셀'}
-                </span>
-              </span>
-            ) : null}
-          </div>
           <div
             className="excel-horizontal-scrollbar-top"
             ref={topScrollbarRef}
