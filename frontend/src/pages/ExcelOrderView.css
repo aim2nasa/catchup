@@ -88,6 +88,26 @@
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
 }
 
+.selection-copy-trigger {
+  cursor: pointer;
+}
+
+.selection-copy-trigger:hover {
+  color: var(--c-text);
+}
+
+.selection-copy-trigger .selection-copy-toast {
+  margin-left: 6px;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .selection-pin {
   font-size: 12px;
 }

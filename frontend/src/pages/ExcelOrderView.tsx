@@ -311,6 +311,8 @@ export function ExcelOrderView() {
   const bottomSyncRef = useRef(false)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
+  const [copyToast, setCopyToast] = useState<string | null>(null)
+  const copyTimerRef = useRef<number | null>(null)
 
   const handleCellSelect = (meta: CellSelectionMeta) => {
     setSelectedCell((prev) =>
@@ -602,6 +604,14 @@ export function ExcelOrderView() {
     return map
   }, [])
 
+  const selectedCoordinateText = useMemo(() => {
+    if (!selectedCell) return null
+    const rowNo = rowCoordinates.get(selectedCell.rowKey)
+    const colNo = colCoordinates.get(selectedCell.colKey)
+    if (rowNo == null || colNo == null) return null
+    return `R${rowNo}/C${colNo}`
+  }, [selectedCell, colCoordinates, rowCoordinates])
+
   const currency = state.data?.grand.currency ?? 'KRW'
   const isRunning = state.status === 'running'
   const dataReady = !!state.data
@@ -619,6 +629,31 @@ export function ExcelOrderView() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current)
+      }
+    }
+  }, [])
+
+  const handleCopySelection = async () => {
+    if (!selectedCoordinateText) return
+    try {
+      await navigator.clipboard.writeText(selectedCoordinateText)
+      setCopyToast('복사됨')
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current)
+      }
+      copyTimerRef.current = window.setTimeout(() => {
+        setCopyToast(null)
+      }, 1000)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('복사 실패', error)
+    }
+  }
 
   const updateTopScrollbarWidth = () => {
     const table = tableRef.current
@@ -722,7 +757,19 @@ export function ExcelOrderView() {
           </div>
           <div className="excel-selection-indicator">
             {selectedCell ? (
-              <span className="selection-coordinates">
+              <span
+                className="selection-coordinates selection-copy-trigger"
+                role="button"
+                tabIndex={0}
+                title="좌표 복사"
+                onClick={handleCopySelection}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    handleCopySelection()
+                  }
+                }}
+              >
                 <span className="selection-pin">📍</span>
                 <span className="selection-item">
                   <span className="selection-dot selection-dot-row" aria-hidden="true" />
@@ -735,6 +782,7 @@ export function ExcelOrderView() {
                   <span className="selection-dot selection-dot-col" aria-hidden="true" />
                   {`C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
                 </span>
+                {copyToast ? <span className="selection-copy-toast">{copyToast}</span> : null}
               </span>
             ) : (
               <span className="selection-empty">
