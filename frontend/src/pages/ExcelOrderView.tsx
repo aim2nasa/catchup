@@ -1566,7 +1566,7 @@ export function ExcelOrderView() {
                         </td>
                       </tr>
                     )}
-                    {grp.label === '500g 총합계' ? (
+                    {grp.label === '500g 총합계' || grp.label === '1kg 총합계' ? (
                       <tr className="section-separator-row">
                         <td colSpan={totalColumnCount} className="section-separator-cell" />
                       </tr>
