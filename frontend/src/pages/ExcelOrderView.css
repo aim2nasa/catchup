@@ -520,6 +520,21 @@
 .variant-code-cell {
   color: #0f172a;
 }
+.product-merge-cell {
+  vertical-align: middle;
+}
+.product-merge-start .product-merge-cell {
+  border-bottom-color: transparent;
+}
+.product-merge-child .product-merge-cell {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  color: transparent;
+}
+.product-merge-child + :not(.product-merge-child) .product-merge-cell,
+.product-merge-child:last-child .product-merge-cell {
+  border-bottom-color: var(--c-border);
+}
 .variant-cell {
   color: #0f172a;
   padding-left: 10px;

@@ -1924,10 +1924,10 @@ export function ExcelOrderView() {
                         return (
                        <Fragment key={gid}>
                          <tr
-                           className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent' : 'row-single'}`.trim()}
+                           className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent product-merge-start' : 'row-single'}`.trim()}
                           >
                            <td
-                             className={`code-cell sticky sticky-code ${getCellSelectionClass(rowKey, 'A:상품코드')}`}
+                             className={`code-cell sticky sticky-code product-merge-cell ${getCellSelectionClass(rowKey, 'A:상품코드')}`}
                              onClick={() =>
                                handleCellSelect({
                                  rowKey,
@@ -1946,7 +1946,7 @@ export function ExcelOrderView() {
                              {g.product_code}
                            </td>
                            <td
-                             className={`name-cell sticky sticky-name ${getCellSelectionClass(rowKey, 'A:상품명')}`}
+                             className={`name-cell sticky sticky-name product-merge-cell ${getCellSelectionClass(rowKey, 'A:상품명')}`}
                              onClick={() =>
                                handleCellSelect({
                                  rowKey,
@@ -2127,10 +2127,10 @@ export function ExcelOrderView() {
                             return (
                               <tr
                                 key={`${g.product_code}-${v.variant_code}`}
-                                className="row-child variant-row"
+                                className="row-child variant-row product-merge-child"
                               >
                                 <td
-                                  className={`code-cell sticky sticky-code variant-code-cell ${getCellSelectionClass(variantRowKey, 'A:상품코드')}`}
+                                  className={`code-cell sticky sticky-code variant-code-cell product-merge-cell ${getCellSelectionClass(variantRowKey, 'A:상품코드')}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey: variantRowKey,
@@ -2147,7 +2147,7 @@ export function ExcelOrderView() {
                                   {' '}
                                 </td>
                                 <td
-                                  className={`name-cell sticky sticky-name variant-name-cell ${getCellSelectionClass(variantRowKey, 'A:상품명')}`}
+                                  className={`name-cell sticky sticky-name variant-name-cell product-merge-cell ${getCellSelectionClass(variantRowKey, 'A:상품명')}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey: variantRowKey,
