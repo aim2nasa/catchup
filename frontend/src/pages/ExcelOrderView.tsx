@@ -10,6 +10,14 @@ import './ExcelOrderView.css'
 
 type CellState = 'mapped' | 'unmapped' | 'excluded'
 
+type LuRuleOverride = {
+  action: 'add' | 'remove'
+  uProduct: string
+  uVariant: string
+  lProduct: string
+  lVariant?: string
+}
+
 type RevenueFormulaTerm = {
   uColOffset: number
   unitPrice: number
@@ -111,6 +119,19 @@ interface MappingRule {
   lProduct: string
   lVariant?: string
   ratio: number
+}
+
+function makeUCellKey(uProduct: string, uVariant: string) {
+  return `${normalizeProductCode(uProduct)}${COLUMN_KEY_DELIM}${normalizeVariantCode(uVariant)}`
+}
+
+function makeLuCellKey(rule: Pick<MappingRule, 'uProduct' | 'uVariant' | 'lProduct' | 'lVariant'>) {
+  return [
+    normalizeProductCode(rule.uProduct),
+    normalizeVariantCode(rule.uVariant),
+    normalizeProductCode(rule.lProduct),
+    normalizeVariantCode(rule.lVariant ?? ''),
+  ].join(COLUMN_KEY_DELIM)
 }
 
 const L_GROUPS: LGroup[] = [
@@ -267,7 +288,7 @@ const U_VARIANT_INDEX_BY_KEY = new Map<string, number>()
 
 const uVariantIndexes = new Map<string, number>()
 for (const rule of RULES) {
-  const key = `${rule.uProduct}${COLUMN_KEY_DELIM}${rule.uVariant}`
+  const key = makeUCellKey(rule.uProduct, rule.uVariant)
   const existing = RULE_BY_KEY.get(key)
   if (existing) {
     existing.push(rule)
@@ -276,7 +297,7 @@ for (const rule of RULES) {
   RULE_BY_KEY.set(key, [rule])
 }
 for (const col of U_COLUMNS) {
-  const key = `${col.uProduct}${COLUMN_KEY_DELIM}${col.uVariant}`
+  const key = makeUCellKey(col.uProduct, col.uVariant)
   const nextIndex = (uVariantIndexes.get(col.uProduct) ?? 0) + 1
   U_VARIANT_INDEX_BY_KEY.set(key, nextIndex - 1)
   uVariantIndexes.set(col.uProduct, nextIndex)
@@ -290,6 +311,10 @@ const SCREEN_COL_OFFSET = 8
 const U_START_EXCEL_COL = 7
 const DIRECT_EXCEL_COLUMN = 4
 const PRICE_EXCEL_COLUMN = 6
+
+function normalizeVariantCode(code: string) {
+  return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
 
 function normalizeProductCode(code: string) {
   return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -474,6 +499,47 @@ function getRuleMatchQty(
   return { qty: totalQty, rev: totalRev }
 }
 
+function makeOverrideRule(override: LuRuleOverride): MappingRule {
+  return {
+    uProduct: normalizeProductCode(override.uProduct),
+    uVariant: normalizeVariantCode(override.uVariant),
+    lProduct: normalizeProductCode(override.lProduct),
+    lVariant: override.lVariant ? normalizeVariantCode(override.lVariant) : undefined,
+    ratio: 1,
+  }
+}
+
+function makeEffectiveRuleMap(overrides: LuRuleOverride[]) {
+  if (overrides.length === 0) return RULE_BY_KEY
+
+  const addByUKey = new Map<string, MappingRule>()
+  const removedCells = new Set<string>()
+
+  overrides.forEach((override) => {
+    if (override.action === 'add') {
+      const rule = makeOverrideRule(override)
+      addByUKey.set(makeUCellKey(rule.uProduct, rule.uVariant), rule)
+      return
+    }
+    removedCells.add(makeLuCellKey(override))
+  })
+
+  const result = new Map<string, MappingRule[]>()
+  RULE_BY_KEY.forEach((rules, uKey) => {
+    const addRule = addByUKey.get(uKey)
+    if (addRule) {
+      result.set(uKey, [addRule])
+      return
+    }
+    const activeRules = rules.filter((rule) => !removedCells.has(makeLuCellKey(rule)))
+    if (activeRules.length > 0) result.set(uKey, activeRules)
+  })
+  addByUKey.forEach((rule, uKey) => {
+    if (!result.has(uKey)) result.set(uKey, [rule])
+  })
+  return result
+}
+
 function buildCellFormula(
   rowMeta: RowFormulaMeta,
   colMeta: ColFormulaMeta,
@@ -581,8 +647,10 @@ export function ExcelOrderView() {
   const bottomSyncRef = useRef(false)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
+  const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
   const [copyToast, setCopyToast] = useState<string | null>(null)
   const copyTimerRef = useRef<number | null>(null)
+  const effectiveRuleMap = useMemo(() => makeEffectiveRuleMap(luOverrides), [luOverrides])
 
   const handleCellSelect = (meta: CellSelectionMeta) => {
     setSelectedCell((prev) => {
@@ -608,6 +676,84 @@ export function ExcelOrderView() {
   }
 
   const clearSelection = () => setSelectedCell(null)
+
+  const toggleLuCell = (
+    uProduct: string,
+    uVariant: string,
+    lProduct: string,
+    lVariant: string | null,
+    lVariantIndex: number | null,
+    hasLVariants: boolean,
+  ) => {
+    if (EXCLUDED_U_PRODUCTS.has(uProduct)) return
+    const targetRule = makeOverrideRule({
+      action: 'add',
+      uProduct,
+      uVariant,
+      lProduct,
+      lVariant: lVariant ?? undefined,
+    })
+    const uKey = makeUCellKey(targetRule.uProduct, targetRule.uVariant)
+    const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(uKey) ?? null
+    const currentRules = effectiveRuleMap.get(uKey) ?? []
+    const isCurrentTarget = hasRuleMatch(
+      currentRules,
+      targetRule.lProduct,
+      targetRule.lVariant ?? null,
+      lVariantIndex,
+      ruleUVariantIndex,
+      hasLVariants,
+    )
+    const baseRules = RULE_BY_KEY.get(uKey) ?? []
+    const matchingBaseRules = baseRules.filter((rule) => hasRuleMatch(
+      [rule],
+      targetRule.lProduct,
+      targetRule.lVariant ?? null,
+      lVariantIndex,
+      ruleUVariantIndex,
+      hasLVariants,
+    ))
+
+    setLuOverrides((prev) => {
+      const withoutUCellOverrides = prev.filter((override) =>
+        makeUCellKey(override.uProduct, override.uVariant) !== uKey
+      )
+
+      if (isCurrentTarget) {
+        if (matchingBaseRules.length === 0) return withoutUCellOverrides
+        return [
+          ...withoutUCellOverrides,
+          ...matchingBaseRules.map((rule): LuRuleOverride => ({
+            action: 'remove',
+            uProduct: rule.uProduct,
+            uVariant: rule.uVariant,
+            lProduct: rule.lProduct,
+            lVariant: rule.lVariant,
+          })),
+        ]
+      }
+
+      const removals = baseRules.map((rule): LuRuleOverride => ({
+        action: 'remove',
+        uProduct: rule.uProduct,
+        uVariant: rule.uVariant,
+        lProduct: rule.lProduct,
+        lVariant: rule.lVariant,
+      }))
+
+      return [
+        ...withoutUCellOverrides,
+        ...removals,
+        {
+          action: 'add',
+          uProduct: targetRule.uProduct,
+          uVariant: targetRule.uVariant,
+          lProduct: targetRule.lProduct,
+          lVariant: targetRule.lVariant,
+        },
+      ]
+    })
+  }
 
   const getCellSelectionClass = (rowKey: string, colKey: string) => {
     if (!selectedCell) return ''
@@ -683,8 +829,8 @@ export function ExcelOrderView() {
       const variantMappingHasRuleByColumn = variants.map(() => Array(U_COLUMNS.length).fill(false))
 
       U_COLUMNS.forEach((col, idx) => {
-        const key = `${col.uProduct}${COLUMN_KEY_DELIM}${col.uVariant}`
-        const rule = RULE_BY_KEY.get(key)
+        const key = makeUCellKey(col.uProduct, col.uVariant)
+        const rule = effectiveRuleMap.get(key)
         const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(key) ?? null
 
         const uGroup = byCode.get(normalizeProductCode(col.uProduct))
@@ -900,7 +1046,7 @@ export function ExcelOrderView() {
         ),
       }
     })
-  }, [allGroups])
+  }, [allGroups, effectiveRuleMap])
 
   const totalQty = groupRows.reduce(
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalQty),
@@ -1583,6 +1729,7 @@ export function ExcelOrderView() {
                          const remainingVariants = hasVariantRows ? g.variants.slice(1) : []
                          const rowKey = `parent:${grp.label}:${g.product_code}`
                          const rowLabel = rowHeaderLabelByCode(g.product_code, g.product_name)
+                         const parentHasLVariants = !!g.is_multi || g.variants.length > 1
                          const parentQtyByColumn = hasVariantRows
                            ? g.mappingQtyByColumn.map((q, idx) => {
                             const mappedFirstVariantQty = g.variantMappingQtyByColumn[0]?.[idx] ?? 0
@@ -1708,24 +1855,35 @@ export function ExcelOrderView() {
                              {g.missing ? '—' : fmtNumber(firstVariantDirectQty)}
                            </td>
                            {parentQtyByColumn.map((q, idx) => {
-                              const state = parentStateByColumn[idx]
-                              const colKey = `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`
-                              const colLabel = `U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()
-                              return (
-                                <td
-                                  key={`${g.product_code}-${idx}`}
+                               const state = parentStateByColumn[idx]
+                               const colKey = `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`
+                               const colLabel = `U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()
+                               const targetLVariant = parentHasLVariants && hasVariantRows ? firstVariantSuffix || null : null
+                               return (
+                                 <td
+                                   key={`${g.product_code}-${idx}`}
                                   className={`${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey,
                                       rowLabel,
                                       colKey,
-                                      colLabel,
-                                    })
-                                  }
-                                  data-row-key={rowKey}
-                                  data-col-key={colKey}
-                                  data-row-label={rowLabel}
+                                       colLabel,
+                                     })
+                                   }
+                                   onDoubleClick={() =>
+                                     toggleLuCell(
+                                       U_COLUMNS[idx]?.uProduct ?? '',
+                                       U_COLUMNS[idx]?.uVariant ?? '',
+                                       g.product_code,
+                                       targetLVariant,
+                                       parentHasLVariants && hasVariantRows ? 0 : null,
+                                       parentHasLVariants,
+                                     )
+                                   }
+                                   data-row-key={rowKey}
+                                   data-col-key={colKey}
+                                   data-row-label={rowLabel}
                                   data-col-label={colLabel}
                                 >
                                   {state !== 'excluded' &&
@@ -1891,6 +2049,7 @@ export function ExcelOrderView() {
                                   const state = g.variantMappingStateByColumn[idx]?.[cellIdx] ?? 'unmapped'
                                   const colKey = `B:${U_COLUMNS[cellIdx]?.uProduct ?? ''}-${U_COLUMNS[cellIdx]?.uVariant ?? cellIdx}`
                                   const colLabel = `U상품 ${U_COLUMNS[cellIdx]?.uProduct ?? ''} ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`.trim()
+                                  const targetLVariant = suffix || null
                                   return (
                                     <td
                                       key={`${g.product_code}-${v.variant_code}-map-${cellIdx}`}
@@ -1902,6 +2061,16 @@ export function ExcelOrderView() {
                                           colKey,
                                           colLabel,
                                         })
+                                      }
+                                      onDoubleClick={() =>
+                                        toggleLuCell(
+                                          U_COLUMNS[cellIdx]?.uProduct ?? '',
+                                          U_COLUMNS[cellIdx]?.uVariant ?? '',
+                                          g.product_code,
+                                          targetLVariant,
+                                          idx,
+                                          !!g.is_multi || g.variants.length > 1,
+                                        )
                                       }
                                       data-row-key={variantRowKey}
                                       data-col-key={colKey}
