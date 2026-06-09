@@ -17,6 +17,7 @@ interface Row {
   is_multi: boolean
   qty: number
   rev: number
+  directQtyForSummary: number
   subtotalQtyForSummary: number
   subtotalRevForSummary: number
   missing: boolean
@@ -36,6 +37,7 @@ interface GroupRows {
   rows: Row[]
   subtotalQty: number
   subtotalRev: number
+  subtotalDirectQty: number
   subtotalMappingQtyByColumn: number[]
   subtotalMappingRevByColumn: number[]
 }
@@ -299,10 +301,6 @@ function getRuleMatchQty(
   return { qty: totalQty, rev: totalRev }
 }
 
-const CUPBIZ_PRODUCT_CODES = new Set(
-  L_GROUPS.find((g) => g.label === '컵비즈')?.codes ?? [],
-)
-
 export function ExcelOrderView() {
   const { settings, setStart, setEnd } = useSettings()
   const { start, end } = settings
@@ -376,7 +374,6 @@ export function ExcelOrderView() {
 
   const groupRows = useMemo<GroupRows[]>(() => {
     const byCode = new Map(allGroups.map((g) => [g.product_code, g]))
-
     const buildRow = (code: string): Row => {
       const g = byCode.get(code)
       const variants = g?.variants ?? []
@@ -464,6 +461,8 @@ export function ExcelOrderView() {
         const mappedRev = variantMappingRevByColumn[variantIdx]?.reduce((s, q) => s + q, 0) ?? 0
         return variantSum + directRev + mappedRev
       }, 0)
+      const directQtyForSummary = variants.reduce((sum, variant) => sum + (variant.qty ?? 0), 0)
+      const directQtyFallback = g ? (hasVariantRows ? directQtyForSummary : (g.qty ?? 0)) : 0
       // 부모행은 부모 직접판매 + 부모 매핑/대표옵션 매핑 값만 반영한다.
       const subtotalQty = directQty + mappingQtyByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedQty
       const subtotalRev = directRev + mappingRevByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedRev
@@ -478,6 +477,7 @@ export function ExcelOrderView() {
           is_multi: g.is_multi,
           qty: subtotalQty,
           rev: subtotalRev,
+          directQtyForSummary: directQtyFallback,
           subtotalQtyForSummary: summaryQty,
           subtotalRevForSummary: summaryRev,
           missing: false,
@@ -499,6 +499,7 @@ export function ExcelOrderView() {
         is_multi: false,
           qty: subtotalQty,
           rev: subtotalRev,
+          directQtyForSummary: directQtyFallback,
           subtotalQtyForSummary: summaryQty,
           subtotalRevForSummary: summaryRev,
         missing: true,
@@ -517,13 +518,17 @@ export function ExcelOrderView() {
     L_GROUPS.flatMap((g) => g.codes).forEach((code) => {
       lRowsByCode.set(code, buildRow(code))
     })
-    const cupbizRows = Array.from(CUPBIZ_PRODUCT_CODES)
+    const cupbizGroup = L_GROUPS.find((g) => g.label === '컵비즈')
+    const cupbizSubtotalRows = (cupbizGroup?.codes ?? [])
       .map((code) => lRowsByCode.get(code))
-      .filter((r): r is Row => r != null)
+      .filter((row): row is Row => !!row)
 
     return L_GROUPS.map((group) => {
       const rows: Row[] = group.codes.map((code) => lRowsByCode.get(code) ?? buildRow(code))
-      const subtotalSourceRows = group.label === '1kg 총합계' ? [...rows, ...cupbizRows] : rows
+      const subtotalSourceRows =
+        group.label === '1kg 총합계'
+          ? [...rows, ...cupbizSubtotalRows]
+          : rows
 
       return {
         label: group.label,
@@ -531,6 +536,7 @@ export function ExcelOrderView() {
         rows,
         subtotalQty: subtotalSourceRows.reduce((s, r) => s + r.subtotalQtyForSummary, 0),
         subtotalRev: subtotalSourceRows.reduce((s, r) => s + r.subtotalRevForSummary, 0),
+        subtotalDirectQty: subtotalSourceRows.reduce((s, r) => s + r.directQtyForSummary, 0),
         subtotalMappingQtyByColumn: Array.from({ length: U_COLUMNS.length }, (_, idx) =>
           subtotalSourceRows.reduce((s, r) => {
             const parentQty = r.mappingQtyByColumn[idx] ?? 0
@@ -561,6 +567,10 @@ export function ExcelOrderView() {
   )
   const totalRev = groupRows.reduce(
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalRev),
+    0,
+  )
+  const totalDirectQty = groupRows.reduce(
+    (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalDirectQty),
     0,
   )
   const totalColumnCount = 6 + U_COLUMNS.length + 2
@@ -1497,7 +1507,9 @@ export function ExcelOrderView() {
                           data-col-key="A:직접판매"
                           data-row-label={grp.label}
                           data-col-label="직접판매"
-                        />
+                        >
+                          {fmtNumber(grp.subtotalDirectQty)}
+                        </td>
                         {grp.subtotalMappingQtyByColumn.map((q, idx) => (
                           <td
                             key={`subtotal-${grp.label}-${idx}`}
@@ -1655,7 +1667,9 @@ export function ExcelOrderView() {
                         data-col-key="A:직접판매"
                         data-row-label="합계"
                         data-col-label="직접판매"
-                      />
+                      >
+                        {fmtNumber(totalDirectQty)}
+                      </td>
                       {totalMappingQtyByColumn.map((q, idx) => (
                         <td
                           key={`total-${idx}`}
