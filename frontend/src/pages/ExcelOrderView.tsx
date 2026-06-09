@@ -38,6 +38,13 @@ interface GroupRows {
   subtotalMappingRevByColumn: number[]
 }
 
+type CellSelectionMeta = {
+  rowKey: string
+  rowLabel: string
+  colKey: string
+  colLabel: string
+}
+
 type LGroup = {
   label: string
   codes: string[]
@@ -303,6 +310,25 @@ export function ExcelOrderView() {
   const topScrollbarRef = useRef<HTMLDivElement>(null)
   const bottomSyncRef = useRef(false)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
+  const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
+
+  const handleCellSelect = (meta: CellSelectionMeta) => {
+    setSelectedCell((prev) =>
+      prev && prev.rowKey === meta.rowKey && prev.colKey === meta.colKey ? null : meta,
+    )
+  }
+
+  const clearSelection = () => setSelectedCell(null)
+
+  const getCellSelectionClass = (rowKey: string, colKey: string) => {
+    if (!selectedCell) return ''
+    if (selectedCell.rowKey === rowKey && selectedCell.colKey === colKey) return 'excel-cell-selected'
+    if (selectedCell.rowKey === rowKey) return 'excel-row-selected'
+    if (selectedCell.colKey === colKey) return 'excel-col-selected'
+    return ''
+  }
+
+  const rowHeaderLabelByCode = (code: string, name: string) => `${code} / ${name}`
 
   function handleStartChange(newStart: string) {
     setStart(newStart)
@@ -535,9 +561,64 @@ export function ExcelOrderView() {
     ),
   )
 
+  const rowCoordinates = useMemo(() => {
+    const map = new Map<string, number>()
+    let rowIndex = 1
+
+    map.set('hardwax-u-direct', rowIndex++)
+
+    groupRows.forEach((grp) => {
+      grp.rows.forEach((row) => {
+        const parentKey = `parent:${grp.label}:${row.product_code}`
+        map.set(parentKey, rowIndex++)
+        if (row.variants.length > 1) {
+          row.variants.slice(1).forEach((variant) => {
+            const variantKey = `variant:${row.product_code}:${variant.variant_code}`
+            map.set(variantKey, rowIndex++)
+          })
+        }
+      })
+      if (grp.withSubtotal !== false) {
+        map.set(`subtotal:${grp.label}`, rowIndex++)
+      }
+    })
+
+    map.set('total:grand', rowIndex++)
+
+    return map
+  }, [groupRows])
+
+  const colCoordinates = useMemo(() => {
+    const map = new Map<string, number>()
+    let colIndex = 1
+    const aKeys: string[] = ['A:상품코드', 'A:상품명', 'A:코드', 'A:옵션명', 'A:단가', 'A:직접판매']
+    const cKeys: string[] = ['C:총판매', 'C:매출']
+
+    aKeys.forEach((key) => map.set(key, colIndex++))
+    U_COLUMNS.forEach((col) => map.set(`B:${col.uProduct}-${col.uVariant}`, colIndex++))
+    cKeys.forEach((key) => map.set(key, colIndex++))
+
+    return map
+  }, [])
+
   const currency = state.data?.grand.currency ?? 'KRW'
   const isRunning = state.status === 'running'
   const dataReady = !!state.data
+
+  useEffect(() => {
+    clearSelection()
+  }, [state.data])
+
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        clearSelection()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const updateTopScrollbarWidth = () => {
     const table = tableRef.current
     const wrap = tableWrapRef.current
@@ -638,6 +719,19 @@ export function ExcelOrderView() {
               <span className="lu-pill lu-pill--excluded">매핑(예외)</span>
             </span>
           </div>
+          <div className="excel-selection-indicator">
+            {selectedCell ? (
+              <>
+            <span>선택 행: {selectedCell.rowLabel}</span>
+            <span>선택 열: {selectedCell.colLabel}</span>
+            <span>
+              좌표: {`R${rowCoordinates.get(selectedCell.rowKey) ?? '-'} / C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
+            </span>
+          </>
+        ) : (
+              <span>선택 없음</span>
+            )}
+          </div>
           <div
             className="excel-horizontal-scrollbar-top"
             ref={topScrollbarRef}
@@ -710,33 +804,171 @@ export function ExcelOrderView() {
               </thead>
               <tbody>
                 <tr className="u-direct-row">
-                  <td className="num sticky sticky-code u-direct-label">U상품 판매수</td>
-                  <td className="sticky sticky-name" />
-                  <td className="sticky sticky-option-code" />
-                  <td className="sticky sticky-option-name" />
-                  <td className="num sticky sticky-price" />
-                  <td className="num sticky sticky-direct" />
+                  <td
+                    className={`num sticky sticky-code u-direct-label ${getCellSelectionClass('hardwax-u-direct', 'A:상품코드')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'A:상품코드',
+                        colLabel: '상품코드',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="A:상품코드"
+                    data-row-label="U상품 판매수"
+                    data-col-label="상품코드"
+                  >
+                    U상품 판매수
+                  </td>
+                  <td
+                    className={`sticky sticky-name ${getCellSelectionClass('hardwax-u-direct', 'A:상품명')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'A:상품명',
+                        colLabel: '상품명',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="A:상품명"
+                    data-row-label="U상품 판매수"
+                    data-col-label="상품명"
+                  />
+                  <td
+                    className={`sticky sticky-option-code ${getCellSelectionClass('hardwax-u-direct', 'A:코드')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'A:코드',
+                        colLabel: '코드',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="A:코드"
+                    data-row-label="U상품 판매수"
+                    data-col-label="코드"
+                  />
+                  <td
+                    className={`sticky sticky-option-name ${getCellSelectionClass('hardwax-u-direct', 'A:옵션명')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'A:옵션명',
+                        colLabel: '옵션명',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="A:옵션명"
+                    data-row-label="U상품 판매수"
+                    data-col-label="옵션명"
+                  />
+                  <td
+                    className={`num sticky sticky-price ${getCellSelectionClass('hardwax-u-direct', 'A:단가')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'A:단가',
+                        colLabel: '단가',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="A:단가"
+                    data-row-label="U상품 판매수"
+                    data-col-label="단가"
+                  />
+                  <td
+                    className={`num sticky sticky-direct ${getCellSelectionClass('hardwax-u-direct', 'A:직접판매')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'A:직접판매',
+                        colLabel: '직접판매',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="A:직접판매"
+                    data-row-label="U상품 판매수"
+                    data-col-label="직접판매"
+                  />
                   {uDirectQtyByColumn.map((item, idx) => (
-                    <td key={`u-direct-${idx}`} className="num">
+                    <td
+                      key={`u-direct-${idx}`}
+                      className={`num ${getCellSelectionClass(
+                        'hardwax-u-direct',
+                        `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`,
+                      )}`}
+                      onClick={() =>
+                        handleCellSelect({
+                          rowKey: 'hardwax-u-direct',
+                          rowLabel: 'U상품 판매수',
+                          colKey: `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`,
+                          colLabel: `U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim(),
+                        })
+                      }
+                      data-row-key="hardwax-u-direct"
+                      data-col-key={`B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`}
+                      data-row-label="U상품 판매수"
+                      data-col-label={`U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()}
+                    >
                       {item.excluded ? '' : fmtNumber(item.qty)}
                     </td>
                   ))}
-                  <td className="num sticky sticky-total">{fmtNumber(uDirectTotalQty)}</td>
-                  <td className="num sticky sticky-rev">{''}</td>
+                  <td
+                    className={`num sticky sticky-total ${getCellSelectionClass('hardwax-u-direct', 'C:총판매')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'C:총판매',
+                        colLabel: '총판매',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="C:총판매"
+                    data-row-label="U상품 판매수"
+                    data-col-label="총판매"
+                  >
+                    {fmtNumber(uDirectTotalQty)}
+                  </td>
+                  <td
+                    className={`num sticky sticky-rev ${getCellSelectionClass('hardwax-u-direct', 'C:매출')}`}
+                    onClick={() =>
+                      handleCellSelect({
+                        rowKey: 'hardwax-u-direct',
+                        rowLabel: 'U상품 판매수',
+                        colKey: 'C:매출',
+                        colLabel: '매출',
+                      })
+                    }
+                    data-row-key="hardwax-u-direct"
+                    data-col-key="C:매출"
+                    data-row-label="U상품 판매수"
+                    data-col-label="매출"
+                  >
+                    {''}
+                  </td>
                 </tr>
                 {groupRows.map((grp) => (
                   <Fragment key={grp.label}>
                     {grp.rows.map((g, gi) => {
                       const gid = `${grp.label}-${g.product_code}-${gi}`
-                      const hasVariantRows = g.variants.length > 0
-                      const firstVariant = hasVariantRows ? g.variants[0] : null
-                      const firstVariantSuffix = firstVariant
-                        ? normalizeVariantSuffix(g.product_code, firstVariant.variant_code).toUpperCase()
-                        : ''
-                      const firstVariantOption = firstVariant ? firstVariant.option : '—'
-                      const remainingVariants = hasVariantRows ? g.variants.slice(1) : []
-                      const parentQtyByColumn = hasVariantRows
-                        ? g.mappingQtyByColumn.map((q, idx) => {
+                         const hasVariantRows = g.variants.length > 0
+                         const firstVariant = hasVariantRows ? g.variants[0] : null
+                         const firstVariantSuffix = firstVariant
+                           ? normalizeVariantSuffix(g.product_code, firstVariant.variant_code).toUpperCase()
+                           : ''
+                         const firstVariantOption = firstVariant ? firstVariant.option : '—'
+                         const remainingVariants = hasVariantRows ? g.variants.slice(1) : []
+                         const rowKey = `parent:${grp.label}:${g.product_code}`
+                         const rowLabel = rowHeaderLabelByCode(g.product_code, g.product_name)
+                         const parentQtyByColumn = hasVariantRows
+                           ? g.mappingQtyByColumn.map((q, idx) => {
                             const mappedFirstVariantQty = g.variantMappingQtyByColumn[0]?.[idx] ?? 0
                             return q + mappedFirstVariantQty
                           })
@@ -749,84 +981,312 @@ export function ExcelOrderView() {
                             return (g.variantMappingQtyByColumn[0]?.[idx] ?? 0) > 0 ? 'mapped' : state
                           })
                         : g.mappingStateByColumn
-                      return (
-                      <Fragment key={gid}>
-                        <tr
-                          className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent' : 'row-single'}`.trim()}
-                        >
-                          <td className="code-cell sticky sticky-code">
-                            {g.product_code}
-                          </td>
-                          <td className="name-cell sticky sticky-name">
-                            {g.product_name}
-                          </td>
-                          <td className="sticky sticky-option-code">
-                            {hasVariantRows ? firstVariantSuffix : ''}
-                          </td>
-                          <td className="sticky sticky-option-name">
-                            {hasVariantRows ? displayOptionName(firstVariantOption) : ''}
-                          </td>
-                          <td className="num sticky sticky-price">
-                            {g.missing ? '—' : fmtParentPrice(g, currency)}
-                          </td>
-                          <td className="num sticky sticky-direct">
-                            {g.missing ? '—' : fmtNumber(g.directQty)}
-                          </td>
-                          {parentQtyByColumn.map((q, idx) => {
-                            const state = parentStateByColumn[idx]
-                            return (
-                              <td
-                                key={`${g.product_code}-${idx}`}
-                                className={columnCellClass(state)}
-                              >
-                                {state !== 'excluded' &&
-                                !(state === 'unmapped' && q === 0)
+                        return (
+                       <Fragment key={gid}>
+                         <tr
+                           className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent' : 'row-single'}`.trim()}
+                          >
+                           <td
+                             className={`code-cell sticky sticky-code ${getCellSelectionClass(rowKey, 'A:상품코드')}`}
+                             onClick={() =>
+                               handleCellSelect({
+                                 rowKey,
+                                 rowLabel,
+                                 colKey: 'A:상품코드',
+                                 colLabel: '상품코드',
+                               })
+                             }
+                             data-row-key={rowKey}
+                             data-col-key="A:상품코드"
+                             data-row-label={rowLabel}
+                             data-col-label="상품코드"
+                           >
+                             {g.product_code}
+                           </td>
+                           <td
+                             className={`name-cell sticky sticky-name ${getCellSelectionClass(rowKey, 'A:상품명')}`}
+                             onClick={() =>
+                               handleCellSelect({
+                                 rowKey,
+                                 rowLabel,
+                                 colKey: 'A:상품명',
+                                 colLabel: '상품명',
+                               })
+                             }
+                             data-row-key={rowKey}
+                             data-col-key="A:상품명"
+                             data-row-label={rowLabel}
+                             data-col-label="상품명"
+                           >
+                             {g.product_name}
+                           </td>
+                           <td
+                             className={`sticky sticky-option-code ${getCellSelectionClass(rowKey, 'A:코드')}`}
+                             onClick={() =>
+                               handleCellSelect({
+                                 rowKey,
+                                 rowLabel,
+                                 colKey: 'A:코드',
+                                 colLabel: '코드',
+                               })
+                             }
+                             data-row-key={rowKey}
+                             data-col-key="A:코드"
+                             data-row-label={rowLabel}
+                             data-col-label="코드"
+                           >
+                             {hasVariantRows ? firstVariantSuffix : ''}
+                           </td>
+                           <td
+                             className={`sticky sticky-option-name ${getCellSelectionClass(rowKey, 'A:옵션명')}`}
+                             onClick={() =>
+                               handleCellSelect({
+                                 rowKey,
+                                 rowLabel,
+                                 colKey: 'A:옵션명',
+                                 colLabel: '옵션명',
+                               })
+                             }
+                             data-row-key={rowKey}
+                             data-col-key="A:옵션명"
+                             data-row-label={rowLabel}
+                             data-col-label="옵션명"
+                           >
+                             {hasVariantRows ? displayOptionName(firstVariantOption) : ''}
+                           </td>
+                           <td
+                             className={`num sticky sticky-price ${getCellSelectionClass(rowKey, 'A:단가')}`}
+                             onClick={() =>
+                               handleCellSelect({
+                                 rowKey,
+                                 rowLabel,
+                                 colKey: 'A:단가',
+                                 colLabel: '단가',
+                               })
+                             }
+                             data-row-key={rowKey}
+                             data-col-key="A:단가"
+                             data-row-label={rowLabel}
+                             data-col-label="단가"
+                           >
+                             {g.missing ? '—' : fmtParentPrice(g, currency)}
+                           </td>
+                           <td
+                             className={`num sticky sticky-direct ${getCellSelectionClass(rowKey, 'A:직접판매')}`}
+                             onClick={() =>
+                               handleCellSelect({
+                                 rowKey,
+                                 rowLabel,
+                                 colKey: 'A:직접판매',
+                                 colLabel: '직접판매',
+                               })
+                             }
+                             data-row-key={rowKey}
+                             data-col-key="A:직접판매"
+                             data-row-label={rowLabel}
+                             data-col-label="직접판매"
+                           >
+                             {g.missing ? '—' : fmtNumber(g.directQty)}
+                           </td>
+                           {parentQtyByColumn.map((q, idx) => {
+                              const state = parentStateByColumn[idx]
+                              const colKey = `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`
+                              const colLabel = `U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()
+                              return (
+                                <td
+                                  key={`${g.product_code}-${idx}`}
+                                  className={`${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey,
+                                      rowLabel,
+                                      colKey,
+                                      colLabel,
+                                    })
+                                  }
+                                  data-row-key={rowKey}
+                                  data-col-key={colKey}
+                                  data-row-label={rowLabel}
+                                  data-col-label={colLabel}
+                                >
+                                  {state !== 'excluded' &&
+                                   !(state === 'unmapped' && q === 0)
                                   ? fmtNumber(q)
                                   : ''}
                               </td>
                             )
-                          })}
-                          <td className="num sticky sticky-total">{fmtNumber(g.qty)}</td>
-                          <td className="num sticky sticky-rev">
-                            {fmtCurrency(g.rev, currency)}
-                          </td>
-                        </tr>
-                        {hasVariantRows ? remainingVariants.map((v, vIdx) => {
+                            })}
+                            <td
+                              className={`num sticky sticky-total ${getCellSelectionClass(rowKey, 'C:총판매')}`}
+                              onClick={() =>
+                                handleCellSelect({
+                                  rowKey,
+                                  rowLabel,
+                                  colKey: 'C:총판매',
+                                  colLabel: '총판매',
+                                })
+                              }
+                              data-row-key={rowKey}
+                              data-col-key="C:총판매"
+                              data-row-label={rowLabel}
+                              data-col-label="총판매"
+                            >
+                              {fmtNumber(g.qty)}
+                            </td>
+                            <td
+                              className={`num sticky sticky-rev ${getCellSelectionClass(rowKey, 'C:매출')}`}
+                              onClick={() =>
+                                handleCellSelect({
+                                  rowKey,
+                                  rowLabel,
+                                  colKey: 'C:매출',
+                                  colLabel: '매출',
+                                })
+                              }
+                              data-row-key={rowKey}
+                              data-col-key="C:매출"
+                              data-row-label={rowLabel}
+                              data-col-label="매출"
+                            >
+                              {fmtCurrency(g.rev, currency)}
+                            </td>
+                          </tr>
+                          {hasVariantRows ? remainingVariants.map((v, vIdx) => {
                             const idx = vIdx + 1
                             const suffix = normalizeVariantSuffix(g.product_code, v.variant_code)
                             const variantMapQty = g.variantMappingQtyByColumn[idx] ?? []
                             const variantMapRev = g.variantMappingRevByColumn[idx] ?? []
                             const totalQty = v.qty + variantMapQty.reduce((s, q) => s + q, 0)
                             const totalRev = (v.rev ?? 0) + variantMapRev.reduce((s, r) => s + r, 0)
+                            const variantRowKey = `variant:${g.product_code}:${v.variant_code}`
+                            const variantRowLabel = `${rowHeaderLabelByCode(g.product_code, g.product_name)} / ${displayOptionName(v.option || v.variant_code)}`
                             return (
                               <tr
                                 key={`${g.product_code}-${v.variant_code}`}
                                 className="row-child variant-row"
                               >
-                                <td className="code-cell sticky sticky-code variant-code-cell">
+                                <td
+                                  className={`code-cell sticky sticky-code variant-code-cell ${getCellSelectionClass(variantRowKey, 'A:상품코드')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'A:상품코드',
+                                      colLabel: '상품코드',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="A:상품코드"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="상품코드"
+                                >
                                   {' '}
                                 </td>
-                                <td className="name-cell sticky sticky-name variant-name-cell">
+                                <td
+                                  className={`name-cell sticky sticky-name variant-name-cell ${getCellSelectionClass(variantRowKey, 'A:상품명')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'A:상품명',
+                                      colLabel: '상품명',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="A:상품명"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="상품명"
+                                >
                                   {' '}
                                 </td>
-                                <td className="sticky sticky-option-code">
+                                <td
+                                  className={`sticky sticky-option-code ${getCellSelectionClass(variantRowKey, 'A:코드')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'A:코드',
+                                      colLabel: '코드',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="A:코드"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="코드"
+                                >
                                   {suffix || '—'}
                                 </td>
-                                <td className="sticky sticky-option-name">
+                                <td
+                                  className={`sticky sticky-option-name ${getCellSelectionClass(variantRowKey, 'A:옵션명')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'A:옵션명',
+                                      colLabel: '옵션명',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="A:옵션명"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="옵션명"
+                                >
                                   {displayOptionName(v.option || v.variant_code)}
                                 </td>
-                                <td className="num sticky sticky-price">
+                                <td
+                                  className={`num sticky sticky-price ${getCellSelectionClass(variantRowKey, 'A:단가')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'A:단가',
+                                      colLabel: '단가',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="A:단가"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="단가"
+                                >
                                   {g.missing ? '—' : fmtVariantPrice(v.price, g.price, currency)}
                                 </td>
-                                <td className="num sticky sticky-direct">
+                                <td
+                                  className={`num sticky sticky-direct ${getCellSelectionClass(variantRowKey, 'A:직접판매')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'A:직접판매',
+                                      colLabel: '직접판매',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="A:직접판매"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="직접판매"
+                                >
                                   {g.missing ? '—' : fmtNumber(v.qty)}
                                 </td>
                                 {g.variantMappingQtyByColumn[idx].map((q, cellIdx) => {
                                   const state = g.variantMappingStateByColumn[idx]?.[cellIdx] ?? 'unmapped'
+                                  const colKey = `B:${U_COLUMNS[cellIdx]?.uProduct ?? ''}-${U_COLUMNS[cellIdx]?.uVariant ?? cellIdx}`
+                                  const colLabel = `U상품 ${U_COLUMNS[cellIdx]?.uProduct ?? ''} ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`.trim()
                                   return (
                                     <td
                                       key={`${g.product_code}-${v.variant_code}-map-${cellIdx}`}
-                                      className={columnCellClass(state)}
+                                      className={`${columnCellClass(state)} ${getCellSelectionClass(variantRowKey, colKey)}`}
+                                      onClick={() =>
+                                        handleCellSelect({
+                                          rowKey: variantRowKey,
+                                          rowLabel: variantRowLabel,
+                                          colKey,
+                                          colLabel,
+                                        })
+                                      }
+                                      data-row-key={variantRowKey}
+                                      data-col-key={colKey}
+                                      data-row-label={variantRowLabel}
+                                      data-col-label={colLabel}
                                     >
                                       {state !== 'excluded' && !(state === 'unmapped' && q === 0)
                                         ? fmtNumber(q)
@@ -834,10 +1294,38 @@ export function ExcelOrderView() {
                                     </td>
                                   )
                                 })}
-                                <td className="num sticky sticky-total">
+                                <td
+                                  className={`num sticky sticky-total ${getCellSelectionClass(variantRowKey, 'C:총판매')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'C:총판매',
+                                      colLabel: '총판매',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="C:총판매"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="총판매"
+                                >
                                   {g.missing ? '—' : fmtNumber(totalQty)}
                                 </td>
-                                <td className="num sticky sticky-rev">
+                                <td
+                                  className={`num sticky sticky-rev ${getCellSelectionClass(variantRowKey, 'C:매출')}`}
+                                  onClick={() =>
+                                    handleCellSelect({
+                                      rowKey: variantRowKey,
+                                      rowLabel: variantRowLabel,
+                                      colKey: 'C:매출',
+                                      colLabel: '매출',
+                                    })
+                                  }
+                                  data-row-key={variantRowKey}
+                                  data-col-key="C:매출"
+                                  data-row-label={variantRowLabel}
+                                  data-col-label="매출"
+                                >
                                   {g.missing ? '—' : fmtCurrency(totalRev, currency)}
                                 </td>
                               </tr>
@@ -846,21 +1334,154 @@ export function ExcelOrderView() {
                       </Fragment>
                     )
                     })}
-                {grp.withSubtotal === false ? null : (
-                      <tr className="subtotal-row">
-                        <td className="subtotal-label sticky sticky-code">{grp.label}</td>
-                        <td className="sticky sticky-name" />
-                        <td className="sticky sticky-option-code" />
-                        <td className="sticky sticky-option-name" />
-                        <td className="num sticky sticky-price" />
-                        <td className="num sticky sticky-direct" />
+                 {grp.withSubtotal === false ? null : (
+                       <tr className="subtotal-row">
+                        <td
+                          className={`subtotal-label sticky sticky-code ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:상품코드')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'A:상품코드',
+                              colLabel: '상품코드',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="A:상품코드"
+                          data-row-label={grp.label}
+                          data-col-label="상품코드"
+                        >
+                          {grp.label}
+                        </td>
+                        <td
+                          className={`sticky sticky-name ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:상품명')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'A:상품명',
+                              colLabel: '상품명',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="A:상품명"
+                          data-row-label={grp.label}
+                          data-col-label="상품명"
+                        />
+                        <td
+                          className={`sticky sticky-option-code ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:코드')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'A:코드',
+                              colLabel: '코드',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="A:코드"
+                          data-row-label={grp.label}
+                          data-col-label="코드"
+                        />
+                        <td
+                          className={`sticky sticky-option-name ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:옵션명')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'A:옵션명',
+                              colLabel: '옵션명',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="A:옵션명"
+                          data-row-label={grp.label}
+                          data-col-label="옵션명"
+                        />
+                        <td
+                          className={`num sticky sticky-price ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:단가')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'A:단가',
+                              colLabel: '단가',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="A:단가"
+                          data-row-label={grp.label}
+                          data-col-label="단가"
+                        />
+                        <td
+                          className={`num sticky sticky-direct ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:직접판매')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'A:직접판매',
+                              colLabel: '직접판매',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="A:직접판매"
+                          data-row-label={grp.label}
+                          data-col-label="직접판매"
+                        />
                         {grp.subtotalMappingQtyByColumn.map((q, idx) => (
-                          <td key={`subtotal-${grp.label}-${idx}`} className="num">
+                          <td
+                            key={`subtotal-${grp.label}-${idx}`}
+                            className={`num ${getCellSelectionClass(`subtotal:${grp.label}`, `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
+                            onClick={() =>
+                              handleCellSelect({
+                                rowKey: `subtotal:${grp.label}`,
+                                rowLabel: grp.label,
+                                colKey: `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`,
+                                colLabel: `U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim(),
+                              })
+                            }
+                            data-row-key={`subtotal:${grp.label}`}
+                            data-col-key={`B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`}
+                            data-row-label={grp.label}
+                            data-col-label={`U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()}
+                          >
                             {fmtNumber(q)}
                           </td>
                         ))}
-                        <td className="num sticky sticky-total">{fmtNumber(grp.subtotalQty)}</td>
-                        <td className="num sticky sticky-rev">{fmtCurrency(grp.subtotalRev, currency)}</td>
+                        <td
+                          className={`num sticky sticky-total ${getCellSelectionClass(`subtotal:${grp.label}`, 'C:총판매')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'C:총판매',
+                              colLabel: '총판매',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="C:총판매"
+                          data-row-label={grp.label}
+                          data-col-label="총판매"
+                        >
+                          {fmtNumber(grp.subtotalQty)}
+                        </td>
+                        <td
+                          className={`num sticky sticky-rev ${getCellSelectionClass(`subtotal:${grp.label}`, 'C:매출')}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: `subtotal:${grp.label}`,
+                              rowLabel: grp.label,
+                              colKey: 'C:매출',
+                              colLabel: '매출',
+                            })
+                          }
+                          data-row-key={`subtotal:${grp.label}`}
+                          data-col-key="C:매출"
+                          data-row-label={grp.label}
+                          data-col-label="매출"
+                        >
+                          {fmtCurrency(grp.subtotalRev, currency)}
+                        </td>
                       </tr>
                     )}
                   </Fragment>
@@ -868,19 +1489,152 @@ export function ExcelOrderView() {
               </tbody>
               <tfoot>
                     <tr>
-                      <td className="subtotal-label sticky sticky-code">합계</td>
-                      <td className="sticky sticky-name" />
-                      <td className="sticky sticky-option-code" />
-                      <td className="sticky sticky-option-name" />
-                      <td className="num sticky sticky-price" />
-                      <td className="num sticky sticky-direct" />
+                      <td
+                        className={`subtotal-label sticky sticky-code ${getCellSelectionClass('total:grand', 'A:상품코드')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'A:상품코드',
+                            colLabel: '상품코드',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="A:상품코드"
+                        data-row-label="합계"
+                        data-col-label="상품코드"
+                      >
+                        합계
+                      </td>
+                      <td
+                        className={`sticky sticky-name ${getCellSelectionClass('total:grand', 'A:상품명')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'A:상품명',
+                            colLabel: '상품명',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="A:상품명"
+                        data-row-label="합계"
+                        data-col-label="상품명"
+                      />
+                      <td
+                        className={`sticky sticky-option-code ${getCellSelectionClass('total:grand', 'A:코드')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'A:코드',
+                            colLabel: '코드',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="A:코드"
+                        data-row-label="합계"
+                        data-col-label="코드"
+                      />
+                      <td
+                        className={`sticky sticky-option-name ${getCellSelectionClass('total:grand', 'A:옵션명')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'A:옵션명',
+                            colLabel: '옵션명',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="A:옵션명"
+                        data-row-label="합계"
+                        data-col-label="옵션명"
+                      />
+                      <td
+                        className={`num sticky sticky-price ${getCellSelectionClass('total:grand', 'A:단가')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'A:단가',
+                            colLabel: '단가',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="A:단가"
+                        data-row-label="합계"
+                        data-col-label="단가"
+                      />
+                      <td
+                        className={`num sticky sticky-direct ${getCellSelectionClass('total:grand', 'A:직접판매')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'A:직접판매',
+                            colLabel: '직접판매',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="A:직접판매"
+                        data-row-label="합계"
+                        data-col-label="직접판매"
+                      />
                       {totalMappingQtyByColumn.map((q, idx) => (
-                        <td key={`total-${idx}`} className="num">
+                        <td
+                          key={`total-${idx}`}
+                          className={`num ${getCellSelectionClass('total:grand', `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
+                          onClick={() =>
+                            handleCellSelect({
+                              rowKey: 'total:grand',
+                              rowLabel: '합계',
+                              colKey: `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`,
+                              colLabel: `U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim(),
+                            })
+                          }
+                          data-row-key="total:grand"
+                          data-col-key={`B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`}
+                          data-row-label="합계"
+                          data-col-label={`U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()}
+                        >
                           {fmtNumber(q)}
                         </td>
                       ))}
-                      <td className="num sticky sticky-total">{fmtNumber(totalQty)}</td>
-                      <td className="num sticky sticky-rev">{fmtCurrency(totalRev, currency)}</td>
+                      <td
+                        className={`num sticky sticky-total ${getCellSelectionClass('total:grand', 'C:총판매')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'C:총판매',
+                            colLabel: '총판매',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="C:총판매"
+                        data-row-label="합계"
+                        data-col-label="총판매"
+                      >
+                        {fmtNumber(totalQty)}
+                      </td>
+                      <td
+                        className={`num sticky sticky-rev ${getCellSelectionClass('total:grand', 'C:매출')}`}
+                        onClick={() =>
+                          handleCellSelect({
+                            rowKey: 'total:grand',
+                            rowLabel: '합계',
+                            colKey: 'C:매출',
+                            colLabel: '매출',
+                          })
+                        }
+                        data-row-key="total:grand"
+                        data-col-key="C:매출"
+                        data-row-label="합계"
+                        data-col-label="매출"
+                      >
+                        {fmtCurrency(totalRev, currency)}
+                      </td>
                     </tr>
                   </tfoot>
             </table>
