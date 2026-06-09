@@ -2,6 +2,9 @@
 
 본 문서는 계획 문서이며, 이 커밋에서는 `frontend/src/pages/ExcelOrderView.tsx`, `frontend/src/pages/ExcelOrderView.css` 등 구현 파일을 수정하지 않는다.
 
+> LU셀 기준: LU셀 존재 판정은 `L 행 × U 열` 교차점의 LU매핑 정의 유무를 단일 기준으로 적용한다.  
+> 상세 계약: [LU셀 계약](./lu-rule-contract.md)
+
 ## 1. 배경
 현재 하드왁스 화면은 기존 운영 이력상 `R/C` 용어가 혼재되어 있었고, 수식 표시는 엑셀식(`=SUM(...)`)이지만 좌표 기준은 혼재되어 있었다.
 요구사항 변경으로 화면과 데이터 레이어를 포함한 좌표 표현을 **엑셀 A1 단일 기준**으로 통일한다.
@@ -93,8 +96,8 @@
 | 전체 합계 총판매 | `total:grand` | `=SUM({totalCol}{subtotalRows...})` |
 | 전체 합계 매출 | `total:grand` | `=SUM({revenueCol}{subtotalRows...})` |
 
-- 상품행/옵션행 매출 항의 LU매핑 항은 `U-컬럼 수량 > 0`이 아닌 `RULE 존재 여부`로 표시한다.
-  - 즉, 매핑 RULE이 있고 해당 LU 수량이 0이어도 `+{uCol}{row}*{uPrice}` 항은 수식에 유지된다.
+- 상품행/옵션행 매출 항의 LU매핑 항은 `U-컬럼 수량 > 0`이 아닌 **LU셀 정의 존재** 여부로 표시한다.
+  - 즉, LU매핑이 있고 해당 LU 수량이 0이어도 `+{uCol}{row}*{uPrice}` 항은 수식에 유지된다.
   - 실제 계산값은 각 항의 수량이 0이므로 결과에는 0이 반영되며, 구조는 유지된다.
 - 가격 항(`uPrice`)은 `cafe24` 가격 계약에 따라 `product price + variant.additional_amount`로 산정한다.
   - 이 규칙은 `docs/cafe24-variant-price-resolution-contract.md`를 단일 소스로 사용한다.
