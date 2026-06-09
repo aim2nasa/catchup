@@ -288,7 +288,7 @@ function getRuleMatchQty(
       }
       return
     }
-    if (targetLVariantIndex >= 0 && ruleUVariantIndex === targetLVariantIndex) {
+    if (hasLVariants && targetLVariantIndex >= 0 && ruleUVariantIndex === targetLVariantIndex) {
       totalQty += qty * rule.ratio
       totalRev += qty * price * rule.ratio
     }
@@ -520,8 +520,8 @@ export function ExcelOrderView() {
         label: group.label,
         withSubtotal: group.withSubtotal !== false,
         rows,
-        subtotalQty: rows.reduce((s, r) => s + r.qty, 0),
-        subtotalRev: rows.reduce((s, r) => s + r.rev, 0),
+        subtotalQty: subtotalSourceRows.reduce((s, r) => s + r.qty, 0),
+        subtotalRev: subtotalSourceRows.reduce((s, r) => s + r.rev, 0),
         subtotalMappingQtyByColumn: Array.from({ length: U_COLUMNS.length }, (_, idx) =>
           subtotalSourceRows.reduce((s, r) => {
             const parentQty = r.mappingQtyByColumn[idx] ?? 0
@@ -554,6 +554,7 @@ export function ExcelOrderView() {
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalRev),
     0,
   )
+  const totalColumnCount = 6 + U_COLUMNS.length + 2
   const totalMappingQtyByColumn = Array.from({ length: U_COLUMNS.length }, (_, idx) =>
     groupRows.reduce(
       (s, g) => s + (g.withSubtotal === false ? 0 : (g.subtotalMappingQtyByColumn[idx] ?? 0)),
@@ -1494,6 +1495,11 @@ export function ExcelOrderView() {
                         </td>
                       </tr>
                     )}
+                    {grp.label === '500g 총합계' ? (
+                      <tr className="section-separator-row">
+                        <td colSpan={totalColumnCount} className="section-separator-cell" />
+                      </tr>
+                    ) : null}
                   </Fragment>
                 ))}
               </tbody>
