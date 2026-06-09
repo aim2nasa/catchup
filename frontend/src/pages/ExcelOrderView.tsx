@@ -1689,8 +1689,6 @@ export function ExcelOrderView() {
                     )
                   })}
                 </tr>
-              </thead>
-              <tbody>
                 <tr className="u-direct-row">
                   <td
                     className={`num sticky sticky-code u-direct-label ${getCellSelectionClass('hardwax-u-direct', 'A:상품코드')}`}
@@ -1842,6 +1840,8 @@ export function ExcelOrderView() {
                     {''}
                   </td>
                 </tr>
+              </thead>
+              <tbody>
                 {groupRows.map((grp) => (
                   <Fragment key={grp.label}>
                     {grp.rows.map((g, gi) => {

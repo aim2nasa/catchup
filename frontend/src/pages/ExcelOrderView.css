@@ -242,7 +242,8 @@
 }
 
 .excel-table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   min-width: 1800px;
   font-size: 11px;
 }
@@ -285,17 +286,43 @@
   font-size: 10px;
   letter-spacing: 0.04em;
 }
-.excel-table thead th {
+.excel-table thead {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 40;
+  background: var(--c-table-head);
+  box-shadow: 0 2px 0 var(--c-sum-border);
+  isolation: isolate;
 }
-.excel-table thead tr:nth-child(2) th {
-  top: 22px;
+
+.excel-table thead::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  left: 0;
+  height: 2px;
+  background: var(--c-sum-border);
+  pointer-events: none;
+}
+
+.excel-table thead th {
+  position: relative;
+  z-index: 1;
+}
+.excel-table thead td {
+  background: #f8fafc;
+  color: var(--c-text);
+  font-weight: 400;
 }
 .excel-table thead th.sticky {
   position: sticky;
   background: var(--c-table-head);
+  z-index: 3;
+}
+.excel-table thead td.sticky {
+  position: sticky;
+  z-index: 3;
 }
 
 .excel-table td.sticky {
@@ -394,12 +421,14 @@
 .excel-table thead tr:first-child th.sticky-rev {
   background: var(--c-sum-bg);
   color: var(--c-sum-text);
+  z-index: 4;
 }
 .excel-table tbody tr td:nth-last-child(2),
 .excel-table tbody tr td:last-child {
   background: #fffaf0;
 }
 .excel-table tbody tr:hover { background: var(--c-row-hover); }
+.excel-table thead tr.u-direct-row td,
 .excel-table tbody tr.u-direct-row td {
   background: #f8fafc;
   border-top: 1px solid var(--c-sum-border);
