@@ -23,6 +23,20 @@
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
+.excel-copy-toast {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #065f46;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .excel-header {
   display: flex;
   align-items: center;
@@ -132,18 +146,6 @@
 
 .selection-copy-trigger:hover {
   color: var(--c-text);
-}
-
-.selection-copy-trigger .selection-copy-toast {
-  margin-left: 6px;
-  color: #065f46;
-  background: #ecfdf5;
-  border: 1px solid #86efac;
-  border-radius: 4px;
-  padding: 1px 6px;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .selection-pin {
@@ -340,6 +342,9 @@
   vertical-align: top;
   overflow: visible;
 }
+.excel-table .copyable-header {
+  cursor: copy;
+}
 .excel-table thead tr:first-child th.u-header:first-of-type,
 .excel-table thead tr:nth-child(2) th.matrix-variant:first-child {
   border-left: 2px solid var(--c-sum-border);
@@ -354,14 +359,16 @@
   text-overflow: ellipsis;
 }
 .excel-table .u-header-name {
-  font-size: 9px;
-  line-height: 1.2;
-  color: var(--c-text-muted);
+  font-size: 9.5px;
+  line-height: 1.25;
+  color: #dbeafe;
+  font-weight: 700;
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
-  margin-top: 2px;
+  margin-top: 3px;
   display: block;
+  text-shadow: 0 1px 1px rgba(15, 23, 42, 0.75);
 }
 .excel-table thead tr:first-child th.sticky-total,
 .excel-table thead tr:first-child th.sticky-rev,

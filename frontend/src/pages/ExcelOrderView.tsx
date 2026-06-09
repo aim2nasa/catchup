@@ -1444,11 +1444,11 @@ export function ExcelOrderView() {
     }
   }, [])
 
-  const handleCopySelection = async () => {
-    if (!selectedCoordinateText) return
+  const copyTextToClipboard = async (text: string, message: string) => {
+    if (!text) return
     try {
-      await navigator.clipboard.writeText(selectedCoordinateText)
-      setCopyToast('복사됨')
+      await navigator.clipboard.writeText(text)
+      setCopyToast(message)
       if (copyTimerRef.current) {
         window.clearTimeout(copyTimerRef.current)
       }
@@ -1459,6 +1459,16 @@ export function ExcelOrderView() {
       // eslint-disable-next-line no-console
       console.warn('복사 실패', error)
     }
+  }
+
+  const handleCopySelection = () => {
+    if (!selectedCoordinateText) return
+    void copyTextToClipboard(selectedCoordinateText, '셀주소 복사됨')
+  }
+
+  const handleCopyProductCode = (productCode: string) => {
+    if (!productCode.trim()) return
+    void copyTextToClipboard(productCode, '상품코드 복사됨')
   }
 
   const updateTopScrollbarWidth = () => {
@@ -1547,8 +1557,8 @@ export function ExcelOrderView() {
                       className="selection-coordinates selection-copy-trigger"
                       role="button"
                       tabIndex={0}
-                      title="좌표 복사"
-                      onClick={handleCopySelection}
+                      title="셀주소 더블클릭 복사"
+                      onDoubleClick={handleCopySelection}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
@@ -1568,7 +1578,6 @@ export function ExcelOrderView() {
                         <span className="selection-dot selection-dot-col" aria-hidden="true" />
                         {`C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
                       </span>
-                      {copyToast ? <span className="selection-copy-toast">{copyToast}</span> : null}
                     </span>
                   ) : (
                     <span className="selection-empty">
@@ -1588,6 +1597,7 @@ export function ExcelOrderView() {
               </div>
             ) : null}
             <div className="filter-spacer" />
+            {copyToast ? <div className="excel-copy-toast">{copyToast}</div> : null}
             <button
               type="button"
               className="btn btn-primary"
@@ -1637,7 +1647,13 @@ export function ExcelOrderView() {
                     직접판매
                   </th>
                   {U_BLOCKS.map((block) => (
-                    <th key={block.productCode} colSpan={block.variants.length} className="u-header">
+                    <th
+                      key={block.productCode}
+                      colSpan={block.variants.length}
+                      className="u-header copyable-header"
+                      title={`${block.productCode} ${block.productLabel} 더블클릭 복사`}
+                      onDoubleClick={() => handleCopyProductCode(block.productCode)}
+                    >
                       <div
                         className="u-header-code"
                         title={`${block.productCode} ${block.productLabel}`}
@@ -1876,6 +1892,8 @@ export function ExcelOrderView() {
                                  colLabel: '상품코드',
                                })
                              }
+                             onDoubleClick={() => handleCopyProductCode(g.product_code)}
+                             title="상품코드 더블클릭 복사"
                              data-row-key={rowKey}
                              data-col-key="A:상품코드"
                              data-row-label={rowLabel}
