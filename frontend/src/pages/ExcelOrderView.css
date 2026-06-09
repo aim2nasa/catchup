@@ -214,6 +214,13 @@
   color: #0f172a;
 }
 
+.selection-formula-price {
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
 .selection-cell-kind {
   display: inline-flex;
   align-items: center;

@@ -101,6 +101,11 @@ type CellSelectionMeta = {
   excelCol?: number
 }
 
+type FormulaDisplayPart = {
+  text: string
+  kind: 'plain' | 'price'
+}
+
 type RowType = 'uDirect' | 'product' | 'variant' | 'subtotal' | 'total'
 type RowFormulaMeta = {
   key: string
@@ -419,6 +424,29 @@ function formatFormulaPrice(value: number) {
   if (!Number.isFinite(value)) return '0'
   const normalized = Number.isInteger(value) ? value : value
   return String(normalized)
+}
+
+function splitFormulaForDisplay(text: string): FormulaDisplayPart[] {
+  const parts: FormulaDisplayPart[] = []
+  const pricePattern = /\b[A-Z]{1,3}\d+\*(\d+(?:\.\d+)?)(?=$|[+\-*/)\s])/g
+  let cursor = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pricePattern.exec(text)) !== null) {
+    const priceStart = match.index + match[0].lastIndexOf('*') + 1
+    const priceEnd = priceStart + match[1].length
+    if (priceStart > cursor) {
+      parts.push({ text: text.slice(cursor, priceStart), kind: 'plain' })
+    }
+    parts.push({ text: text.slice(priceStart, priceEnd), kind: 'price' })
+    cursor = priceEnd
+  }
+
+  if (cursor < text.length) {
+    parts.push({ text: text.slice(cursor), kind: 'plain' })
+  }
+
+  return parts.length ? parts : [{ text, kind: 'plain' }]
 }
 
 function buildRevenueMappedTerms(
@@ -1396,6 +1424,11 @@ export function ExcelOrderView() {
     return `${formula}\n${warnings.join(' / ')}`
   }, [selectedCell])
 
+  const selectedFormulaParts = useMemo(() => {
+    if (!selectedFormulaText) return []
+    return splitFormulaForDisplay(selectedFormulaText)
+  }, [selectedFormulaText])
+
   useEffect(() => {
     const table = tableRef.current
     if (!table) return
@@ -1590,7 +1623,14 @@ export function ExcelOrderView() {
                       <span className="selection-formula">
                         <span className="selection-item">수식:</span>
                         <span className="selection-formula-value">
-                          {selectedFormulaText}
+                          {selectedFormulaParts.map((part, idx) => (
+                            <span
+                              key={`${part.kind}-${idx}`}
+                              className={part.kind === 'price' ? 'selection-formula-price' : undefined}
+                            >
+                              {part.text}
+                            </span>
+                          ))}
                         </span>
                       </span>
                     ) : (
