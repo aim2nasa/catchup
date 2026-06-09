@@ -170,6 +170,10 @@
   min-width: 142px;
   padding-left: 8px;
 }
+.excel-table tfoot tr td.sticky-total,
+.excel-table tfoot tr td.sticky-rev {
+  z-index: 3;
+}
 .excel-table .matrix-variant,
 .excel-table .variant-label,
 .excel-table .matrix-label {
@@ -257,6 +261,14 @@
   color: var(--c-sum-text);
   border-top: 1px solid var(--c-sum-border);
   border-bottom: 1px solid var(--c-sum-border);
+}
+.excel-table tbody tr.subtotal-row td.sticky-total,
+.excel-table tbody tr.subtotal-row td.sticky-rev,
+.excel-table tfoot tr td.sticky-total,
+.excel-table tfoot tr td.sticky-rev {
+  background: var(--c-sum-bg);
+  color: var(--c-sum-text);
+  z-index: 4;
 }
 .excel-table tbody tr.subtotal-row:hover td { background: var(--c-sum-bg); }
 .excel-table tbody tr.subtotal-row td.code-cell { color: var(--c-sum-text); font-style: normal; font-family: inherit; }

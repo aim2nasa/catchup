@@ -789,8 +789,8 @@ export function ExcelOrderView() {
                             {fmtNumber(q)}
                           </td>
                         ))}
-                        <td className="num">{fmtNumber(grp.subtotalQty)}</td>
-                        <td className="num">{fmtCurrency(grp.subtotalRev, currency)}</td>
+                        <td className="num sticky sticky-total">{fmtNumber(grp.subtotalQty)}</td>
+                        <td className="num sticky sticky-rev">{fmtCurrency(grp.subtotalRev, currency)}</td>
                       </tr>
                     )}
                   </Fragment>
@@ -809,8 +809,8 @@ export function ExcelOrderView() {
                           {fmtNumber(q)}
                         </td>
                       ))}
-                      <td className="num">{fmtNumber(totalQty)}</td>
-                      <td className="num">{fmtCurrency(totalRev, currency)}</td>
+                      <td className="num sticky sticky-total">{fmtNumber(totalQty)}</td>
+                      <td className="num sticky sticky-rev">{fmtCurrency(totalRev, currency)}</td>
                     </tr>
                   </tfoot>
             </table>
