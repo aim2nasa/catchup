@@ -38,7 +38,7 @@
 | F | 6 | `direct_qty` | 직접판매 | 직접판매 합계/값 | Y |
 | G ~ N | 7 ~ (6 + U_COUNT) | `u_mapping_{i}` (i=1..U_COUNT) | U 매핑 컬럼 | LU 매핑 수량(원본 규칙 컬럼) | Y |
 | N+1 | 7 + U_COUNT | `total_qty` | 총판매 | 직접판매 + U매핑 행합 | Y |
-| N+2 | 8 + U_COUNT | `revenue` | 매출 | 총판매 × 단가 | Y |
+| N+2 | 8 + U_COUNT | `revenue` | 매출 | 직접판매 × L단가 + U매핑수량×U단가 합계 | Y |
 
 - `U_COUNT`는 현재 렌더링 U 매핑 컬럼 개수(현재 세션 기준 변동 가능)
 - N은 마지막 U 매핑 열의 Excel 열 인덱스
@@ -87,8 +87,8 @@
 | 1kg U매핑 subtotal | `subtotal:1kg 총합계` (열 G~N) | `=SUM(G30:G39)` 또는 `=SUM({uCol}{start1kg}:{uCol}{end1kg})` |
 | 상품행 총판매 | `parent:{group}:{product}` / `variant:{...}` | `=F{row}+SUM(G{row}: {lastUMappingCol}{row})` |
 | 옵션행 총판매 | `variant:{group}:{product}:{variant}` | `=F{row}+SUM(G{row}: {lastUMappingCol}{row})` |
-| 상품행 매출 | `parent:{group}:{product}` | `={totalCol}{row}*E{row}` |
-| 옵션행 매출 | `variant:{group}:{product}:{variant}` | `={totalCol}{row}*E{row}` |
+| 상품행 매출 | `parent:{group}:{product}` | `=F{row}*E{row}+{uCol1}{row}*{uPrice1}+{uCol2}{row}*{uPrice2}` |
+| 옵션행 매출 | `variant:{group}:{product}:{variant}` | `=F{row}*E{row}+{uCol1}{row}*{uPrice1}+{uCol2}{row}*{uPrice2}` |
 | 전체 합계 직접판매 | `total:grand` | `=SUM(F{subtotal500Start}:F{subtotal500End},F{subtotal1kgStart}:F{subtotal1kgEnd})` |
 | 전체 합계 총판매 | `total:grand` | `=SUM({totalCol}{subtotalRows...})` |
 | 전체 합계 매출 | `total:grand` | `=SUM({revenueCol}{subtotalRows...})` |

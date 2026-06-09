@@ -10,10 +10,16 @@ import './ExcelOrderView.css'
 
 type CellState = 'mapped' | 'unmapped' | 'excluded'
 
+type RevenueFormulaTerm = {
+  uColOffset: number
+  unitPrice: number
+}
+
 interface Row {
   product_code: string
   product_name: string
   price: number
+  directUnitPrice: number
   is_multi: boolean
   qty: number
   rev: number
@@ -24,9 +30,11 @@ interface Row {
   directQty: number
   mappingQtyByColumn: number[]
   mappingRevByColumn: number[]
+  mappingPriceByColumn: number[]
   mappingStateByColumn: CellState[]
   variantMappingQtyByColumn: number[][]
   variantMappingRevByColumn: number[][]
+  variantMappingPriceByColumn: number[][]
   variantMappingStateByColumn: CellState[][]
   variants: Variant[]
 }
@@ -63,6 +71,8 @@ type RowFormulaMeta = {
   variant_code?: string
   screenRow: number
   excelRow: number
+  revenueDirectQty?: number
+  revenueMappedTerms?: RevenueFormulaTerm[]
   contributorRowKeys?: string[]
 }
 
@@ -321,6 +331,28 @@ function displayOptionName(option?: string) {
   return option ? option.replaceAll('=', ' : ') : '—'
 }
 
+function formatFormulaPrice(value: number) {
+  if (!Number.isFinite(value)) return '0'
+  const normalized = Number.isInteger(value) ? value : value
+  return String(normalized)
+}
+
+function buildRevenueMappedTerms(
+  qtyByColumn: number[],
+  priceByColumn: number[],
+  uStartCol: number,
+) {
+  const terms: RevenueFormulaTerm[] = []
+  qtyByColumn.forEach((qty, idx) => {
+    if (!Number.isFinite(qty) || qty <= 0) return
+    const price = priceByColumn[idx]
+    if (!Number.isFinite(price) || price < 0) return
+    const uColOffset = uStartCol + idx
+    terms.push({ uColOffset, unitPrice: price })
+  })
+  return terms
+}
+
 function getRuleMatchQty(
   candidates: MappingRule[] | undefined,
   targetLProduct: string,
@@ -367,11 +399,19 @@ function buildCellFormula(
     directCol: number
     totalCol: number
     revenueCol: number
+    priceCol: number
     uStartCol: number
     uEndCol: number
   },
 ) {
-  const { directCol, totalCol, revenueCol, uStartCol, uEndCol } = fixed
+  const {
+    directCol,
+    totalCol,
+    revenueCol,
+    priceCol,
+    uStartCol,
+    uEndCol,
+  } = fixed
   const sourceRows = rowMeta.contributorRowKeys ?? []
 
   const resolveColValue = (col: number) => {
@@ -426,8 +466,15 @@ function buildCellFormula(
 
   if (colMeta.excelCol === revenueCol) {
     if (rowMeta.rowType === 'product' || rowMeta.rowType === 'variant') {
-      const priceCol = 6
-      return `=${resolveColValue(totalCol)}${rowMeta.excelRow}*${resolveColValue(priceCol)}${rowMeta.excelRow}`
+      const directQtyRef = `${resolveColValue(directCol)}${rowMeta.excelRow}`
+      const directPriceRef = `${resolveColValue(priceCol)}${rowMeta.excelRow}`
+      const mappedTerms = (rowMeta.revenueMappedTerms ?? []).map((term) => {
+        const col = resolveColValue(term.uColOffset)
+        return `${col}${rowMeta.excelRow}*${formatFormulaPrice(term.unitPrice)}`
+      })
+      const directPart = `=${directQtyRef}*${directPriceRef}`
+      if (mappedTerms.length === 0) return directPart
+      return `${directPart}+${mappedTerms.join('+')}`
     }
 
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
@@ -529,13 +576,16 @@ export function ExcelOrderView() {
       const variants = g?.variants ?? []
       const hasLVariants = g ? !!g.is_multi || variants.length > 1 : variants.length > 1
       const hasVariantRows = variants.length > 0
-      const directQty = hasVariantRows ? (variants[0]?.qty ?? 0) : g?.qty ?? 0
-      const directRev = hasVariantRows ? (variants[0]?.rev ?? 0) : g?.rev ?? 0
+      const firstVariant = hasVariantRows ? variants[0] : null
+      const directQty = hasVariantRows ? (firstVariant?.qty ?? 0) : g?.qty ?? 0
+      const directUnitPrice = (hasVariantRows ? (firstVariant?.price ?? 0) : g?.price ?? 0) || 0
       const mappingQtyByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingRevByColumn = Array(U_COLUMNS.length).fill(0)
+      const mappingPriceByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingStateByColumn = Array(U_COLUMNS.length).fill('unmapped' as CellState)
       const variantMappingQtyByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
       const variantMappingRevByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
+      const variantMappingPriceByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
       const variantMappingStateByColumn = variants.map(() =>
         Array(U_COLUMNS.length).fill('unmapped' as CellState),
       )
@@ -571,6 +621,7 @@ export function ExcelOrderView() {
           : { qty: 0, rev: 0 }
         mappingQtyByColumn[idx] = qty
         mappingRevByColumn[idx] = rev
+        mappingPriceByColumn[idx] = uPrice
         mappingStateByColumn[idx] = columnCellState(col.uProduct, qty)
 
         variants.forEach((v, vIdx) => {
@@ -590,6 +641,7 @@ export function ExcelOrderView() {
             : { qty: 0, rev: 0 }
           variantMappingQtyByColumn[vIdx][idx] = variantQty
           variantMappingRevByColumn[vIdx][idx] = variantRev
+          variantMappingPriceByColumn[vIdx][idx] = uPrice
           variantMappingStateByColumn[vIdx][idx] = columnCellState(
             col.uProduct,
             variantQty,
@@ -607,7 +659,7 @@ export function ExcelOrderView() {
       }, 0)
       const remainingVariantRev = variants.slice(1).reduce((variantSum, variant, remainingIdx) => {
         const variantIdx = remainingIdx + 1
-        const directRev = variant.rev ?? 0
+        const directRev = (variant.qty ?? 0) * (variant.price || g?.price || 0)
         const mappedRev = variantMappingRevByColumn[variantIdx]?.reduce((s, q) => s + q, 0) ?? 0
         return variantSum + directRev + mappedRev
       }, 0)
@@ -615,7 +667,8 @@ export function ExcelOrderView() {
       const directQtyFallback = g ? (hasVariantRows ? directQtyForSummary : (g.qty ?? 0)) : 0
       // 부모행은 부모 직접판매 + 부모 매핑/대표옵션 매핑 값만 반영한다.
       const subtotalQty = directQty + mappingQtyByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedQty
-      const subtotalRev = directRev + mappingRevByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedRev
+      const subtotalRev =
+        directQty * directUnitPrice + mappingRevByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedRev
       const summaryQty = subtotalQty + remainingVariantQty
       const summaryRev = subtotalRev + remainingVariantRev
 
@@ -632,10 +685,13 @@ export function ExcelOrderView() {
           subtotalRevForSummary: summaryRev,
           missing: false,
           directQty,
+          directUnitPrice,
+          mappingPriceByColumn,
           mappingQtyByColumn,
           mappingRevByColumn,
           mappingStateByColumn,
           variantMappingQtyByColumn,
+          variantMappingPriceByColumn,
           variantMappingRevByColumn,
           variantMappingStateByColumn,
           variants,
@@ -647,17 +703,20 @@ export function ExcelOrderView() {
         product_name: '—',
         price: 0,
         is_multi: false,
-          qty: subtotalQty,
-          rev: subtotalRev,
-          directQtyForSummary: directQtyFallback,
-          subtotalQtyForSummary: summaryQty,
-          subtotalRevForSummary: summaryRev,
+        qty: subtotalQty,
+        rev: subtotalRev,
+        directQtyForSummary: directQtyFallback,
+        subtotalQtyForSummary: summaryQty,
+        subtotalRevForSummary: summaryRev,
         missing: true,
         directQty,
+        directUnitPrice,
+        mappingPriceByColumn,
         mappingQtyByColumn,
         mappingRevByColumn,
         mappingStateByColumn,
         variantMappingQtyByColumn: [],
+        variantMappingPriceByColumn: [],
         variantMappingRevByColumn: [],
         variantMappingStateByColumn: [],
         variants: [],
@@ -793,23 +852,42 @@ export function ExcelOrderView() {
       const sourceRowKeys: string[] = []
       grp.rows.forEach((row) => {
         const parentKey = `parent:${grp.label}:${row.product_code}`
+        const parentTotalMappedQty = row.mappingQtyByColumn.map(
+          (qty, idx) => qty + (row.variantMappingQtyByColumn[0]?.[idx] ?? 0),
+        )
+        const parentTotalMappedPrice = row.mappingQtyByColumn.map((qty, idx) => {
+          const mappedQty = row.variantMappingQtyByColumn[0]?.[idx] ?? 0
+          const totalMappedQty = qty + mappedQty
+          if (totalMappedQty <= 0) return 0
+          if (mappedQty > 0) {
+            return row.variantMappingPriceByColumn?.[0]?.[idx] ?? row.mappingPriceByColumn[idx] ?? 0
+          }
+          return row.mappingPriceByColumn[idx] ?? 0
+        })
         addRow({
           key: parentKey,
           rowType: 'product',
           groupLabel: grp.label,
           product_code: row.product_code,
+          revenueDirectQty: row.directQty,
+          revenueMappedTerms: buildRevenueMappedTerms(parentTotalMappedQty, parentTotalMappedPrice, U_START_EXCEL_COL),
         })
         sourceRowKeys.push(parentKey)
 
         if (row.variants.length > 1) {
-          row.variants.slice(1).forEach((variant) => {
+          row.variants.slice(1).forEach((variant, idx) => {
             const variantKey = `variant:${row.product_code}:${variant.variant_code}`
+            const variantIdx = idx + 1
+            const variantQtyByColumn = row.variantMappingQtyByColumn[variantIdx] ?? []
+            const variantPriceByColumn = row.variantMappingPriceByColumn[variantIdx] ?? []
             addRow({
               key: variantKey,
               rowType: 'variant',
               groupLabel: grp.label,
               product_code: row.product_code,
               variant_code: variant.variant_code,
+              revenueDirectQty: variant.qty,
+              revenueMappedTerms: buildRevenueMappedTerms(variantQtyByColumn, variantPriceByColumn, U_START_EXCEL_COL),
             })
             sourceRowKeys.push(variantKey)
           })
@@ -876,6 +954,7 @@ export function ExcelOrderView() {
             directCol: DIRECT_EXCEL_COLUMN,
             totalCol: totalExcelColumn,
             revenueCol: revenueExcelColumn,
+            priceCol: PRICE_EXCEL_COLUMN,
             uStartCol: U_START_EXCEL_COL,
             uEndCol: U_START_EXCEL_COL + U_COLUMNS.length - 1,
           },
@@ -1539,7 +1618,8 @@ export function ExcelOrderView() {
                             const variantMapQty = g.variantMappingQtyByColumn[idx] ?? []
                             const variantMapRev = g.variantMappingRevByColumn[idx] ?? []
                             const totalQty = v.qty + variantMapQty.reduce((s, q) => s + q, 0)
-                            const totalRev = (v.rev ?? 0) + variantMapRev.reduce((s, r) => s + r, 0)
+                            const directRev = (v.qty ?? 0) * (v.price || g.price || 0)
+                            const totalRev = directRev + variantMapRev.reduce((s, q) => s + q, 0)
                             const variantRowKey = `variant:${g.product_code}:${v.variant_code}`
                             const variantRowLabel = `${rowHeaderLabelByCode(g.product_code, g.product_name)} / ${displayOptionName(v.option || v.variant_code)}`
                             return (
