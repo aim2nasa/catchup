@@ -17,6 +17,8 @@ interface Row {
   is_multi: boolean
   qty: number
   rev: number
+  subtotalQtyForSummary: number
+  subtotalRevForSummary: number
   missing: boolean
   directQty: number
   mappingQtyByColumn: number[]
@@ -360,8 +362,6 @@ export function ExcelOrderView() {
     const byCode = new Map(allGroups.map((g) => [g.product_code, g]))
 
     return U_COLUMNS.map((col) => {
-      const excluded = EXCLUDED_U_PRODUCTS.has(col.uProduct)
-      if (excluded) return { qty: 0, excluded: true }
       const uGroup = byCode.get(col.uProduct)
       if (!uGroup) return { qty: 0, excluded: false }
 
@@ -374,20 +374,16 @@ export function ExcelOrderView() {
     })
   }, [allGroups])
 
-  const uDirectTotalQty = useMemo(
-    () => uDirectQtyByColumn.reduce((s, item) => s + item.qty, 0),
-    [uDirectQtyByColumn],
-  )
-
   const groupRows = useMemo<GroupRows[]>(() => {
     const byCode = new Map(allGroups.map((g) => [g.product_code, g]))
 
     const buildRow = (code: string): Row => {
       const g = byCode.get(code)
-      const directQty = g?.qty ?? 0
-      const directRev = g?.rev ?? 0
       const variants = g?.variants ?? []
       const hasLVariants = g ? !!g.is_multi || variants.length > 1 : variants.length > 1
+      const hasVariantRows = variants.length > 0
+      const directQty = hasVariantRows ? (variants[0]?.qty ?? 0) : g?.qty ?? 0
+      const directRev = hasVariantRows ? (variants[0]?.rev ?? 0) : g?.rev ?? 0
       const mappingQtyByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingRevByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingStateByColumn = Array(U_COLUMNS.length).fill('unmapped' as CellState)
@@ -454,18 +450,25 @@ export function ExcelOrderView() {
         })
       })
 
-      const mappedQtyByVariant = variantMappingQtyByColumn.map((qtyColumns) =>
-        qtyColumns.reduce((s, v) => s + v, 0),
-      )
-      const mappedRevByVariant = variantMappingRevByColumn.map((revColumns) =>
-        revColumns.reduce((s, v) => s + v, 0),
-      )
-      const subtotalQty =
-        directQty + mappingQtyByColumn.reduce((s, v) => s + v, 0) +
-        mappedQtyByVariant.reduce((s, v) => s + v, 0)
-      const subtotalRev =
-        directRev + mappingRevByColumn.reduce((s, v) => s + v, 0) +
-        mappedRevByVariant.reduce((s, v) => s + v, 0)
+      const firstVariantMappedQty = variantMappingQtyByColumn[0]?.reduce((s, v) => s + v, 0) ?? 0
+      const firstVariantMappedRev = variantMappingRevByColumn[0]?.reduce((s, v) => s + v, 0) ?? 0
+      const remainingVariantQty = variants.slice(1).reduce((variantSum, variant, remainingIdx) => {
+        const variantIdx = remainingIdx + 1
+        const directQty = variant.qty ?? 0
+        const mappedQty = variantMappingQtyByColumn[variantIdx]?.reduce((s, q) => s + q, 0) ?? 0
+        return variantSum + directQty + mappedQty
+      }, 0)
+      const remainingVariantRev = variants.slice(1).reduce((variantSum, variant, remainingIdx) => {
+        const variantIdx = remainingIdx + 1
+        const directRev = variant.rev ?? 0
+        const mappedRev = variantMappingRevByColumn[variantIdx]?.reduce((s, q) => s + q, 0) ?? 0
+        return variantSum + directRev + mappedRev
+      }, 0)
+      // 부모행은 부모 직접판매 + 부모 매핑/대표옵션 매핑 값만 반영한다.
+      const subtotalQty = directQty + mappingQtyByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedQty
+      const subtotalRev = directRev + mappingRevByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedRev
+      const summaryQty = subtotalQty + remainingVariantQty
+      const summaryRev = subtotalRev + remainingVariantRev
 
       if (g) {
         return {
@@ -475,6 +478,8 @@ export function ExcelOrderView() {
           is_multi: g.is_multi,
           qty: subtotalQty,
           rev: subtotalRev,
+          subtotalQtyForSummary: summaryQty,
+          subtotalRevForSummary: summaryRev,
           missing: false,
           directQty,
           mappingQtyByColumn,
@@ -492,8 +497,10 @@ export function ExcelOrderView() {
         product_name: '—',
         price: 0,
         is_multi: false,
-        qty: subtotalQty,
-        rev: subtotalRev,
+          qty: subtotalQty,
+          rev: subtotalRev,
+          subtotalQtyForSummary: summaryQty,
+          subtotalRevForSummary: summaryRev,
         missing: true,
         directQty,
         mappingQtyByColumn,
@@ -522,8 +529,8 @@ export function ExcelOrderView() {
         label: group.label,
         withSubtotal: group.withSubtotal !== false,
         rows,
-        subtotalQty: subtotalSourceRows.reduce((s, r) => s + r.qty, 0),
-        subtotalRev: subtotalSourceRows.reduce((s, r) => s + r.rev, 0),
+        subtotalQty: subtotalSourceRows.reduce((s, r) => s + r.subtotalQtyForSummary, 0),
+        subtotalRev: subtotalSourceRows.reduce((s, r) => s + r.subtotalRevForSummary, 0),
         subtotalMappingQtyByColumn: Array.from({ length: U_COLUMNS.length }, (_, idx) =>
           subtotalSourceRows.reduce((s, r) => {
             const parentQty = r.mappingQtyByColumn[idx] ?? 0
@@ -993,7 +1000,7 @@ export function ExcelOrderView() {
                     data-row-label="U상품 판매수"
                     data-col-label="총판매"
                   >
-                    {fmtNumber(uDirectTotalQty)}
+                    합계
                   </td>
                   <td
                     className={`num sticky sticky-rev ${getCellSelectionClass('hardwax-u-direct', 'C:매출')}`}
