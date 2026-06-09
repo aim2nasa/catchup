@@ -195,45 +195,6 @@
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
 }
 
-.lu-legend {
-  display: inline-flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.lu-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 92px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.lu-pill--confirmed {
-  background: #22c55e;
-  color: #052e16;
-}
-
-.lu-pill--confirmed,
-.lu-pill--unmapped,
-.lu-pill--excluded {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-.lu-pill--unmapped {
-  background: #e5e7eb;
-  color: #111827;
-}
-
-.lu-pill--excluded {
-  background: #d8b4fe;
-  color: #2e1065;
-}
-
 .excel-table {
   border-collapse: collapse;
   min-width: 1800px;

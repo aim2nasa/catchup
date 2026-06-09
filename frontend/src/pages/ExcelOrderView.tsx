@@ -1299,11 +1299,6 @@ export function ExcelOrderView() {
             <span className="excel-period">
               {state.data!.start} ~ {state.data!.end}
             </span>
-            <span className="lu-legend">
-              <span className="lu-pill lu-pill--confirmed">매핑(확정)</span>
-              <span className="lu-pill lu-pill--unmapped">매핑(미정의)</span>
-              <span className="lu-pill lu-pill--excluded">매핑(예외)</span>
-            </span>
           </div>
           <div className="excel-selection-indicator">
             {selectedCell ? (
