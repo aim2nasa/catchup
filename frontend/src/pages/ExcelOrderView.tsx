@@ -13,6 +13,11 @@ type CellState = 'mapped' | 'unmapped' | 'excluded'
 type RevenueFormulaTerm = {
   uColOffset: number
   unitPrice: number
+  priceMissing?: boolean
+}
+type RevenueFormulaBuildResult = {
+  terms: RevenueFormulaTerm[]
+  warnings: string[]
 }
 
 interface Row {
@@ -31,11 +36,15 @@ interface Row {
   mappingQtyByColumn: number[]
   mappingRevByColumn: number[]
   mappingPriceByColumn: number[]
+  mappingPriceIsFoundByColumn: boolean[]
   mappingStateByColumn: CellState[]
+  mappingHasRuleByColumn: boolean[]
   variantMappingQtyByColumn: number[][]
   variantMappingRevByColumn: number[][]
   variantMappingPriceByColumn: number[][]
+  variantMappingPriceIsFoundByColumn: boolean[][]
   variantMappingStateByColumn: CellState[][]
+  variantMappingHasRuleByColumn: boolean[][]
   variants: Variant[]
 }
 
@@ -56,6 +65,7 @@ type CellSelectionMeta = {
   colKey: string
   colLabel: string
   formula?: string
+  formulaWarnings?: string[]
   screenRow?: number
   screenCol?: number
   excelRow?: number
@@ -73,6 +83,7 @@ type RowFormulaMeta = {
   excelRow: number
   revenueDirectQty?: number
   revenueMappedTerms?: RevenueFormulaTerm[]
+  revenueMappedPriceWarnings?: string[]
   contributorRowKeys?: string[]
 }
 
@@ -280,12 +291,38 @@ const U_START_EXCEL_COL = 7
 const DIRECT_EXCEL_COLUMN = 4
 const PRICE_EXCEL_COLUMN = 6
 
+function normalizeProductCode(code: string) {
+  return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
 function normalizeVariantSuffix(productCode: string, variantCode: string) {
   if (!variantCode) return ''
-  const raw = variantCode.startsWith(productCode)
-    ? variantCode.slice(productCode.length)
-    : variantCode
+  const normalizedProductCode = normalizeProductCode(productCode)
+  const normalizedVariantCode = variantCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const raw = normalizedVariantCode.startsWith(normalizedProductCode)
+    ? normalizedVariantCode.slice(normalizedProductCode.length)
+    : normalizedVariantCode
   return raw.replace(/^0+/, '') || raw
+}
+
+function findUVariantData(group: { variants: Variant[]; price: number } | undefined, uProduct: string, uVariant: string) {
+  if (!group || !Array.isArray(group.variants)) return null
+  const target = normalizeVariantSuffix(uProduct, uVariant)
+  if (!target) return null
+
+  const normalizedProductCode = normalizeProductCode(uProduct)
+  const directMatch = group.variants.find((variant) => normalizeVariantSuffix(normalizedProductCode, variant.variant_code) === target)
+  if (directMatch) return directMatch
+  return group.variants.find((variant) => {
+    const normalized = normalizeVariantSuffix(normalizedProductCode, variant.variant_code)
+    if (normalized === target) return true
+
+    const normalizedVariantOnly = variant.variant_code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+    return normalizedVariantOnly === target
+      || normalizedVariantOnly === `${normalizedProductCode}${target}`
+      || normalizedVariantOnly === `${normalizedProductCode}0${target}`
+      || normalizedVariantOnly === `${normalizedProductCode}00${target}`
+  }) ?? null
 }
 
 function toExcelCol(col: number) {
@@ -315,8 +352,9 @@ function sumFormula(r1: number, c1: number, r2: number, c2: number) {
   return `=SUM(${range})`
 }
 
-function columnCellState(uProduct: string, qty: number): CellState {
+function columnCellState(uProduct: string, hasRule: boolean, qty: number): CellState {
   if (EXCLUDED_U_PRODUCTS.has(uProduct)) return 'excluded'
+  if (hasRule) return 'mapped'
   if (!Number.isFinite(qty) || qty <= 0) return 'unmapped'
   return 'mapped'
 }
@@ -340,17 +378,62 @@ function formatFormulaPrice(value: number) {
 function buildRevenueMappedTerms(
   qtyByColumn: number[],
   priceByColumn: number[],
+  hasRuleByColumn: boolean[] | undefined,
+  priceIsFoundByColumn: boolean[] | undefined,
   uStartCol: number,
-) {
+  rowKey: string,
+): RevenueFormulaBuildResult {
   const terms: RevenueFormulaTerm[] = []
+  const warnings: string[] = []
   qtyByColumn.forEach((qty, idx) => {
-    if (!Number.isFinite(qty) || qty <= 0) return
+    const hasRule = hasRuleByColumn?.[idx] ?? false
+    if (!hasRule) return
+    if (!Number.isFinite(qty)) return
     const price = priceByColumn[idx]
-    if (!Number.isFinite(price) || price < 0) return
+    if (!Number.isFinite(price)) return
+    const priceFound = priceIsFoundByColumn?.[idx] ?? false
+    if (!priceFound) {
+      const mappedUColumn = U_COLUMNS[idx]
+      const uProduct = mappedUColumn?.uProduct ?? ''
+      const uVariant = mappedUColumn?.uVariant ?? ''
+      warnings.push(`${rowKey}: LU 매핑 단가 미확인 (${uProduct}-${uVariant}, 인덱스 ${idx + 1})`)
+    }
     const uColOffset = uStartCol + idx
-    terms.push({ uColOffset, unitPrice: price })
+    terms.push({
+      uColOffset,
+      unitPrice: price,
+      priceMissing: !priceIsFoundByColumn?.[idx],
+    })
   })
-  return terms
+  return { terms, warnings }
+}
+
+function hasRuleMatch(
+  candidates: MappingRule[] | undefined,
+  targetLProduct: string,
+  targetLVariant: string | null,
+  targetLVariantIndex: number | null,
+  ruleUVariantIndex: number | null,
+  hasLVariants: boolean,
+) {
+  if (!candidates || candidates.length === 0) return false
+
+  return candidates.some((rule) => {
+    if (rule.lProduct !== targetLProduct) return false
+
+    if (rule.lVariant) {
+      if (!targetLVariant) return false
+      return rule.lVariant === targetLVariant
+    }
+
+    if (!targetLVariant) {
+      return !hasLVariants
+    }
+
+    return hasLVariants
+      && targetLVariantIndex != null
+      && ruleUVariantIndex === targetLVariantIndex
+  })
 }
 
 function getRuleMatchQty(
@@ -470,6 +553,9 @@ function buildCellFormula(
       const directPriceRef = `${resolveColValue(priceCol)}${rowMeta.excelRow}`
       const mappedTerms = (rowMeta.revenueMappedTerms ?? []).map((term) => {
         const col = resolveColValue(term.uColOffset)
+        if (term.priceMissing) {
+          return `${col}${rowMeta.excelRow}*단가미확인`
+        }
         return `${col}${rowMeta.excelRow}*${formatFormulaPrice(term.unitPrice)}`
       })
       const directPart = `=${directQtyRef}*${directPriceRef}`
@@ -505,10 +591,14 @@ export function ExcelOrderView() {
       const rowMeta = rowMetaByKey.get(meta.rowKey)
       const colMeta = colMetaByKey.get(meta.colKey)
       const formula = rowMeta && colMeta ? rowFormulaByKey.get(`${meta.rowKey}|${meta.colKey}`) ?? '' : ''
+      const formulaWarnings = meta.colKey === REVENUE_SCREEN_KEY
+        ? rowMeta?.revenueMappedPriceWarnings
+        : undefined
 
       return {
         ...meta,
         formula,
+        formulaWarnings,
         screenRow: rowMeta?.screenRow ?? 0,
         screenCol: colMeta?.screenCol ?? 0,
         excelRow: rowMeta?.excelRow ?? 0,
@@ -554,25 +644,23 @@ export function ExcelOrderView() {
   )
 
   const uDirectQtyByColumn = useMemo<{ qty: number; excluded: boolean }[]>(() => {
-    const byCode = new Map(allGroups.map((g) => [g.product_code, g]))
+    const byCode = new Map(allGroups.map((g) => [normalizeProductCode(g.product_code), g]))
 
     return U_COLUMNS.map((col) => {
-      const uGroup = byCode.get(col.uProduct)
+      const uGroup = byCode.get(normalizeProductCode(col.uProduct))
       if (!uGroup) return { qty: 0, excluded: false }
 
-      const variant = uGroup.variants.find((v: Variant) => {
-        const suffix = normalizeVariantSuffix(col.uProduct, v.variant_code).toUpperCase()
-        return suffix === col.uVariant
-      })
+      const variant = findUVariantData(uGroup, col.uProduct, col.uVariant)
 
       return { qty: variant?.qty ?? 0, excluded: false }
     })
   }, [allGroups])
 
   const groupRows = useMemo<GroupRows[]>(() => {
-    const byCode = new Map(allGroups.map((g) => [g.product_code, g]))
+    const byCode = new Map(allGroups.map((g) => [normalizeProductCode(g.product_code), g]))
     const buildRow = (code: string): Row => {
-      const g = byCode.get(code)
+      const normalizedCode = normalizeProductCode(code)
+      const g = byCode.get(normalizedCode)
       const variants = g?.variants ?? []
       const hasLVariants = g ? !!g.is_multi || variants.length > 1 : variants.length > 1
       const hasVariantRows = variants.length > 0
@@ -580,57 +668,91 @@ export function ExcelOrderView() {
       const directQty = hasVariantRows ? (firstVariant?.qty ?? 0) : g?.qty ?? 0
       const directUnitPrice = (hasVariantRows ? (firstVariant?.price ?? 0) : g?.price ?? 0) || 0
       const mappingQtyByColumn = Array(U_COLUMNS.length).fill(0)
+      const mappingHasRuleByColumn = Array(U_COLUMNS.length).fill(false)
       const mappingRevByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingPriceByColumn = Array(U_COLUMNS.length).fill(0)
+      const mappingPriceIsFoundByColumn = Array(U_COLUMNS.length).fill(false)
       const mappingStateByColumn = Array(U_COLUMNS.length).fill('unmapped' as CellState)
       const variantMappingQtyByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
       const variantMappingRevByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
       const variantMappingPriceByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
+      const variantMappingPriceIsFoundByColumn = variants.map(() => Array(U_COLUMNS.length).fill(false))
       const variantMappingStateByColumn = variants.map(() =>
         Array(U_COLUMNS.length).fill('unmapped' as CellState),
       )
+      const variantMappingHasRuleByColumn = variants.map(() => Array(U_COLUMNS.length).fill(false))
 
       U_COLUMNS.forEach((col, idx) => {
         const key = `${col.uProduct}${COLUMN_KEY_DELIM}${col.uVariant}`
         const rule = RULE_BY_KEY.get(key)
         const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(key) ?? null
 
-        const uGroup = byCode.get(col.uProduct)
+        const uGroup = byCode.get(normalizeProductCode(col.uProduct))
         let uQty = 0
         let uPrice = 0
+        let uPriceFound = false
         if (uGroup && !EXCLUDED_U_PRODUCTS.has(col.uProduct)) {
-          const targetVariant = uGroup.variants.find((v: Variant) => {
-            const suffix = normalizeVariantSuffix(col.uProduct, v.variant_code).toUpperCase()
-            return suffix === col.uVariant
-          })
+          const targetVariant = findUVariantData(uGroup, col.uProduct, col.uVariant)
           uQty = targetVariant?.qty ?? 0
-          uPrice = targetVariant?.price ?? 0
+          const rawVariantPrice = targetVariant?.price ?? Number.NaN
+          const rawGroupPrice = uGroup.price
+          if (Number.isFinite(rawVariantPrice) && rawVariantPrice > 0) {
+            uPrice = rawVariantPrice
+            uPriceFound = true
+          } else if (Number.isFinite(rawGroupPrice) && rawGroupPrice > 0) {
+            uPrice = rawGroupPrice
+            uPriceFound = true
+          } else {
+            uPriceFound = false
+          }
         }
+        mappingPriceByColumn[idx] = uPrice
+        mappingPriceIsFoundByColumn[idx] = uPriceFound
+
+        mappingHasRuleByColumn[idx] = hasRuleMatch(
+          rule,
+          normalizedCode,
+          null,
+          null,
+          ruleUVariantIndex,
+          hasLVariants,
+        )
 
         const { qty, rev } = rule
           ? getRuleMatchQty(
               rule,
-              code,
+              normalizedCode,
               null,
               null,
               ruleUVariantIndex,
               uQty,
               uPrice,
               hasLVariants,
-            )
+          )
           : { qty: 0, rev: 0 }
         mappingQtyByColumn[idx] = qty
         mappingRevByColumn[idx] = rev
-        mappingPriceByColumn[idx] = uPrice
-        mappingStateByColumn[idx] = columnCellState(col.uProduct, qty)
+        mappingStateByColumn[idx] = columnCellState(
+          col.uProduct,
+          mappingHasRuleByColumn[idx] ?? false,
+          qty,
+        )
 
         variants.forEach((v, vIdx) => {
-          const targetLVariant = normalizeVariantSuffix(code, v.variant_code).toUpperCase()
+          const targetLVariant = normalizeVariantSuffix(normalizedCode, v.variant_code).toUpperCase()
           const targetLVariantIndex = vIdx
+          variantMappingHasRuleByColumn[vIdx][idx] = hasRuleMatch(
+            rule,
+            normalizedCode,
+            targetLVariant,
+            targetLVariantIndex,
+            ruleUVariantIndex,
+            hasLVariants,
+          )
           const { qty: variantQty, rev: variantRev } = rule
             ? getRuleMatchQty(
                 rule,
-                code,
+                normalizedCode,
                 targetLVariant,
                 targetLVariantIndex,
                 ruleUVariantIndex,
@@ -642,8 +764,10 @@ export function ExcelOrderView() {
           variantMappingQtyByColumn[vIdx][idx] = variantQty
           variantMappingRevByColumn[vIdx][idx] = variantRev
           variantMappingPriceByColumn[vIdx][idx] = uPrice
+          variantMappingPriceIsFoundByColumn[vIdx][idx] = mappingPriceIsFoundByColumn[idx]
           variantMappingStateByColumn[vIdx][idx] = columnCellState(
             col.uProduct,
+            variantMappingHasRuleByColumn[vIdx][idx] ?? false,
             variantQty,
           )
         })
@@ -687,13 +811,17 @@ export function ExcelOrderView() {
           directQty,
           directUnitPrice,
           mappingPriceByColumn,
+          mappingPriceIsFoundByColumn,
           mappingQtyByColumn,
+          mappingHasRuleByColumn,
           mappingRevByColumn,
           mappingStateByColumn,
           variantMappingQtyByColumn,
           variantMappingPriceByColumn,
+          variantMappingPriceIsFoundByColumn,
           variantMappingRevByColumn,
           variantMappingStateByColumn,
+          variantMappingHasRuleByColumn,
           variants,
         }
       }
@@ -712,12 +840,16 @@ export function ExcelOrderView() {
         directQty,
         directUnitPrice,
         mappingPriceByColumn,
+        mappingPriceIsFoundByColumn,
         mappingQtyByColumn,
+        mappingHasRuleByColumn,
         mappingRevByColumn,
         mappingStateByColumn,
         variantMappingQtyByColumn: [],
         variantMappingPriceByColumn: [],
+        variantMappingPriceIsFoundByColumn: [],
         variantMappingRevByColumn: [],
+        variantMappingHasRuleByColumn: [],
         variantMappingStateByColumn: [],
         variants: [],
       }
@@ -853,24 +985,39 @@ export function ExcelOrderView() {
       grp.rows.forEach((row) => {
         const parentKey = `parent:${grp.label}:${row.product_code}`
         const parentTotalMappedQty = row.mappingQtyByColumn.map(
-          (qty, idx) => qty + (row.variantMappingQtyByColumn[0]?.[idx] ?? 0),
+          (qty, idx) => {
+            const variantQty = row.variantMappingQtyByColumn[0]?.[idx] ?? 0
+            return qty + variantQty
+          },
         )
-        const parentTotalMappedPrice = row.mappingQtyByColumn.map((qty, idx) => {
-          const mappedQty = row.variantMappingQtyByColumn[0]?.[idx] ?? 0
-          const totalMappedQty = qty + mappedQty
-          if (totalMappedQty <= 0) return 0
-          if (mappedQty > 0) {
-            return row.variantMappingPriceByColumn?.[0]?.[idx] ?? row.mappingPriceByColumn[idx] ?? 0
-          }
-          return row.mappingPriceByColumn[idx] ?? 0
+        const parentHasRuleByColumn = row.mappingHasRuleByColumn.map((hasParentRule, idx) => {
+          const hasFirstVariantRule = row.variantMappingHasRuleByColumn[0]?.[idx] ?? false
+          return hasParentRule || hasFirstVariantRule
         })
+        const parentTotalMappedPrice = row.mappingPriceByColumn.map((price, idx) => {
+          if (row.mappingHasRuleByColumn[idx]) return price
+          return row.variantMappingPriceByColumn[0]?.[idx] ?? 0
+        })
+        const parentPriceFoundByColumn = row.mappingPriceIsFoundByColumn.map((priceIsFound, idx) => {
+          if (priceIsFound) return true
+          return row.variantMappingPriceIsFoundByColumn[0]?.[idx] ?? false
+        })
+        const parentMapped = buildRevenueMappedTerms(
+          parentTotalMappedQty,
+          parentTotalMappedPrice,
+          parentHasRuleByColumn,
+          parentPriceFoundByColumn,
+          U_START_EXCEL_COL,
+          parentKey,
+        )
         addRow({
           key: parentKey,
           rowType: 'product',
           groupLabel: grp.label,
           product_code: row.product_code,
           revenueDirectQty: row.directQty,
-          revenueMappedTerms: buildRevenueMappedTerms(parentTotalMappedQty, parentTotalMappedPrice, U_START_EXCEL_COL),
+          revenueMappedTerms: parentMapped.terms,
+          revenueMappedPriceWarnings: parentMapped.warnings,
         })
         sourceRowKeys.push(parentKey)
 
@@ -880,6 +1027,15 @@ export function ExcelOrderView() {
             const variantIdx = idx + 1
             const variantQtyByColumn = row.variantMappingQtyByColumn[variantIdx] ?? []
             const variantPriceByColumn = row.variantMappingPriceByColumn[variantIdx] ?? []
+            const variantHasRuleByColumn = row.variantMappingHasRuleByColumn[variantIdx] ?? []
+            const variantMapped = buildRevenueMappedTerms(
+              variantQtyByColumn,
+              variantPriceByColumn,
+              variantHasRuleByColumn,
+              row.variantMappingPriceIsFoundByColumn[variantIdx] ?? [],
+              U_START_EXCEL_COL,
+              variantKey,
+            )
             addRow({
               key: variantKey,
               rowType: 'variant',
@@ -887,7 +1043,8 @@ export function ExcelOrderView() {
               product_code: row.product_code,
               variant_code: variant.variant_code,
               revenueDirectQty: variant.qty,
-              revenueMappedTerms: buildRevenueMappedTerms(variantQtyByColumn, variantPriceByColumn, U_START_EXCEL_COL),
+              revenueMappedTerms: variantMapped.terms,
+              revenueMappedPriceWarnings: variantMapped.warnings,
             })
             sourceRowKeys.push(variantKey)
           })
@@ -977,7 +1134,10 @@ export function ExcelOrderView() {
 
   const selectedFormulaText = useMemo(() => {
     if (!selectedCell) return null
-    return selectedCell.formula || ''
+    const warnings = selectedCell.formulaWarnings ?? []
+    const formula = selectedCell.formula || ''
+    if (!warnings.length) return formula
+    return `${formula}\n${warnings.join(' / ')}`
   }, [selectedCell])
 
   useEffect(() => {
@@ -1434,12 +1594,15 @@ export function ExcelOrderView() {
                             return q + mappedFirstVariantQty
                           })
                         : g.mappingQtyByColumn
-                      const parentStateByColumn = hasVariantRows
-                        ? g.mappingStateByColumn.map((state, idx) => {
+                         const parentStateByColumn = hasVariantRows
+                           ? g.mappingStateByColumn.map((state, idx) => {
                             if (state === 'excluded' || state === 'mapped') {
                               return state
                             }
-                            return (g.variantMappingQtyByColumn[0]?.[idx] ?? 0) > 0 ? 'mapped' : state
+                            if (g.variantMappingHasRuleByColumn[0]?.[idx]) {
+                              return 'mapped'
+                            }
+                            return state
                           })
                         : g.mappingStateByColumn
                         return (

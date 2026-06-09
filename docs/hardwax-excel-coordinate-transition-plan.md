@@ -93,6 +93,12 @@
 | 전체 합계 총판매 | `total:grand` | `=SUM({totalCol}{subtotalRows...})` |
 | 전체 합계 매출 | `total:grand` | `=SUM({revenueCol}{subtotalRows...})` |
 
+- 상품행/옵션행 매출 항의 LU매핑 항은 `U-컬럼 수량 > 0`이 아닌 `RULE 존재 여부`로 표시한다.
+  - 즉, 매핑 RULE이 있고 해당 LU 수량이 0이어도 `+{uCol}{row}*{uPrice}` 항은 수식에 유지된다.
+  - 실제 계산값은 각 항의 수량이 0이므로 결과에는 0이 반영되며, 구조는 유지된다.
+- 가격 항(`uPrice`)은 `cafe24` 가격 계약에 따라 `product price + variant.additional_amount`로 산정한다.
+  - 이 규칙은 `docs/cafe24-variant-price-resolution-contract.md`를 단일 소스로 사용한다.
+
 - `{lastUMappingCol}`: N(=6+U_COUNT) 열 문자.
 - `{totalCol}`: 총판매 열(N+1).
 - `{revenueCol}`: 매출 열(N+2).

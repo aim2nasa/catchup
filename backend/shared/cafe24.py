@@ -12,6 +12,90 @@ from cafe24_auth import get_access_token, MALL_ID  # type: ignore
 BASE = f"https://{MALL_ID}.cafe24api.com/api/v2/admin"
 
 
+def _coerce_price(value):
+    if value is None or value == '':
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return float(text)
+        except ValueError:
+            return None
+    return None
+
+
+def _coerce_options(options):
+    return ", ".join(
+        f"{o.get('name')}={o.get('value')}"
+        for o in (options or [])
+        if o.get("name") and o.get("value")
+    )
+
+
+def _coerce_variants(parent_price, product_no, variants, ensure_prices=False):
+    def parse_variants(raw_variants):
+        parsed = []
+        for variant in (raw_variants or []):
+            parsed.append({
+                "vcode": variant.get("variant_code"),
+                "opt": _coerce_options(variant.get("options")),
+                "price": _coerce_price(
+                    variant.get("price")
+                    or variant.get("retail_price")
+                    or variant.get("sale_price")
+                    or (
+                        _coerce_price(parent_price) + _coerce_price(variant.get("additional_amount"))
+                        if _coerce_price(parent_price) is not None and _coerce_price(variant.get("additional_amount")) is not None
+                        else None
+                    )
+                ),
+            })
+        return parsed
+
+    parsed = parse_variants(variants)
+    if not ensure_prices or not product_no:
+        return parsed
+
+    # 옵션별 단가를 보장해야 하는 하드왁스 경로에서는 variant 상세 API로 보강.
+    # /products/{product_no}/variants 응답에서 일부 variant가 0/누락인 케이스를 보정.
+    try:
+        res = requests.get(
+            f"{BASE}/products/{product_no}/variants",
+            headers=auth_headers(),
+        )
+        res.raise_for_status()
+        detail_variants = res.json().get("variants", [])
+    except Exception:
+        # 상세 API 실패 시 기존 집계 값을 그대로 사용.
+        return parsed
+
+    if not detail_variants:
+        return parsed
+
+    fallback = parse_variants(detail_variants)
+    if not fallback:
+        return parsed
+
+    fallback_by_code = {item.get("vcode"): item for item in fallback if item.get("vcode")}
+    for item in parsed:
+        target = fallback_by_code.get(item.get("vcode"))
+        if not target:
+            continue
+
+        fallback_price = target.get("price")
+        if fallback_price is None:
+            continue
+
+        if item.get("price") is None or item.get("price") == 0:
+            item["price"] = fallback_price
+
+    return parsed
+
+
 def auth_headers():
     return {"Authorization": f"Bearer {get_access_token()}"}
 
@@ -35,19 +119,16 @@ def fetch_products_by_category(cat_no):
         if not items:
             break
         for p in items:
-            vs = []
-            for v in (p.get("variants") or []):
-                opts = v.get("options") or []
-                opt_str = ", ".join(
-                    f"{o.get('name')}={o.get('value')}"
-                    for o in opts if o.get("value")
-                ) if opts else ""
-                vs.append({"vcode": v.get("variant_code"), "opt": opt_str})
             products[p["product_no"]] = {
                 "code": p["product_code"],
                 "name": p["product_name"],
-                "price": float(p.get("price") or 0),
-                "variants": vs,
+                "price": _coerce_price(p.get("price")) or 0.0,
+                "variants": _coerce_variants(
+                    p.get("price"),
+                    p.get("product_no"),
+                    p.get("variants") or [],
+                    ensure_prices=False,
+                ),
             }
         if len(items) < 100:
             break
@@ -71,19 +152,16 @@ def fetch_products_by_codes(codes):
         res.raise_for_status()
         items = res.json().get("products", [])
         for p in items:
-            vs = []
-            for v in (p.get("variants") or []):
-                opts = v.get("options") or []
-                opt_str = ", ".join(
-                    f"{o.get('name')}={o.get('value')}"
-                    for o in opts if o.get("value")
-                ) if opts else ""
-                vs.append({"vcode": v.get("variant_code"), "opt": opt_str})
             products[p["product_no"]] = {
                 "code": p["product_code"],
                 "name": p["product_name"],
-                "price": float(p.get("price") or 0),
-                "variants": vs,
+                "price": _coerce_price(p.get("price")) or 0.0,
+                "variants": _coerce_variants(
+                    p.get("price"),
+                    p.get("product_no"),
+                    p.get("variants") or [],
+                    ensure_prices=True,
+                ),
             }
     return products
 

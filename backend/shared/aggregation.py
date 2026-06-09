@@ -38,20 +38,34 @@ def aggregate(products: dict, orders: list) -> list:
         grev = 0.0
         variants = []
         variant_unit_prices = []
+        variant_catalog_prices = {}
         for v in info["variants"]:
             vc = v["vcode"]
-            a = accums.get(vc, {"qty": 0, "rev": 0.0, "unit_price": 0.0})
+            variant_catalog_prices[vc] = float(v.get("price") or 0)
+        for v in info["variants"]:
+            vc = v["vcode"]
+            a = accums.get(vc)
+            if a is None:
+                a = {
+                    "qty": 0,
+                    "rev": 0.0,
+                    "unit_price": 0.0,
+                    "catalog_price": variant_catalog_prices.get(vc, 0.0),
+                }
+            elif "catalog_price" not in a:
+                a["catalog_price"] = variant_catalog_prices.get(vc, 0.0)
             gqty += a["qty"]
             grev += a["rev"]
+            variant_unit_price = a["unit_price"] if a["unit_price"] else a["catalog_price"]
+            if variant_unit_price:
+                variant_unit_prices.append(variant_unit_price)
             variants.append({
                 "variant_code": vc,
                 "option": v.get("opt", ""),
                 "qty": a["qty"],
                 "rev": a["rev"],
-                "price": a["unit_price"],
+                "price": variant_unit_price,
             })
-            if a["unit_price"]:
-                variant_unit_prices.append(a["unit_price"])
         # parent 단가:
         #  - catalog 가격이 있으면 그대로 (single variant 또는 일관된 multi)
         #  - catalog 0인 multi라도 variant 단가가 모두 동일하면 그 값 채택
