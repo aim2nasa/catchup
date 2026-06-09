@@ -259,3 +259,19 @@
   - `Phase B-Confirm`으로 더블클릭 확인 모달을 적용한다.
   - `pendingLuAction` 상태에 더블클릭 요청을 저장하고, 확인 버튼에서만 기존 `toggleLuCell()`을 실행한다.
   - 상/하 이동은 계속 후속 Phase로 유지한다.
+
+## 26. 하드왁스 화면 CSS 원칙: `!important` 금지 (2026-06-10)
+
+- 원칙:
+  - 하드왁스 화면 CSS에서는 `!important`를 사용하지 않는다.
+  - 선택 강조, sticky, hover, 상태 표시가 충돌하더라도 `!important`로 덮지 않는다.
+- 이유:
+  - `!important`는 상태별 우선순위를 불투명하게 만들어 후속 수정에서 예측 가능성을 떨어뜨린다.
+  - LU/매핑셀, 미지정 교차셀, 선택 행/열/셀, sticky header처럼 상태가 많은 화면에서는 우선순위가 명시적으로 관리되어야 한다.
+- 대체 방식:
+  - selector specificity를 의도적으로 높인다.
+  - 상태 class를 분리한다.
+  - DOM 구조나 CSS 계층을 정리해 충돌 원인을 제거한다.
+  - 공통 규칙보다 화면 전용 규칙을 뒤에 배치한다.
+- 완료 기준:
+  - `rg -n "!important" frontend/src/pages/ExcelOrderView.css frontend/src/pages/ExcelOrderView.tsx` 결과가 없어야 한다.

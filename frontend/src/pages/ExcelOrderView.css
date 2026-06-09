@@ -295,22 +295,25 @@
   cursor: pointer;
 }
 
-.excel-table td.excel-row-selected,
-.excel-table tfoot td.excel-row-selected {
-  background: #dbeafe !important;
+.excel-table tbody tr td.excel-row-selected,
+.excel-table thead tr td.excel-row-selected,
+.excel-table tfoot tr td.excel-row-selected {
+  background: #dbeafe;
 }
 
-.excel-table td.excel-col-selected,
-.excel-table tfoot td.excel-col-selected {
-  background: #fef08a !important;
+.excel-table tbody tr td.excel-col-selected,
+.excel-table thead tr td.excel-col-selected,
+.excel-table tfoot tr td.excel-col-selected {
+  background: #fef08a;
 }
 
-.excel-table td.excel-cell-selected,
-.excel-table tfoot td.excel-cell-selected {
-  background: #93c5fd !important;
+.excel-table tbody tr td.excel-cell-selected,
+.excel-table thead tr td.excel-cell-selected,
+.excel-table tfoot tr td.excel-cell-selected {
+  background: #93c5fd;
   font-weight: 700;
   position: relative;
-  z-index: 7 !important;
+  z-index: 7;
   box-shadow: inset 0 0 0 2px #1d4ed8;
 }
 .excel-table th {
