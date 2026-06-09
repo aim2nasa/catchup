@@ -721,15 +721,25 @@ export function ExcelOrderView() {
           </div>
           <div className="excel-selection-indicator">
             {selectedCell ? (
-              <>
-            <span>선택 행: {selectedCell.rowLabel}</span>
-            <span>선택 열: {selectedCell.colLabel}</span>
-            <span>
-              좌표: {`R${rowCoordinates.get(selectedCell.rowKey) ?? '-'} / C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
-            </span>
-          </>
-        ) : (
-              <span>선택 없음</span>
+              <span className="selection-coordinates">
+                <span className="selection-pin">📍</span>
+                <span className="selection-item">
+                  <span className="selection-dot selection-dot-row" aria-hidden="true" />
+                  {`R${rowCoordinates.get(selectedCell.rowKey) ?? '-'}`}
+                </span>
+                <span className="selection-separator" aria-hidden="true">
+                  |
+                </span>
+                <span className="selection-item">
+                  <span className="selection-dot selection-dot-col" aria-hidden="true" />
+                  {`C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
+                </span>
+              </span>
+            ) : (
+              <span className="selection-empty">
+                <span className="selection-pin">📍</span>
+                <span>선택 없음</span>
+              </span>
             )}
           </div>
           <div

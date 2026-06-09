@@ -70,12 +70,53 @@
 .excel-selection-indicator {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   padding: 6px 2px 8px;
   border-bottom: 1px dashed var(--c-border);
   color: var(--c-text-muted);
   font-size: 11px;
+  white-space: nowrap;
+}
+
+.selection-coordinates,
+.selection-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+}
+
+.selection-pin {
+  font-size: 12px;
+}
+
+.selection-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+}
+
+.selection-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+}
+
+.selection-dot-row {
+  background: #dbeafe;
+}
+
+.selection-dot-col {
+  background: #fef08a;
+}
+
+.selection-separator {
+  color: var(--c-text-muted);
 }
 .excel-cat-label .cat-no-pill {
   background: var(--c-cat-num-bg);
