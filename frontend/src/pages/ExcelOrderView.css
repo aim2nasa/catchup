@@ -39,6 +39,20 @@
   margin-top: 14px;
 }
 
+.excel-horizontal-scrollbar-top {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 6px;
+  scrollbar-height: auto;
+  scrollbar-width: auto;
+}
+
+.excel-horizontal-scrollbar-top-inner {
+  height: 1px;
+  min-width: 0;
+}
+
 .excel-table-wrap {
   max-width: 100%;
   overflow-x: auto;

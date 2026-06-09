@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, type UIEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
@@ -298,6 +298,11 @@ export function ExcelOrderView() {
   const { settings, setStart, setEnd } = useSettings()
   const { start, end } = settings
   const { state, run } = useReport()
+  const tableWrapRef = useRef<HTMLDivElement>(null)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const topScrollbarRef = useRef<HTMLDivElement>(null)
+  const bottomSyncRef = useRef(false)
+  const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
 
   function handleStartChange(newStart: string) {
     setStart(newStart)
@@ -533,6 +538,61 @@ export function ExcelOrderView() {
   const currency = state.data?.grand.currency ?? 'KRW'
   const isRunning = state.status === 'running'
   const dataReady = !!state.data
+  const updateTopScrollbarWidth = () => {
+    const table = tableRef.current
+    const wrap = tableWrapRef.current
+    if (!table || !wrap) return
+    const nextWidth = Math.max(table.scrollWidth, wrap.clientWidth)
+    setTopScrollbarWidth((prev) => (prev === nextWidth ? prev : nextWidth))
+  }
+
+  const syncScrollLeftFromTop = (left: number) => {
+    const bottom = tableWrapRef.current
+    if (!bottom || bottomSyncRef.current || bottom.scrollLeft === left) return
+    bottomSyncRef.current = true
+    bottom.scrollLeft = left
+    requestAnimationFrame(() => {
+      bottomSyncRef.current = false
+    })
+  }
+
+  const syncScrollLeftFromBottom = (left: number) => {
+    const top = topScrollbarRef.current
+    if (!top) return
+    if (bottomSyncRef.current) return
+    if (top.scrollLeft === left) return
+    bottomSyncRef.current = true
+    top.scrollLeft = left
+    requestAnimationFrame(() => {
+      bottomSyncRef.current = false
+    })
+  }
+
+  function handleTopScroll(event: UIEvent<HTMLDivElement>) {
+    syncScrollLeftFromTop(event.currentTarget.scrollLeft)
+  }
+
+  function handleBottomScroll(event: UIEvent<HTMLDivElement>) {
+    syncScrollLeftFromBottom(event.currentTarget.scrollLeft)
+  }
+
+  useEffect(() => {
+    updateTopScrollbarWidth()
+    const wrap = tableWrapRef.current
+    const table = tableRef.current
+    if (!wrap || !table) return
+    const observer = new ResizeObserver(() => {
+      updateTopScrollbarWidth()
+    })
+    observer.observe(wrap)
+    observer.observe(table)
+    const onWindowResize = () => updateTopScrollbarWidth()
+    window.addEventListener('resize', onWindowResize)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', onWindowResize)
+    }
+  }, [dataReady])
 
   return (
     <div className="excel-container">
@@ -578,8 +638,18 @@ export function ExcelOrderView() {
               <span className="lu-pill lu-pill--excluded">매핑(예외)</span>
             </span>
           </div>
-          <div className="excel-table-wrap">
-            <table className="excel-table excel-matrix">
+          <div
+            className="excel-horizontal-scrollbar-top"
+            ref={topScrollbarRef}
+            onScroll={handleTopScroll}
+          >
+            <div
+              className="excel-horizontal-scrollbar-top-inner"
+              style={{ width: `${topScrollbarWidth}px` }}
+            />
+          </div>
+          <div className="excel-table-wrap" ref={tableWrapRef} onScroll={handleBottomScroll}>
+            <table className="excel-table excel-matrix" ref={tableRef}>
               <thead>
                 <tr>
                   <th rowSpan={2} className="sticky sticky-code">
