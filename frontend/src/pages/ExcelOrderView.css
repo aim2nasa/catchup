@@ -359,6 +359,14 @@
   color: var(--c-sum-text);
   z-index: 4;
 }
+.excel-table tr.section-separator-row td {
+  border-left: none;
+  border-right: none;
+  border-top: 3px solid #64748b;
+  background: #f1f5f9;
+  height: 7px;
+  padding: 0;
+}
 .excel-table tbody tr.subtotal-row:hover td { background: var(--c-sum-bg); }
 .excel-table tbody tr.subtotal-row td.code-cell { color: var(--c-sum-text); font-style: normal; font-family: inherit; }
 .excel-table td.code-cell {

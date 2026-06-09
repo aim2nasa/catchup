@@ -385,7 +385,7 @@ export function ExcelOrderView() {
       const directQty = g?.qty ?? 0
       const directRev = g?.rev ?? 0
       const variants = g?.variants ?? []
-      const hasLVariants = variants.length > 1
+      const hasLVariants = g ? !!g.is_multi || variants.length > 1 : variants.length > 1
       const mappingQtyByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingRevByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingStateByColumn = Array(U_COLUMNS.length).fill('unmapped' as CellState)
