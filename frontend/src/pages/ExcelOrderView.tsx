@@ -47,6 +47,29 @@ type CellSelectionMeta = {
   rowLabel: string
   colKey: string
   colLabel: string
+  formula?: string
+  screenRow?: number
+  screenCol?: number
+  excelRow?: number
+  excelCol?: number
+}
+
+type RowType = 'uDirect' | 'product' | 'variant' | 'subtotal' | 'total'
+type RowFormulaMeta = {
+  key: string
+  rowType: RowType
+  groupLabel: string
+  product_code?: string
+  variant_code?: string
+  screenRow: number
+  excelRow: number
+  contributorRowKeys?: string[]
+}
+
+type ColFormulaMeta = {
+  key: string
+  screenCol: number
+  excelCol: number
 }
 
 type LGroup = {
@@ -239,12 +262,47 @@ for (const col of U_COLUMNS) {
 }
 const BLOCK_BY_CODE = new Map(U_BLOCKS.map((b) => [b.productCode, b.productLabel]))
 
+const DIRECT_CELL_SCREEN_KEY = 'A:직접판매'
+const TOTAL_SCREEN_KEY = 'C:총판매'
+const REVENUE_SCREEN_KEY = 'C:매출'
+const SCREEN_COL_OFFSET = 8
+const U_START_EXCEL_COL = 7
+const DIRECT_EXCEL_COLUMN = 4
+const PRICE_EXCEL_COLUMN = 6
+
 function normalizeVariantSuffix(productCode: string, variantCode: string) {
   if (!variantCode) return ''
   const raw = variantCode.startsWith(productCode)
     ? variantCode.slice(productCode.length)
     : variantCode
   return raw.replace(/^0+/, '') || raw
+}
+
+function toExcelCol(col: number) {
+  if (col <= 0) return ''
+  let result = ''
+  let n = col
+  while (n > 0) {
+    const remain = (n - 1) % 26
+    result = String.fromCharCode(65 + remain) + result
+    n = Math.floor((n - 1) / 26)
+  }
+  return result
+}
+
+function a1(row: number, col: number) {
+  return `${toExcelCol(col)}${row}`
+}
+
+function rangeA1(r1: number, c1: number, r2: number, c2: number) {
+  if (!Number.isFinite(r1) || !Number.isFinite(r2) || !Number.isFinite(c1) || !Number.isFinite(c2)) return ''
+  return `${a1(Math.min(r1, r2), Math.min(c1, c2))}:${a1(Math.max(r1, r2), Math.max(c1, c2))}`
+}
+
+function sumFormula(r1: number, c1: number, r2: number, c2: number) {
+  const range = rangeA1(r1, c1, r2, c2)
+  if (!range) return ''
+  return `=SUM(${range})`
 }
 
 function columnCellState(uProduct: string, qty: number): CellState {
@@ -292,13 +350,92 @@ function getRuleMatchQty(
       }
       return
     }
-    if (hasLVariants && targetLVariantIndex >= 0 && ruleUVariantIndex === targetLVariantIndex) {
+  if (hasLVariants && targetLVariantIndex != null && targetLVariantIndex >= 0 && ruleUVariantIndex === targetLVariantIndex) {
       totalQty += qty * rule.ratio
       totalRev += qty * price * rule.ratio
     }
   })
 
   return { qty: totalQty, rev: totalRev }
+}
+
+function buildCellFormula(
+  rowMeta: RowFormulaMeta,
+  colMeta: ColFormulaMeta,
+  rowMetaByKey: Map<string, RowFormulaMeta>,
+  fixed: {
+    directCol: number
+    totalCol: number
+    revenueCol: number
+    uStartCol: number
+    uEndCol: number
+  },
+) {
+  const { directCol, totalCol, revenueCol, uStartCol, uEndCol } = fixed
+  const sourceRows = rowMeta.contributorRowKeys ?? []
+
+  const resolveColValue = (col: number) => {
+    if (col < 1) return ''
+    return toExcelCol(col)
+  }
+
+  const rowNums = sourceRows
+    .map((key) => rowMetaByKey.get(key)?.excelRow)
+    .filter((row): row is number => row != null)
+    .sort((a, b) => a - b)
+
+  const sumByRows = (col: number) => {
+    if (rowNums.length === 0) return ''
+    if (rowNums.length === 1) return `=${resolveColValue(col)}${rowNums[0]}`
+    return `=SUM(${rowNums.map((r) => `${resolveColValue(col)}${r}`).join(',')})`
+  }
+
+  if (colMeta.excelCol === directCol) {
+    if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
+      if (rowNums.length === 0) return ''
+      if (rowNums.length === 1) return `=${resolveColValue(directCol)}${rowNums[0]}`
+      return sumFormula(rowNums[0], directCol, rowNums[rowNums.length - 1], directCol)
+    }
+    return ''
+  }
+
+  if (colMeta.excelCol >= uStartCol && colMeta.excelCol <= uEndCol) {
+    if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
+      if (rowNums.length === 0) return ''
+      if (rowNums.length === 1) return `=${resolveColValue(colMeta.excelCol)}${rowNums[0]}`
+      return sumFormula(rowNums[0], colMeta.excelCol, rowNums[rowNums.length - 1], colMeta.excelCol)
+    }
+    return ''
+  }
+
+  if (colMeta.excelCol === totalCol) {
+    if (rowMeta.rowType === 'product' || rowMeta.rowType === 'variant') {
+      const directPart = `=${resolveColValue(directCol)}${rowMeta.excelRow}`
+      if (uStartCol <= uEndCol) {
+        return `${directPart}+SUM(${resolveColValue(uStartCol)}${rowMeta.excelRow}:${resolveColValue(uEndCol)}${rowMeta.excelRow})`
+      }
+      return directPart
+    }
+
+    if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
+      return sumByRows(totalCol)
+    }
+
+    return ''
+  }
+
+  if (colMeta.excelCol === revenueCol) {
+    if (rowMeta.rowType === 'product' || rowMeta.rowType === 'variant') {
+      const priceCol = 6
+      return `=${resolveColValue(totalCol)}${rowMeta.excelRow}*${resolveColValue(priceCol)}${rowMeta.excelRow}`
+    }
+
+    if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
+      return sumByRows(revenueCol)
+    }
+  }
+
+  return ''
 }
 
 export function ExcelOrderView() {
@@ -315,9 +452,22 @@ export function ExcelOrderView() {
   const copyTimerRef = useRef<number | null>(null)
 
   const handleCellSelect = (meta: CellSelectionMeta) => {
-    setSelectedCell((prev) =>
-      prev && prev.rowKey === meta.rowKey && prev.colKey === meta.colKey ? null : meta,
-    )
+    setSelectedCell((prev) => {
+      if (prev && prev.rowKey === meta.rowKey && prev.colKey === meta.colKey) return null
+
+      const rowMeta = rowMetaByKey.get(meta.rowKey)
+      const colMeta = colMetaByKey.get(meta.colKey)
+      const formula = rowMeta && colMeta ? rowFormulaByKey.get(`${meta.rowKey}|${meta.colKey}`) ?? '' : ''
+
+      return {
+        ...meta,
+        formula,
+        screenRow: rowMeta?.screenRow ?? 0,
+        screenCol: colMeta?.screenCol ?? 0,
+        excelRow: rowMeta?.excelRow ?? 0,
+        excelCol: colMeta?.excelCol ?? 0,
+      }
+    })
   }
 
   const clearSelection = () => setSelectedCell(null)
@@ -574,6 +724,8 @@ export function ExcelOrderView() {
     0,
   )
   const totalColumnCount = 6 + U_COLUMNS.length + 2
+  const totalExcelColumn = U_START_EXCEL_COL + U_COLUMNS.length
+  const revenueExcelColumn = totalExcelColumn + 1
   const totalMappingQtyByColumn = Array.from({ length: U_COLUMNS.length }, (_, idx) =>
     groupRows.reduce(
       (s, g) => s + (g.withSubtotal === false ? 0 : (g.subtotalMappingQtyByColumn[idx] ?? 0)),
@@ -581,53 +733,195 @@ export function ExcelOrderView() {
     ),
   )
 
-  const rowCoordinates = useMemo(() => {
-    const map = new Map<string, number>()
+  const colMetaByKey = useMemo(() => {
+    const map = new Map<string, ColFormulaMeta>()
+    let screenCol = 1
+    const fixed: [string, number][] = [
+      ['A:상품코드', 1],
+      ['A:상품명', 2],
+      ['A:코드', 3],
+      ['A:옵션명', 5],
+      ['A:단가', PRICE_EXCEL_COLUMN],
+      [DIRECT_CELL_SCREEN_KEY, DIRECT_EXCEL_COLUMN],
+    ]
+    fixed.forEach(([key, excelCol]) => {
+      map.set(key, { key, screenCol: screenCol++, excelCol })
+    })
+    U_COLUMNS.forEach((col, idx) => {
+      const key = `B:${col.uProduct}-${col.uVariant}`
+      map.set(key, {
+        key,
+        screenCol: screenCol++,
+        excelCol: U_START_EXCEL_COL + idx,
+      })
+    })
+    map.set(TOTAL_SCREEN_KEY, {
+      key: TOTAL_SCREEN_KEY,
+      screenCol: screenCol++,
+      excelCol: totalExcelColumn,
+    })
+    map.set(REVENUE_SCREEN_KEY, {
+      key: REVENUE_SCREEN_KEY,
+      screenCol: screenCol++,
+      excelCol: revenueExcelColumn,
+    })
+    return map
+  }, [totalExcelColumn, revenueExcelColumn])
+
+  const rowMetaByKey = useMemo(() => {
+    const map = new Map<string, RowFormulaMeta>()
     let rowIndex = 1
 
-    map.set('hardwax-u-direct', rowIndex++)
+    const addRow = (meta: Omit<RowFormulaMeta, 'screenRow' | 'excelRow'>) => {
+      const screenRow = rowIndex++
+      map.set(meta.key, {
+        ...meta,
+        screenRow,
+        excelRow: screenRow + SCREEN_COL_OFFSET,
+      })
+    }
+
+    addRow({
+      key: 'hardwax-u-direct',
+      rowType: 'uDirect',
+      groupLabel: 'U상품 판매수',
+    })
+
+    const cupbizRowKeys: string[] = []
 
     groupRows.forEach((grp) => {
+      const sourceRowKeys: string[] = []
       grp.rows.forEach((row) => {
         const parentKey = `parent:${grp.label}:${row.product_code}`
-        map.set(parentKey, rowIndex++)
+        addRow({
+          key: parentKey,
+          rowType: 'product',
+          groupLabel: grp.label,
+          product_code: row.product_code,
+        })
+        sourceRowKeys.push(parentKey)
+
         if (row.variants.length > 1) {
           row.variants.slice(1).forEach((variant) => {
             const variantKey = `variant:${row.product_code}:${variant.variant_code}`
-            map.set(variantKey, rowIndex++)
+            addRow({
+              key: variantKey,
+              rowType: 'variant',
+              groupLabel: grp.label,
+              product_code: row.product_code,
+              variant_code: variant.variant_code,
+            })
+            sourceRowKeys.push(variantKey)
           })
         }
       })
+
+      if (grp.label === '컵비즈') {
+        cupbizRowKeys.push(...sourceRowKeys)
+      }
+
+      const subtotalSourceRows = grp.label === '1kg 총합계' && cupbizRowKeys.length > 0
+        ? [...sourceRowKeys, ...cupbizRowKeys]
+        : sourceRowKeys
+
       if (grp.withSubtotal !== false) {
-        map.set(`subtotal:${grp.label}`, rowIndex++)
+        addRow({
+          key: `subtotal:${grp.label}`,
+          rowType: 'subtotal',
+          groupLabel: grp.label,
+          contributorRowKeys: subtotalSourceRows,
+        })
       }
     })
 
-    map.set('total:grand', rowIndex++)
+    const grandSources: string[] = groupRows
+      .filter((grp) => grp.withSubtotal !== false)
+      .map((grp) => `subtotal:${grp.label}`)
+      .filter((subtotalRowKey) => map.has(subtotalRowKey))
+    addRow({
+      key: 'total:grand',
+      rowType: 'total',
+      groupLabel: '합계',
+      contributorRowKeys: grandSources,
+    })
 
     return map
   }, [groupRows])
 
+  const rowCoordinates = useMemo(() => {
+    const map = new Map<string, number>()
+    rowMetaByKey.forEach((meta, key) => {
+      map.set(key, meta.screenRow)
+    })
+    return map
+  }, [rowMetaByKey])
+
   const colCoordinates = useMemo(() => {
     const map = new Map<string, number>()
-    let colIndex = 1
-    const aKeys: string[] = ['A:상품코드', 'A:상품명', 'A:코드', 'A:옵션명', 'A:단가', 'A:직접판매']
-    const cKeys: string[] = ['C:총판매', 'C:매출']
-
-    aKeys.forEach((key) => map.set(key, colIndex++))
-    U_COLUMNS.forEach((col) => map.set(`B:${col.uProduct}-${col.uVariant}`, colIndex++))
-    cKeys.forEach((key) => map.set(key, colIndex++))
-
+    colMetaByKey.forEach((meta, key) => {
+      map.set(key, meta.screenCol)
+    })
     return map
-  }, [])
+  }, [colMetaByKey])
+
+  const rowFormulaByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    rowMetaByKey.forEach((rowMeta, rowKey) => {
+      colMetaByKey.forEach((colMeta) => {
+        const formula = buildCellFormula(
+          rowMeta,
+          colMeta,
+          rowMetaByKey,
+          {
+            directCol: DIRECT_EXCEL_COLUMN,
+            totalCol: totalExcelColumn,
+            revenueCol: revenueExcelColumn,
+            uStartCol: U_START_EXCEL_COL,
+            uEndCol: U_START_EXCEL_COL + U_COLUMNS.length - 1,
+          },
+        )
+        if (formula) {
+          map.set(`${rowKey}|${colMeta.key}`, formula)
+        }
+      })
+    })
+    return map
+  }, [colMetaByKey, rowMetaByKey, totalExcelColumn, revenueExcelColumn])
 
   const selectedCoordinateText = useMemo(() => {
     if (!selectedCell) return null
-    const rowNo = rowCoordinates.get(selectedCell.rowKey)
-    const colNo = colCoordinates.get(selectedCell.colKey)
-    if (rowNo == null || colNo == null) return null
-    return `R${rowNo}/C${colNo}`
-  }, [selectedCell, colCoordinates, rowCoordinates])
+    const rowMeta = rowMetaByKey.get(selectedCell.rowKey)
+    const colMeta = colMetaByKey.get(selectedCell.colKey)
+    if (!rowMeta || !colMeta) return null
+    return `R${rowMeta.screenRow}/C${colMeta.screenCol}`
+  }, [selectedCell, colMetaByKey, rowMetaByKey])
+
+  const selectedFormulaText = useMemo(() => {
+    if (!selectedCell) return null
+    return selectedCell.formula || ''
+  }, [selectedCell])
+
+  useEffect(() => {
+    const table = tableRef.current
+    if (!table) return
+    const cells = table.querySelectorAll('td[data-row-key][data-col-key]')
+    cells.forEach((cell) => {
+      const rowKey = cell.getAttribute('data-row-key') ?? ''
+      const colKey = cell.getAttribute('data-col-key') ?? ''
+      const formula = rowKey && colKey ? rowFormulaByKey.get(`${rowKey}|${colKey}`) : ''
+      cell.setAttribute('data-row', rowKey)
+      cell.setAttribute('data-col', colKey)
+      cell.setAttribute('data-formula', formula ?? '')
+      if (formula) {
+        cell.classList.add('formula-cell')
+        cell.setAttribute('title', `수식: ${formula}`)
+      } else {
+        cell.classList.remove('formula-cell')
+        cell.setAttribute('title', '값 셀')
+      }
+    })
+  }, [rowFormulaByKey, state.data])
+
 
   const currency = state.data?.grand.currency ?? 'KRW'
   const isRunning = state.status === 'running'
@@ -807,6 +1101,14 @@ export function ExcelOrderView() {
                 <span>선택 없음</span>
               </span>
             )}
+            {selectedCell ? (
+              <span className="selection-formula">
+                <span className="selection-item">수식:</span>
+                <span className="selection-formula-value">
+                  {selectedFormulaText || '값 셀'}
+                </span>
+              </span>
+            ) : null}
           </div>
           <div
             className="excel-horizontal-scrollbar-top"
