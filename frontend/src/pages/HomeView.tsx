@@ -1,4 +1,5 @@
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
+import { apiUrl } from '@/api/client'
 import '@/features/sales-report/SalesReportView.css'
 import './HomeView.css'
 
@@ -31,6 +32,22 @@ const MENUS: MenuItem[] = [
 ]
 
 export function HomeView() {
+  async function handleRestart() {
+    const ok = window.confirm('catchup 서버를 재시작할까요?')
+    if (!ok) return
+
+    try {
+      const res = await fetch(apiUrl('/api/admin/restart'), { method: 'POST' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error((body as { error?: string }).error || `HTTP ${res.status}`)
+      }
+      alert((body as { message?: string }).message || '서버 재시작을 요청했습니다.')
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '서버 재시작 요청에 실패했습니다.')
+    }
+  }
+
   return (
     <div className="home-container">
       <header className="home-header">
@@ -52,6 +69,16 @@ export function HomeView() {
             <div className="home-menu-arrow">→</div>
           </a>
         ))}
+        <button type="button" className="home-menu-item home-menu-action" onClick={handleRestart}>
+          <div className="home-menu-content">
+            <div className="home-menu-title">
+              서버 재시작
+              <span className="home-menu-tag tag-danger">관리</span>
+            </div>
+            <div className="home-menu-desc">현재 실행 중인 catchup 서버를 다시 시작</div>
+          </div>
+          <div className="home-menu-arrow">↻</div>
+        </button>
       </nav>
       <VersionFooter />
     </div>

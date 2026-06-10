@@ -35,6 +35,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 16px 18px;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
@@ -42,6 +43,8 @@
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+  font: inherit;
+  text-align: left;
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .home-menu-item:hover {
@@ -67,6 +70,7 @@
 }
 .tag-new { background: var(--c-multi-tag-bg); color: var(--c-multi-tag-text); }
 .tag-ref { background: var(--c-border); color: var(--c-text-muted); }
+.tag-danger { background: #fee2e2; color: #991b1b; }
 .home-menu-desc {
   font-size: 12px;
   color: var(--c-text-muted);

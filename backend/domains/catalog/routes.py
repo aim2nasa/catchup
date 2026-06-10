@@ -1,4 +1,10 @@
 """카테고리/버전 조회 라우트."""
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
 import traceback
 
 from fastapi import APIRouter
@@ -13,6 +19,26 @@ router = APIRouter()
 @router.get("/api/version")
 def api_version():
     return {"version": get_version(), "started_at": SERVER_STARTED_AT}
+
+
+@router.post("/api/admin/restart")
+def api_restart():
+    def restart_later():
+        time.sleep(0.5)
+        if shutil.which("pm2"):
+            subprocess.Popen(["pm2", "restart", "catchup"])
+            return
+
+        subprocess.Popen(
+            [sys.executable, *sys.argv],
+            cwd=str(Path(__file__).resolve().parents[3]),
+            env=os.environ.copy(),
+            close_fds=True,
+        )
+        os._exit(0)
+
+    threading.Thread(target=restart_later, daemon=True).start()
+    return {"ok": True, "message": "서버 재시작을 요청했습니다."}
 
 
 @router.get("/api/categories")
