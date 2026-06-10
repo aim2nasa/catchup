@@ -318,8 +318,6 @@
 .excel-table tfoot tr td.excel-cell-selected {
   background: #93c5fd;
   font-weight: 700;
-  position: relative;
-  z-index: 7;
   box-shadow: inset 0 0 0 2px #1d4ed8;
 }
 .excel-table th {
