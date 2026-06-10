@@ -105,6 +105,10 @@
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 6px 14px;
   font-size: 13px;
   cursor: pointer;
@@ -116,6 +120,10 @@
 }
 .btn:hover:not([disabled]) { background: var(--c-row-hover); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.btn-running:disabled {
+  opacity: 1;
+  cursor: wait;
+}
 .btn-primary {
   background: var(--c-primary);
   color: white;
@@ -124,6 +132,36 @@
 .btn-primary:hover:not([disabled]) {
   background: var(--c-primary-dark);
   border-color: var(--c-primary-dark);
+}
+
+.btn-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  animation: spin 0.75s linear infinite;
+}
+
+.query-running-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .split-panel {

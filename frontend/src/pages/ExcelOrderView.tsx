@@ -1690,13 +1690,27 @@ export function ExcelOrderView() {
             {copyToast ? <div className="excel-copy-toast">{copyToast}</div> : null}
             <button
               type="button"
-              className="btn btn-primary"
+              className={`btn btn-primary ${isRunning ? 'btn-running' : ''}`}
               onClick={handleRun}
               disabled={isRunning}
+              aria-busy={isRunning}
             >
-              {isRunning ? '조회 중…' : '조회'}
+              {isRunning ? (
+                <>
+                  <span className="btn-spinner" aria-hidden="true" />
+                  <span>조회 중</span>
+                </>
+              ) : (
+                '조회'
+              )}
             </button>
           </div>
+          {isRunning ? (
+            <div className="query-running-banner" role="status" aria-live="polite">
+              <span className="btn-spinner" aria-hidden="true" />
+              <span>조회 중입니다. 데이터를 불러오는 동안 잠시 기다려주세요.</span>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -86,6 +86,12 @@ export function SalesReportView() {
             running={isRunning}
           />
         </div>
+        {isRunning ? (
+          <div className="query-running-banner" role="status" aria-live="polite">
+            <span className="btn-spinner" aria-hidden="true" />
+            <span>조회 중입니다. 데이터를 불러오는 동안 잠시 기다려주세요.</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="split-panel">

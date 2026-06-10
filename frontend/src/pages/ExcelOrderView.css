@@ -125,6 +125,12 @@
   font-size: 12px;
 }
 
+.excel-sticky-top .query-running-banner {
+  margin-top: 7px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .hardwax-filter-status {
   display: flex;
   align-items: center;
