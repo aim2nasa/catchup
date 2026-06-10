@@ -1,4 +1,4 @@
-import { Fragment, type UIEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type PointerEvent as ReactPointerEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
@@ -33,7 +33,10 @@ type PendingLuAction = LuToggleTarget & {
   confirmLabel: string
   actionTone: 'primary' | 'danger'
   uLabel: string
+  uProductName: string
   lLabel: string
+  lProductName: string
+  lPriceLabel: string
   qty: number
   price: number
   revenueImpact: number
@@ -698,6 +701,8 @@ export function ExcelOrderView() {
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
   const [pendingLuAction, setPendingLuAction] = useState<PendingLuAction | null>(null)
+  const [luDialogPosition, setLuDialogPosition] = useState<{ x: number; y: number } | null>(null)
+  const luDialogDragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
   const [copyToast, setCopyToast] = useState<string | null>(null)
   const copyTimerRef = useRef<number | null>(null)
   const effectiveRuleMap = useMemo(() => makeEffectiveRuleMap(luOverrides), [luOverrides])
@@ -809,7 +814,10 @@ export function ExcelOrderView() {
     target: LuToggleTarget,
     context: {
       uLabel: string
+      uProductName: string
       lLabel: string
+      lProductName: string
+      lPriceLabel: string
       qty: number
       price: number
     },
@@ -880,7 +888,10 @@ export function ExcelOrderView() {
       confirmLabel,
       actionTone,
       uLabel: context.uLabel,
+      uProductName: context.uProductName,
       lLabel: context.lLabel,
+      lProductName: context.lProductName,
+      lPriceLabel: context.lPriceLabel,
       qty,
       price,
       revenueImpact: qty * price,
@@ -891,6 +902,41 @@ export function ExcelOrderView() {
     if (!pendingLuAction) return
     toggleLuCell(pendingLuAction)
     setPendingLuAction(null)
+  }
+
+  useEffect(() => {
+    if (!pendingLuAction) {
+      setLuDialogPosition(null)
+      luDialogDragRef.current = null
+    }
+  }, [pendingLuAction])
+
+  const startLuDialogDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return
+    const origin = luDialogPosition ?? { x: 0, y: 0 }
+    luDialogDragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: origin.x,
+      originY: origin.y,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const moveLuDialog = (event: ReactPointerEvent<HTMLElement>) => {
+    const drag = luDialogDragRef.current
+    if (!drag) return
+    setLuDialogPosition({
+      x: drag.originX + event.clientX - drag.startX,
+      y: drag.originY + event.clientY - drag.startY,
+    })
+  }
+
+  const stopLuDialogDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    luDialogDragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
   }
 
   const getCellSelectionClass = (rowKey: string, colKey: string) => {
@@ -2057,14 +2103,17 @@ export function ExcelOrderView() {
                                          lVariantIndex: parentHasLVariants && hasVariantRows ? 0 : null,
                                          hasLVariants: parentHasLVariants,
                                        },
-                                       {
-                                         uLabel: `${U_COLUMNS[idx]?.uProduct ?? ''} / ${U_COLUMNS[idx]?.uVariant ?? ''}`,
-                                         lLabel: hasVariantRows
-                                           ? `${g.product_code} / ${firstVariantSuffix || '-'}`
-                                           : g.product_code,
-                                         qty: q > 0 ? q : (uDirectQtyByColumn[idx]?.qty ?? 0),
-                                         price: g.mappingPriceByColumn[idx] ?? 0,
-                                       },
+                                         {
+                                           uLabel: `${U_COLUMNS[idx]?.uProduct ?? ''} / ${U_COLUMNS[idx]?.uVariant ?? ''}`,
+                                           uProductName: U_COLUMNS[idx]?.blockLabel ?? '',
+                                           lLabel: hasVariantRows
+                                             ? `${g.product_code} / ${firstVariantSuffix || '-'}`
+                                             : g.product_code,
+                                           lProductName: g.product_name,
+                                           lPriceLabel: firstVariantDisplayPrice,
+                                           qty: q > 0 ? q : (uDirectQtyByColumn[idx]?.qty ?? 0),
+                                           price: g.mappingPriceByColumn[idx] ?? 0,
+                                         },
                                      )
                                    }
                                    data-row-key={rowKey}
@@ -2258,12 +2307,15 @@ export function ExcelOrderView() {
                                             lVariantIndex: idx,
                                             hasLVariants: !!g.is_multi || g.variants.length > 1,
                                           },
-                                          {
-                                            uLabel: `${U_COLUMNS[cellIdx]?.uProduct ?? ''} / ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`,
-                                            lLabel: `${g.product_code} / ${suffix || '-'}`,
-                                            qty: q > 0 ? q : (uDirectQtyByColumn[cellIdx]?.qty ?? 0),
-                                            price: g.variantMappingPriceByColumn[idx]?.[cellIdx] ?? 0,
-                                          },
+                                            {
+                                              uLabel: `${U_COLUMNS[cellIdx]?.uProduct ?? ''} / ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`,
+                                              uProductName: U_COLUMNS[cellIdx]?.blockLabel ?? '',
+                                              lLabel: `${g.product_code} / ${suffix || '-'}`,
+                                              lProductName: g.product_name,
+                                              lPriceLabel: fmtVariantPrice(v.price, g.price, currency),
+                                              qty: q > 0 ? q : (uDirectQtyByColumn[cellIdx]?.qty ?? 0),
+                                              price: g.variantMappingPriceByColumn[idx]?.[cellIdx] ?? 0,
+                                            },
                                         )
                                       }
                                       data-row-key={variantRowKey}
@@ -2638,32 +2690,56 @@ export function ExcelOrderView() {
         <div className="lu-confirm-backdrop" role="presentation">
           <div
             className="lu-confirm-dialog"
+            style={{
+              transform: luDialogPosition
+                ? `translate(${luDialogPosition.x}px, ${luDialogPosition.y}px)`
+                : undefined,
+            }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="lu-confirm-title"
           >
-            <h2 id="lu-confirm-title">{pendingLuAction.title}</h2>
+            <div
+              className="lu-confirm-drag-handle"
+              onPointerDown={startLuDialogDrag}
+              onPointerMove={moveLuDialog}
+              onPointerUp={stopLuDialogDrag}
+              onPointerCancel={stopLuDialogDrag}
+            >
+              <h2 id="lu-confirm-title">{pendingLuAction.title}</h2>
+            </div>
             <p className="lu-confirm-desc">{pendingLuAction.description}</p>
             <dl className="lu-confirm-details">
-              <div>
+              <div className="lu-confirm-product-block">
                 <dt>U상품/옵션</dt>
-                <dd>{pendingLuAction.uLabel}</dd>
+                <dd>
+                  <span className="lu-confirm-code">{pendingLuAction.uLabel}</span>
+                  <span className="lu-confirm-name">{pendingLuAction.uProductName || '-'}</span>
+                  <span className="lu-confirm-price">단가 {pendingLuAction.price > 0 ? fmtCurrency(pendingLuAction.price, currency) : '단가미확인'}</span>
+                </dd>
               </div>
-              <div>
+              <div className="lu-confirm-product-block">
                 <dt>L상품/옵션</dt>
-                <dd>{pendingLuAction.lLabel}</dd>
+                <dd>
+                  <span className="lu-confirm-code">{pendingLuAction.lLabel}</span>
+                  <span className="lu-confirm-name">{pendingLuAction.lProductName || '-'}</span>
+                  <span className="lu-confirm-price">단가 {pendingLuAction.lPriceLabel || '단가미확인'}</span>
+                </dd>
               </div>
               <div>
                 <dt>반영 수량</dt>
                 <dd>{fmtNumber(pendingLuAction.qty)}</dd>
               </div>
               <div>
-                <dt>U 단가</dt>
-                <dd>{pendingLuAction.price > 0 ? fmtCurrency(pendingLuAction.price, currency) : '단가미확인'}</dd>
-              </div>
-              <div>
                 <dt>예상 매출 반영</dt>
-                <dd>{pendingLuAction.price > 0 ? fmtCurrency(pendingLuAction.revenueImpact, currency) : '단가미확인'}</dd>
+                <dd className="lu-confirm-formula">
+                  {pendingLuAction.price > 0
+                    ? `${fmtCurrency(pendingLuAction.revenueImpact, currency)} = U상품/옵션 단가 (${fmtCurrency(
+                        pendingLuAction.price,
+                        currency,
+                      )}) x 반영수량(${fmtNumber(pendingLuAction.qty)})`
+                    : '단가미확인'}
+                </dd>
               </div>
             </dl>
             <div className="lu-confirm-actions">

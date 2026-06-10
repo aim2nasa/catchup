@@ -639,6 +639,14 @@
   border-radius: 6px;
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
   padding: 18px;
+  touch-action: none;
+}
+
+.lu-confirm-drag-handle {
+  margin: -18px -18px 0;
+  padding: 18px 18px 8px;
+  cursor: move;
+  user-select: none;
 }
 
 .lu-confirm-dialog h2 {
@@ -679,6 +687,39 @@
   margin: 0;
   color: #0f172a;
   font-weight: 700;
+}
+
+.lu-confirm-details dd span {
+  display: block;
+}
+
+.lu-confirm-product-block {
+  align-items: start;
+}
+
+.lu-confirm-code {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.lu-confirm-name {
+  margin-top: 3px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.lu-confirm-price {
+  margin-top: 5px;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.lu-confirm-formula {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .lu-confirm-actions {
