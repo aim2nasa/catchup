@@ -200,6 +200,40 @@
   color: var(--c-text-muted);
 }
 
+.selection-u-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: min(40vw, 620px);
+  padding: 1px 7px;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.selection-u-option-label {
+  flex: 0 0 auto;
+  color: #0f766e;
+}
+
+.selection-u-option-code {
+  flex: 0 0 auto;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  color: #155e75;
+}
+
+.selection-u-option-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+}
+
 .selection-formula {
   display: inline-flex;
   align-items: center;

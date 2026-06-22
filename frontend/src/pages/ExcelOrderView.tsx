@@ -1051,6 +1051,36 @@ export function ExcelOrderView() {
     })
   }, [allGroups])
 
+  const uColumnInfoByKey = useMemo(() => {
+    const byCode = new Map(allGroups.map((g) => [normalizeProductCode(g.product_code), g]))
+    const map = new Map<string, {
+      productCode: string
+      productLabel: string
+      variantCode: string
+      optionLabel: string
+    }>()
+
+    U_COLUMNS.forEach((col, idx) => {
+      const uGroup = byCode.get(normalizeProductCode(col.uProduct))
+      const variant = findUVariantData(uGroup, col.uProduct, col.uVariant)
+      const optionLabel = displayOptionName(variant?.option || variant?.variant_code || col.uVariant)
+      map.set(`B:${col.uProduct}-${col.uVariant}`, {
+        productCode: col.uProduct,
+        productLabel: col.blockLabel,
+        variantCode: col.uVariant,
+        optionLabel,
+      })
+      map.set(`B:${col.uProduct}-${col.uVariant || idx}`, {
+        productCode: col.uProduct,
+        productLabel: col.blockLabel,
+        variantCode: col.uVariant,
+        optionLabel,
+      })
+    })
+
+    return map
+  }, [allGroups])
+
   const groupRows = useMemo<GroupRows[]>(() => {
     const byCode = new Map(allGroups.map((g) => [normalizeProductCode(g.product_code), g]))
     const buildRow = (code: string): Row => {
@@ -1540,6 +1570,11 @@ export function ExcelOrderView() {
     return splitFormulaForDisplay(selectedFormulaText)
   }, [selectedFormulaText])
 
+  const hoveredUColumnInfo = useMemo(() => {
+    if (!hoveredCell) return null
+    return uColumnInfoByKey.get(hoveredCell.colKey) ?? null
+  }, [hoveredCell, uColumnInfoByKey])
+
   useEffect(() => {
     const table = tableRef.current
     if (!table) return
@@ -1729,6 +1764,20 @@ export function ExcelOrderView() {
                       <span>선택 없음</span>
                     </span>
                   )}
+                  {hoveredUColumnInfo ? (
+                    <span
+                      className="selection-u-option"
+                      title={`${hoveredUColumnInfo.productCode} ${hoveredUColumnInfo.productLabel} / ${hoveredUColumnInfo.variantCode} ${hoveredUColumnInfo.optionLabel}`}
+                    >
+                      <span className="selection-u-option-label">U옵션</span>
+                      <span className="selection-u-option-code">
+                        {hoveredUColumnInfo.productCode}/{hoveredUColumnInfo.variantCode}
+                      </span>
+                      <span className="selection-u-option-name">
+                        {hoveredUColumnInfo.productLabel} / {hoveredUColumnInfo.optionLabel}
+                      </span>
+                    </span>
+                  ) : null}
                   {selectedCell ? (
                     selectedFormulaText ? (
                       <span className="selection-formula">
