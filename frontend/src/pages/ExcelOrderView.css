@@ -550,7 +550,8 @@
 }
 .excel-table thead tr:nth-child(3) th.matrix-variant.u-col-set,
 .excel-table tr td.u-col-set {
-  background: #f0fdf4;
+  background: #ecfdf3;
+  color: #14532d;
 }
 .excel-table tbody tr:hover td.u-col-set,
 .excel-table thead tr.u-direct-row:hover td.u-col-set {
@@ -558,7 +559,8 @@
 }
 .excel-table tr.subtotal-row td.u-col-set,
 .excel-table tfoot tr td.u-col-set {
-  background: #ecfdf5;
+  background: #dff7e8;
+  color: #064e3b;
 }
 .excel-table .u-header-code {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
@@ -703,37 +705,38 @@
   background: #f8fafc;
   border-color: var(--c-border);
 }
-.map-cell--mapped {
+.excel-table tbody tr td.map-cell--mapped {
+  background-color: #e5e7eb;
   background:
-    radial-gradient(circle at 24% 12%, rgba(255, 255, 255, 1) 0, rgba(255, 255, 255, 0.86) 18%, transparent 44%),
-    linear-gradient(145deg, #ffffff 0%, #eef2f7 30%, #aeb9c8 70%, #f8fafc 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.62) 26%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(145deg, #f8fafc 0%, #e5e7eb 42%, #b8c0ca 72%, #f1f5f9 100%);
   color: #0f172a;
   font-weight: 800;
   text-align: center;
-  border-color: #cbd5e1;
+  border-color: #64748b;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 1px 0 0 rgba(255, 255, 255, 0.58),
-    inset 0 -1px 0 rgba(30, 41, 59, 0.26),
-    inset -1px 0 0 rgba(30, 41, 59, 0.14),
-    0 0 0 1px rgba(148, 163, 184, 0.18),
-    0 1px 0 rgba(255, 255, 255, 0.42),
-    0 2px 4px rgba(15, 23, 42, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.32),
+    inset -1px 0 0 rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(71, 85, 105, 0.42),
+    0 2px 4px rgba(15, 23, 42, 0.22);
   transform: translateY(-1px);
 }
-.map-cell--unmapped {
-  background: #f6f8fb;
-  color: transparent;
-  border-color: var(--c-border);
+.excel-table tbody tr td.map-cell--unmapped {
+  background: #f5f7f9;
+  color: #475569;
+  border-color: #e2e8f0;
+  font-weight: 500;
 }
-.map-cell--excluded {
+.excel-table tbody tr td.map-cell--excluded {
   background: #ede9fe;
   color: #4c1d95;
   font-weight: 700;
 }
 .excel-table tbody tr:hover td.map-cell--unmapped,
 .excel-table tbody tr.variant-row:hover td.map-cell--unmapped {
-  background: #f6f8fb;
+  background: #f5f7f9;
 }
 .excel-table tbody tr td.map-cell--unmapped.excel-row-selected {
   background: #dbeafe;
@@ -748,9 +751,36 @@
 }
 .excel-table tbody tr:hover td.map-cell--mapped,
 .excel-table tbody tr.variant-row:hover td.map-cell--mapped {
+  background-color: #d1d5db;
   background:
-    radial-gradient(circle at 24% 12%, rgba(255, 255, 255, 1) 0, rgba(255, 255, 255, 0.86) 18%, transparent 44%),
-    linear-gradient(145deg, #ffffff 0%, #eef2f7 30%, #aeb9c8 70%, #f8fafc 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.68) 24%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(145deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 72%, #e5e7eb 100%);
+}
+.excel-table tr td.u-col-set.map-cell--unmapped {
+  background: #ecfdf3;
+  color: #475569;
+  font-weight: 600;
+}
+.excel-table tbody tr:hover td.u-col-set.map-cell--unmapped,
+.excel-table tbody tr.variant-row:hover td.u-col-set.map-cell--unmapped {
+  background: #dcfce7;
+}
+.excel-table tr td.u-col-set.map-cell--mapped,
+.excel-table tbody tr:hover td.u-col-set.map-cell--mapped,
+.excel-table tbody tr.variant-row:hover td.u-col-set.map-cell--mapped {
+  background-color: #e5e7eb;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.62) 26%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(145deg, #f8fafc 0%, #e5e7eb 42%, #b8c0ca 72%, #f1f5f9 100%);
+  color: #0f172a;
+  border-color: #64748b;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.32),
+    inset -1px 0 0 rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(71, 85, 105, 0.42),
+    0 2px 4px rgba(15, 23, 42, 0.22);
 }
 .excel-table tbody tr td.excel-row-selected,
 .excel-table thead tr td.excel-row-selected,
@@ -792,6 +822,32 @@
   box-shadow:
     inset 0 0 0 2px #0891b2,
     0 0 0 1px rgba(15, 23, 42, 0.14);
+}
+.excel-table tbody tr td.map-cell--mapped.excel-hover-row,
+.excel-table tbody tr td.map-cell--mapped.excel-hover-col,
+.excel-table tbody tr td.map-cell--mapped.excel-hover-row.excel-hover-col,
+.excel-table tbody tr td.map-cell--mapped.excel-row-selected,
+.excel-table tbody tr td.map-cell--mapped.excel-col-selected {
+  background-color: #d1d5db;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.68) 24%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(145deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 72%, #e5e7eb 100%);
+  border-color: #475569;
+  color: #0f172a;
+}
+.excel-table tbody tr td.map-cell--mapped.excel-hover-cell,
+.excel-table tbody tr td.map-cell--mapped.excel-cell-selected {
+  background-color: #d1d5db;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.68) 24%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(145deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 72%, #e5e7eb 100%);
+  border-color: #2563eb;
+  color: #0f172a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.32),
+    0 0 0 2px rgba(37, 99, 235, 0.72),
+    0 3px 6px rgba(15, 23, 42, 0.24);
 }
 .lu-confirm-backdrop {
   position: fixed;
