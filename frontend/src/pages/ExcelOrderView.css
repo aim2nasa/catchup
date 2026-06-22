@@ -663,6 +663,32 @@
 .excel-table tfoot tr td.excel-cell-selected {
   background: #93c5fd;
 }
+.excel-table tbody tr td.excel-hover-row,
+.excel-table thead tr td.excel-hover-row,
+.excel-table tfoot tr td.excel-hover-row {
+  border-top-color: #38bdf8;
+  border-bottom-color: #38bdf8;
+}
+.excel-table tbody tr td.excel-hover-col,
+.excel-table thead tr td.excel-hover-col,
+.excel-table tfoot tr td.excel-hover-col {
+  border-left-color: #eab308;
+  border-right-color: #eab308;
+  background: #fef08a;
+}
+.excel-table tbody tr td.excel-hover-row.excel-hover-col,
+.excel-table thead tr td.excel-hover-row.excel-hover-col,
+.excel-table tfoot tr td.excel-hover-row.excel-hover-col {
+  border-color: #0891b2 #eab308;
+  background: #dbeafe;
+}
+.excel-table tbody tr td.excel-hover-cell,
+.excel-table thead tr td.excel-hover-cell,
+.excel-table tfoot tr td.excel-hover-cell {
+  box-shadow:
+    inset 0 0 0 2px #0891b2,
+    0 0 0 1px rgba(15, 23, 42, 0.14);
+}
 .lu-confirm-backdrop {
   position: fixed;
   inset: 0;

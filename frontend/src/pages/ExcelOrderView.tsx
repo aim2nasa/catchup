@@ -1,4 +1,4 @@
-import { Fragment, type PointerEvent as ReactPointerEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
@@ -742,6 +742,7 @@ export function ExcelOrderView() {
   const bottomSyncRef = useRef(false)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
+  const [hoveredCell, setHoveredCell] = useState<Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null>(null)
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
   const [pendingLuAction, setPendingLuAction] = useState<PendingLuAction | null>(null)
   const [luDialogPosition, setLuDialogPosition] = useState<{ x: number; y: number } | null>(null)
@@ -983,12 +984,33 @@ export function ExcelOrderView() {
   }
 
   const getCellSelectionClass = (rowKey: string, colKey: string) => {
-    if (!selectedCell) return ''
-    if (selectedCell.rowKey === rowKey && selectedCell.colKey === colKey) return 'excel-cell-selected'
-    if (selectedCell.rowKey === rowKey) return 'excel-row-selected'
-    if (selectedCell.colKey === colKey) return 'excel-col-selected'
-    return ''
+    const classes: string[] = []
+    if (selectedCell?.rowKey === rowKey && selectedCell.colKey === colKey) {
+      classes.push('excel-cell-selected')
+    }
+    if (hoveredCell?.rowKey === rowKey) classes.push('excel-hover-row')
+    if (hoveredCell?.colKey === colKey) classes.push('excel-hover-col')
+    if (hoveredCell?.rowKey === rowKey && hoveredCell.colKey === colKey) {
+      classes.push('excel-hover-cell')
+    }
+    return classes.join(' ')
   }
+
+  const handleTableMouseMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const target = event.target instanceof HTMLElement ? event.target : null
+    const cell = target?.closest('td[data-row-key][data-col-key]')
+    if (!(cell instanceof HTMLTableCellElement)) return
+    if (!tableWrapRef.current?.contains(cell)) return
+    const rowKey = cell.dataset.rowKey
+    const colKey = cell.dataset.colKey
+    if (!rowKey || !colKey) return
+    setHoveredCell((prev) => {
+      if (prev?.rowKey === rowKey && prev.colKey === colKey) return prev
+      return { rowKey, colKey }
+    })
+  }
+
+  const clearHoveredCell = () => setHoveredCell(null)
 
   const rowHeaderLabelByCode = (code: string, name: string) => `${code} / ${name}`
 
@@ -1771,7 +1793,13 @@ export function ExcelOrderView() {
               style={{ width: `${topScrollbarWidth}px` }}
             />
           </div>
-          <div className="excel-table-wrap" ref={tableWrapRef} onScroll={handleBottomScroll}>
+          <div
+            className="excel-table-wrap"
+            ref={tableWrapRef}
+            onScroll={handleBottomScroll}
+            onMouseMove={handleTableMouseMove}
+            onMouseLeave={clearHoveredCell}
+          >
             <table className="excel-table excel-matrix" ref={tableRef}>
               <thead>
                 <tr>
