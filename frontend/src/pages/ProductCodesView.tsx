@@ -2401,7 +2401,7 @@ export function ProductCodesView() {
                         return (
                        <Fragment key={gid}>
                           <tr
-                            className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent product-merge-start' : 'row-single'} category-scope-row`.trim()}
+                            className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent product-merge-start' : 'row-single'} category-scope-row ${gi === 0 ? 'group-start-row' : ''}`.trim()}
                            >
                            <th className="pc-excel-row-head">{excelRowNumber(rowKey)}</th>
                            <td

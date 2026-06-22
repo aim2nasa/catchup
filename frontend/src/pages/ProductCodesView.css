@@ -644,16 +644,16 @@
   color: #1f2937;
 }
 .pc-excel-table tbody tr.subtotal-row td {
-  font-weight: 700;
-  background: var(--c-sum-bg);
+  font-weight: 600;
+  background: #f8fafc;
   color: var(--c-sum-text);
-  border-top: 1px solid #94a3b8;
-  border-bottom: 1px solid #94a3b8;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
 }
 
 .pc-excel-table tr.product-category-row th,
 .pc-excel-table tr.product-category-row td {
-  border-top: 1px solid #94a3b8;
+  border-top: 2px solid #94a3b8;
   border-bottom: 1px solid #cbd5e1;
   background: #eef2f7;
   color: #0f172a;
@@ -664,26 +664,31 @@
 }
 
 .product-group-band-cell {
-  padding: 4px 10px;
+  padding: 6px 10px;
   text-align: left;
   white-space: nowrap;
 }
 
 .product-category-badge {
   display: inline-block;
-  margin-right: 8px;
-  padding: 1px 6px;
+  margin-right: 10px;
+  padding: 2px 7px;
   border-radius: 3px;
   background: #334155;
   color: #ffffff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .product-group-band-value {
   color: #0f172a;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
+}
+
+.pc-excel-table tbody tr.group-start-row > th,
+.pc-excel-table tbody tr.group-start-row > td {
+  border-top: 1px solid #94a3b8;
 }
 
 .pc-excel-table tr.category-scope-row > .sticky-code {
@@ -703,7 +708,7 @@
 .pc-excel-table tbody tr.subtotal-row td.sticky-rev,
 .pc-excel-table tfoot tr td.sticky-total,
 .pc-excel-table tfoot tr td.sticky-rev {
-  background: var(--c-sum-bg);
+  background: #f8fafc;
   color: var(--c-sum-text);
   z-index: 4;
 }
@@ -715,7 +720,7 @@
   height: 7px;
   padding: 0;
 }
-.pc-excel-table tbody tr.subtotal-row:hover td { background: var(--c-sum-bg); }
+.pc-excel-table tbody tr.subtotal-row:hover td { background: #f8fafc; }
 .pc-excel-table tbody tr.subtotal-row td.code-cell { color: var(--c-sum-text); font-style: normal; font-family: inherit; }
 .pc-excel-table td.code-cell {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
