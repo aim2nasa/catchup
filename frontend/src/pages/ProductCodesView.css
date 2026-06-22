@@ -1,4 +1,7 @@
 .pc-excel-container {
+  --c-sum-bg: #f1f5f9;
+  --c-sum-text: #1f2937;
+  --c-sum-border: #94a3b8;
   font: 12px/1.4 "Malgun Gothic", "Apple SD Gothic Neo", "맑은 고딕", sans-serif;
   background: var(--c-bg);
   color: var(--c-text);
@@ -255,8 +258,8 @@
 }
 
 .selection-formula-price {
-  color: #b45309;
-  background: #fef3c7;
+  color: #1d4ed8;
+  background: #dbeafe;
   border-radius: 3px;
   padding: 0 2px;
 }
@@ -344,7 +347,7 @@
 .pc-excel-table tbody tr td.pc-excel-col-selected,
 .pc-excel-table thead tr td.pc-excel-col-selected,
 .pc-excel-table tfoot tr td.pc-excel-col-selected {
-  background: #fef08a;
+  background: #dbeafe;
 }
 
 .pc-excel-table tbody tr td.pc-excel-cell-selected,
@@ -367,7 +370,7 @@
   top: 0;
   z-index: 40;
   background: var(--c-table-head);
-  box-shadow: 0 2px 0 var(--c-sum-border);
+  box-shadow: 0 2px 0 #cbd5e1;
   isolation: isolate;
 }
 
@@ -378,7 +381,7 @@
   bottom: -2px;
   left: 0;
   height: 2px;
-  background: var(--c-sum-border);
+  background: #cbd5e1;
   pointer-events: none;
 }
 
@@ -485,10 +488,10 @@
   width: 78px;
   max-width: 78px;
   border-left: 2px solid var(--c-sum-border);
-  box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.18);
+  box-shadow: none;
   padding-left: 4px;
   padding-right: 4px;
-  background: #fffbeb;
+  background: #f8fafc;
 }
 .pc-excel-table .sticky-rev {
   right: 0;
@@ -516,8 +519,8 @@
   overflow: visible;
 }
 .pc-excel-table .u-header-set {
-  background: #14532d;
-  color: #f0fdf4;
+  background: #334155;
+  color: #f8fafc;
 }
 .pc-excel-table .u-header-conversion {
   background: #334155;
@@ -550,17 +553,17 @@
 }
 .pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-col-set,
 .pc-excel-table tr td.u-col-set {
-  background: #ecfdf3;
-  color: #14532d;
+  background: #f8fafc;
+  color: #1f2937;
 }
 .pc-excel-table tbody tr:hover td.u-col-set,
 .pc-excel-table thead tr.u-direct-row:hover td.u-col-set {
-  background: #dcfce7;
+  background: #f1f5f9;
 }
 .pc-excel-table tr.subtotal-row td.u-col-set,
 .pc-excel-table tfoot tr td.u-col-set {
-  background: #dff7e8;
-  color: #064e3b;
+  background: var(--c-sum-bg);
+  color: var(--c-sum-text);
 }
 .pc-excel-table .u-header-code {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
@@ -599,7 +602,7 @@
 .pc-excel-table .u-direct-row td:nth-child(8),
 .pc-excel-table tr.subtotal-row td:nth-child(8) {
   border-left: 2px solid var(--c-sum-border);
-  box-shadow: inset 10px 0 0 rgba(217, 119, 6, 0.12);
+  box-shadow: none;
 }
 .pc-excel-table .num {
   text-align: right;
@@ -617,7 +620,7 @@
 }
 .pc-excel-table tbody tr td:nth-last-child(2),
 .pc-excel-table tbody tr td:last-child {
-  background: #fffaf0;
+  background: #f8fafc;
 }
 .pc-excel-table tbody tr:hover { background: var(--c-row-hover); }
 .pc-excel-table thead tr.u-direct-row td,
@@ -638,9 +641,58 @@
   font-weight: 700;
   background: var(--c-sum-bg);
   color: var(--c-sum-text);
-  border-top: 1px solid var(--c-sum-border);
-  border-bottom: 1px solid var(--c-sum-border);
+  border-top: 1px solid #94a3b8;
+  border-bottom: 1px solid #94a3b8;
 }
+
+.pc-excel-table tr.product-category-row th,
+.pc-excel-table tr.product-category-row td {
+  border-top: 1px solid #94a3b8;
+  border-bottom: 1px solid #cbd5e1;
+  background: #eef2f7;
+  color: #0f172a;
+}
+
+.pc-excel-table tr.product-category-row th {
+  z-index: 6;
+}
+
+.product-group-band-cell {
+  padding: 4px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.product-category-badge {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #334155;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.product-group-band-value {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pc-excel-table tr.category-scope-row > .sticky-code {
+  box-shadow: none;
+}
+
+.pc-excel-table tr.category-scope-row > .pc-excel-row-head {
+  box-shadow: none;
+}
+
+.pc-excel-table tbody tr.category-end-row > th,
+.pc-excel-table tbody tr.category-end-row > td {
+  border-bottom: 2px solid #475569;
+}
+
 .pc-excel-table tbody tr.subtotal-row td.sticky-total,
 .pc-excel-table tbody tr.subtotal-row td.sticky-rev,
 .pc-excel-table tfoot tr td.sticky-total,
@@ -742,7 +794,7 @@
   background: #dbeafe;
 }
 .pc-excel-table tbody tr td.map-cell--unmapped.pc-excel-col-selected {
-  background: #fef08a;
+  background: #dbeafe;
 }
 .pc-excel-table tbody tr td.map-cell--unmapped.pc-excel-cell-selected {
   background: #93c5fd;
@@ -757,13 +809,13 @@
     linear-gradient(145deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 72%, #e5e7eb 100%);
 }
 .pc-excel-table tr td.u-col-set.map-cell--unmapped {
-  background: #ecfdf3;
+  background: #f8fafc;
   color: #475569;
   font-weight: 600;
 }
 .pc-excel-table tbody tr:hover td.u-col-set.map-cell--unmapped,
 .pc-excel-table tbody tr.variant-row:hover td.u-col-set.map-cell--unmapped {
-  background: #dcfce7;
+  background: #f1f5f9;
 }
 .pc-excel-table tr td.u-col-set.map-cell--mapped,
 .pc-excel-table tbody tr:hover td.u-col-set.map-cell--mapped,

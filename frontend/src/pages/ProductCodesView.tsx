@@ -81,6 +81,7 @@ interface Row {
 }
 
 interface GroupRows {
+  category: string
   label: string
   withSubtotal: boolean
   rows: Row[]
@@ -109,7 +110,7 @@ type FormulaDisplayPart = {
   kind: 'plain' | 'price'
 }
 
-type RowType = 'uDirect' | 'product' | 'variant' | 'subtotal' | 'total'
+type RowType = 'uDirect' | 'category' | 'product' | 'variant' | 'subtotal' | 'total'
 type RowFormulaMeta = {
   key: string
   rowType: RowType
@@ -130,7 +131,10 @@ type ColFormulaMeta = {
   excelCol: number
 }
 
+const categoryRowKey = (category: string) => `category:${category}`
+
 type LGroup = {
+  category: string
   label: string
   codes: string[]
   withSubtotal?: boolean
@@ -166,19 +170,17 @@ function makeLuCellKey(rule: Pick<MappingRule, 'uProduct' | 'uVariant' | 'lProdu
 
 const L_GROUPS: LGroup[] = [
   {
-    label: '500g 총합계',
+    category: '하드왁스',
+    label: '500g',
     codes: [
       'P00000HT', 'P00000BV', 'P00000CB', 'P00000BX',
       'P00000XE', 'P0000BIF', 'P0000BLD', 'P0000BMJ', 'P0000BMI',
+      'P00000ZB',
     ],
   },
   {
-    label: '컵비즈',
-    codes: ['P00000ZB'],
-    withSubtotal: false,
-  },
-  {
-    label: '1kg 총합계',
+    category: '하드왁스',
+    label: '1kg',
     codes: [
       'P00000UH', 'P00000TI', 'P00000BY', 'P00000BZ',
       'P00000CH', 'P00000CG', 'P00000CA', 'P00000BW', 'P00000CI',
@@ -1292,20 +1294,13 @@ export function ProductCodesView() {
     L_GROUPS.flatMap((g) => g.codes).forEach((code) => {
       lRowsByCode.set(code, buildRow(code))
     })
-    const cupbizGroup = L_GROUPS.find((g) => g.label === '컵비즈')
-    const cupbizSubtotalRows = (cupbizGroup?.codes ?? [])
-      .map((code) => lRowsByCode.get(code))
-      .filter((row): row is Row => !!row)
-
     return L_GROUPS.map((group) => {
       const rows: Row[] = group.codes.map((code) => lRowsByCode.get(code) ?? buildRow(code))
-      const subtotalSourceRows =
-        group.label === '1kg 총합계'
-          ? [...rows, ...cupbizSubtotalRows]
-          : rows
+      const subtotalSourceRows = rows
 
       return {
         label: group.label,
+        category: group.category,
         withSubtotal: group.withSubtotal !== false,
         rows,
         subtotalQty: subtotalSourceRows.reduce((s, r) => s + r.subtotalQtyForSummary, 0),
@@ -1411,9 +1406,15 @@ export function ProductCodesView() {
       groupLabel: 'U상품 판매수',
     })
 
-    const cupbizRowKeys: string[] = []
-
     groupRows.forEach((grp) => {
+      if (groupRows.findIndex((candidate) => candidate.category === grp.category) === groupRows.indexOf(grp)) {
+        addRow({
+          key: categoryRowKey(grp.category),
+          rowType: 'category',
+          groupLabel: grp.category,
+        })
+      }
+
       const sourceRowKeys: string[] = []
       grp.rows.forEach((row) => {
         const parentKey = `parent:${grp.label}:${row.product_code}`
@@ -1484,13 +1485,7 @@ export function ProductCodesView() {
         }
       })
 
-      if (grp.label === '컵비즈') {
-        cupbizRowKeys.push(...sourceRowKeys)
-      }
-
-      const subtotalSourceRows = grp.label === '1kg 총합계' && cupbizRowKeys.length > 0
-        ? [...sourceRowKeys, ...cupbizRowKeys]
-        : sourceRowKeys
+      const subtotalSourceRows = sourceRowKeys
 
       if (grp.withSubtotal !== false) {
         addRow({
@@ -1707,11 +1702,11 @@ export function ProductCodesView() {
     const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF334155' } }
     const setHeaderFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF14532D' } }
     const headerFont = { bold: true, color: { argb: 'FFF8FAFC' }, size: 9 }
-    const sumFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFEF3C7' } }
-    const setFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFDCFCE7' } }
+    const sumFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF1F5F9' } }
+    const setFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
     const bodyFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
     const border = { style: 'thin' as const, color: { argb: 'FF94A3B8' } }
-    const orangeBorder = { style: 'medium' as const, color: { argb: 'FFF59E0B' } }
+    const summaryBorder = { style: 'medium' as const, color: { argb: 'FF94A3B8' } }
     const applyBorder = (cell: { border: unknown; alignment: unknown }) => {
       cell.border = { top: border, right: border, bottom: border, left: border }
       cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
@@ -1785,7 +1780,7 @@ export function ProductCodesView() {
     totalHeader.value = '총판매'
     styleRange(6, totalExcelColumn, 8, totalExcelColumn, {
       fill: sumFill,
-      font: { bold: true, color: { argb: 'FF92400E' } },
+      font: { bold: true, color: { argb: 'FF1F2937' } },
       alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
     })
     worksheet.mergeCells(6, revenueExcelColumn, 8, revenueExcelColumn)
@@ -1793,7 +1788,7 @@ export function ProductCodesView() {
     revenueHeader.value = '매출'
     styleRange(6, revenueExcelColumn, 8, revenueExcelColumn, {
       fill: sumFill,
-      font: { bold: true, color: { argb: 'FF92400E' } },
+      font: { bold: true, color: { argb: 'FF1F2937' } },
       alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
     })
 
@@ -1802,7 +1797,7 @@ export function ProductCodesView() {
       if (!address) return
       const cell = worksheet.getCell(address)
       const formula = domCell.dataset.formula
-      const value = parseExportValue(domCell.textContent ?? '')
+      const value = parseExportValue(domCell.dataset.exportValue ?? domCell.textContent ?? '')
       if (formula?.startsWith('=') && !formula.includes('단가미확인')) {
         cell.value = { formula: formula.slice(1), result: typeof value === 'number' ? value : undefined }
       } else {
@@ -1818,7 +1813,7 @@ export function ProductCodesView() {
         cell.fill = setFill
       }
       if (domCell.classList.contains('sticky-total') || domCell.classList.contains('sticky-rev')) {
-        cell.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFFAF0' } }
+        cell.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
       }
       if (domCell.closest('.subtotal-row') || domCell.closest('tfoot')) {
         cell.fill = sumFill
@@ -1829,7 +1824,7 @@ export function ProductCodesView() {
         cell.border = { ...cell.border, left: { style: 'medium' as const, color: { argb: 'FF15803D' } } }
       }
       if (domCell.classList.contains('sticky-total') || domCell.classList.contains('sticky-rev')) {
-        cell.border = { ...cell.border, left: orangeBorder }
+        cell.border = { ...cell.border, left: summaryBorder }
       }
       if (domCell.classList.contains('sticky-name') || domCell.classList.contains('sticky-option-name')) {
         cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
@@ -2325,6 +2320,23 @@ export function ProductCodesView() {
               <tbody>
                 {groupRows.map((grp) => (
                   <Fragment key={grp.label}>
+                    {groupRows.findIndex((candidate) => candidate.category === grp.category) === groupRows.indexOf(grp) ? (
+                      <tr className="product-category-row">
+                        <th className="pc-excel-row-head">{excelRowNumber(categoryRowKey(grp.category))}</th>
+                        <td
+                          className="product-group-band-cell"
+                          colSpan={totalColumnCount - 1}
+                          data-row-key={categoryRowKey(grp.category)}
+                          data-col-key="A:상품코드"
+                          data-row-label={grp.category}
+                          data-col-label="상품코드"
+                          data-export-value={`카테고리 ${grp.category}`}
+                        >
+                          <span className="product-category-badge">카테고리</span>
+                          <span className="product-group-band-value">{grp.category}</span>
+                        </td>
+                      </tr>
+                    ) : null}
                     {grp.rows.map((g, gi) => {
                       const gid = `${grp.label}-${g.product_code}-${gi}`
                          const hasVariantRows = g.variants.length > 0
@@ -2360,9 +2372,9 @@ export function ProductCodesView() {
                         : g.mappingStateByColumn
                         return (
                        <Fragment key={gid}>
-                         <tr
-                           className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent product-merge-start' : 'row-single'}`.trim()}
-                          >
+                          <tr
+                            className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent product-merge-start' : 'row-single'} category-scope-row`.trim()}
+                           >
                            <th className="pc-excel-row-head">{excelRowNumber(rowKey)}</th>
                            <td
                              className={`code-cell sticky sticky-code product-merge-cell ${getCellSelectionClass(rowKey, 'A:상품코드')}`}
@@ -2570,7 +2582,7 @@ export function ProductCodesView() {
                             return (
                               <tr
                                 key={`${g.product_code}-${v.variant_code}`}
-                                className="row-child variant-row product-merge-child"
+                                className="row-child variant-row product-merge-child category-scope-row"
                               >
                                 <th className="pc-excel-row-head">{excelRowNumber(variantRowKey)}</th>
                                 <td
@@ -2766,7 +2778,7 @@ export function ProductCodesView() {
                     )
                     })}
                  {grp.withSubtotal === false ? null : (
-                       <tr className="subtotal-row">
+                       <tr className={`subtotal-row category-scope-row ${groupRows[groupRows.indexOf(grp) + 1]?.category !== grp.category ? 'category-end-row' : ''}`.trim()}>
                         <th className="pc-excel-row-head">{excelRowNumber(`subtotal:${grp.label}`)}</th>
                         <td
                           className={`subtotal-label sticky sticky-code ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:상품코드')}`}
@@ -2783,7 +2795,7 @@ export function ProductCodesView() {
                           data-row-label={grp.label}
                           data-col-label="상품코드"
                         >
-                          {grp.label}
+                          {grp.label} 합계
                         </td>
                         <td
                           className={`sticky sticky-name ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:상품명')}`}
@@ -2918,11 +2930,6 @@ export function ProductCodesView() {
                         </td>
                       </tr>
                     )}
-                    {grp.label === '500g 총합계' || grp.label === '1kg 총합계' ? (
-                      <tr className="section-separator-row">
-                        <td colSpan={totalColumnCount} className="section-separator-cell" />
-                      </tr>
-                    ) : null}
                   </Fragment>
                 ))}
               </tbody>
