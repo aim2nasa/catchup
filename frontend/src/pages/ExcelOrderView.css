@@ -405,12 +405,46 @@
   position: sticky;
   background: var(--c-bg);
 }
-.excel-table .sticky-code { left: 0; z-index: 4; min-width: 98px; width: 98px; max-width: 98px; }
-.excel-table .sticky-name { left: 98px; z-index: 4; min-width: 360px; width: 360px; max-width: 360px; }
-.excel-table .sticky-option-code { left: 458px; z-index: 4; width: 40px; min-width: 40px; max-width: 40px; text-align: center; }
-.excel-table .sticky-option-name { left: 498px; z-index: 4; min-width: 260px; width: 260px; max-width: 260px; }
-.excel-table .sticky-price { left: 758px; z-index: 4; min-width: 68px; width: 68px; max-width: 68px; }
-.excel-table .sticky-direct { left: 826px; z-index: 4; min-width: 64px; width: 64px; max-width: 64px; }
+.excel-table .excel-row-head,
+.excel-table .excel-corner-cell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  min-width: 42px;
+  width: 42px;
+  max-width: 42px;
+  background: #e5e7eb;
+  color: #334155;
+  text-align: center;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+.excel-table .excel-corner-cell {
+  z-index: 6;
+}
+.excel-table .excel-column-letter {
+  height: 20px;
+  padding: 1px 3px;
+  background: #e5e7eb;
+  color: #334155;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.excel-table thead tr.excel-column-letter-row th.excel-column-letter,
+.excel-table thead tr.excel-column-letter-row th.excel-corner-cell {
+  background: #e5e7eb;
+  color: #334155;
+  z-index: 7;
+}
+.excel-table .sticky-code { left: 42px; z-index: 4; min-width: 98px; width: 98px; max-width: 98px; }
+.excel-table .sticky-name { left: 140px; z-index: 4; min-width: 360px; width: 360px; max-width: 360px; }
+.excel-table .sticky-option-code { left: 500px; z-index: 4; width: 40px; min-width: 40px; max-width: 40px; text-align: center; }
+.excel-table .sticky-option-name { left: 540px; z-index: 4; min-width: 260px; width: 260px; max-width: 260px; }
+.excel-table .sticky-price { left: 800px; z-index: 4; min-width: 68px; width: 68px; max-width: 68px; }
+.excel-table .sticky-direct { left: 868px; z-index: 4; min-width: 64px; width: 64px; max-width: 64px; }
 .excel-table .sticky-name,
 .excel-table .sticky-option-name {
   white-space: normal;
@@ -424,19 +458,19 @@
   max-width: 180px;
 }
 .excel-table-wrap.is-left-compact .sticky-option-code {
-  left: 278px;
+  left: 320px;
 }
 .excel-table-wrap.is-left-compact .sticky-option-name {
-  left: 318px;
+  left: 360px;
   min-width: 180px;
   width: 180px;
   max-width: 180px;
 }
 .excel-table-wrap.is-left-compact .sticky-price {
-  left: 498px;
+  left: 540px;
 }
 .excel-table-wrap.is-left-compact .sticky-direct {
-  left: 566px;
+  left: 608px;
 }
 .excel-table-wrap.is-left-compact .sticky-name,
 .excel-table-wrap.is-left-compact .sticky-option-name {
@@ -505,16 +539,16 @@
 .excel-table .copyable-header {
   cursor: copy;
 }
-.excel-table thead tr:first-child th.u-header:first-of-type,
-.excel-table thead tr:nth-child(2) th.matrix-variant:first-child {
+.excel-table thead tr:nth-child(2) th.u-header:first-of-type,
+.excel-table thead tr:nth-child(3) th.matrix-variant:first-child {
   border-left: 2px solid var(--c-sum-border);
 }
-.excel-table thead tr:first-child th.u-header.u-group-start,
-.excel-table thead tr:nth-child(2) th.matrix-variant.u-group-start,
+.excel-table thead tr:nth-child(2) th.u-header.u-group-start,
+.excel-table thead tr:nth-child(3) th.matrix-variant.u-group-start,
 .excel-table tr td.u-group-start {
   border-left: 3px solid #15803d;
 }
-.excel-table thead tr:nth-child(2) th.matrix-variant.u-col-set,
+.excel-table thead tr:nth-child(3) th.matrix-variant.u-col-set,
 .excel-table tr td.u-col-set {
   background: #f0fdf4;
 }
@@ -550,18 +584,18 @@
   overflow-wrap: anywhere;
   text-shadow: 0 1px 1px rgba(15, 23, 42, 0.75);
 }
-.excel-table thead tr:first-child th.sticky-total,
-.excel-table thead tr:first-child th.sticky-rev,
+.excel-table thead tr:nth-child(2) th.sticky-total,
+.excel-table thead tr:nth-child(2) th.sticky-rev,
 .excel-table tbody tr td:nth-last-child(2),
 .excel-table tbody tr td:last-child,
 .excel-table tfoot tr td:nth-last-child(2),
 .excel-table tfoot tr td:last-child {
   border-left: 2px solid var(--c-sum-border);
 }
-.excel-table tbody tr td:nth-child(7),
-.excel-table tfoot tr td:nth-child(7),
-.excel-table .u-direct-row td:nth-child(7),
-.excel-table tr.subtotal-row td:nth-child(7) {
+.excel-table tbody tr td:nth-child(8),
+.excel-table tfoot tr td:nth-child(8),
+.excel-table .u-direct-row td:nth-child(8),
+.excel-table tr.subtotal-row td:nth-child(8) {
   border-left: 2px solid var(--c-sum-border);
   box-shadow: inset 10px 0 0 rgba(217, 119, 6, 0.12);
 }
@@ -573,8 +607,8 @@
 .excel-table .u-direct-label {
   text-align: left;
 }
-.excel-table thead tr:first-child th.sticky-total,
-.excel-table thead tr:first-child th.sticky-rev {
+.excel-table thead tr:nth-child(2) th.sticky-total,
+.excel-table thead tr:nth-child(2) th.sticky-rev {
   background: var(--c-sum-bg);
   color: var(--c-sum-text);
   z-index: 4;

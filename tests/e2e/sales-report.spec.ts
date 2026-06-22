@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test'
 
+const SALES_REPORT_URL = 'http://127.0.0.1:5173/catchup/#sales'
+
 test.describe('catchup sales report — UI baseline', () => {
   test('페이지 로드: 제목, 카테고리, 버전 footer', async ({ page }) => {
-    await page.goto('/')
+    await page.goto(SALES_REPORT_URL)
 
     // 제목 검증 (텍스트 값 일치)
     const h1 = page.locator('h1')
@@ -34,7 +36,7 @@ test.describe('catchup sales report — UI baseline', () => {
   })
 
   test('카테고리 전체 해제 후 조회 시 alert', async ({ page }) => {
-    await page.goto('/')
+    await page.goto(SALES_REPORT_URL)
     await expect(page.locator('.cat-item').first()).toBeVisible({ timeout: 10_000 })
 
     // 전체 해제 버튼 클릭
@@ -54,7 +56,7 @@ test.describe('catchup sales report — UI baseline', () => {
 
   test('짧은 기간 조회 → 진행 로그 → 결과 요약 표시 (실 cafe24)', async ({ page }) => {
     test.setTimeout(60_000)
-    await page.goto('/')
+    await page.goto(SALES_REPORT_URL)
     await expect(page.locator('.cat-item').first()).toBeVisible({ timeout: 10_000 })
 
     // 어제 하루로 짧게 잡기 (orders 적게 → 빠른 처리)

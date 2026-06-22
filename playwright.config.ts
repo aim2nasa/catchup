@@ -18,12 +18,22 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'py backend/main.py',
-    url: 'http://127.0.0.1:8000',
-    reuseExistingServer: true,
-    timeout: 30_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: [
+    {
+      command: 'py backend/main.py',
+      url: 'http://127.0.0.1:8000',
+      reuseExistingServer: true,
+      timeout: 30_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: 'npm --prefix frontend run dev -- --host 127.0.0.1',
+      url: 'http://127.0.0.1:5173/catchup/',
+      reuseExistingServer: true,
+      timeout: 30_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  ],
 })

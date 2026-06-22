@@ -381,8 +381,8 @@ const TOTAL_SCREEN_KEY = 'C:총판매'
 const REVENUE_SCREEN_KEY = 'C:매출'
 const SCREEN_COL_OFFSET = 8
 const U_START_EXCEL_COL = 7
-const DIRECT_EXCEL_COLUMN = 4
-const PRICE_EXCEL_COLUMN = 6
+const DIRECT_EXCEL_COLUMN = 6
+const PRICE_EXCEL_COLUMN = 5
 
 function normalizeVariantCode(code: string) {
   return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -674,20 +674,26 @@ function buildCellFormula(
     return `=SUM(${rowNums.map((r) => `${resolveColValue(col)}${r}`).join(',')})`
   }
 
+  const sumByRowsOrContiguousRange = (col: number) => {
+    if (rowNums.length === 0) return ''
+    if (rowNums.length === 1) return `=${resolveColValue(col)}${rowNums[0]}`
+    const isContiguous = rowNums.every((row, idx) => idx === 0 || row === rowNums[idx - 1] + 1)
+    if (isContiguous) {
+      return sumFormula(rowNums[0], col, rowNums[rowNums.length - 1], col)
+    }
+    return sumByRows(col)
+  }
+
   if (colMeta.excelCol === directCol) {
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
-      if (rowNums.length === 0) return ''
-      if (rowNums.length === 1) return `=${resolveColValue(directCol)}${rowNums[0]}`
-      return sumFormula(rowNums[0], directCol, rowNums[rowNums.length - 1], directCol)
+      return sumByRowsOrContiguousRange(directCol)
     }
     return ''
   }
 
   if (colMeta.excelCol >= uStartCol && colMeta.excelCol <= uEndCol) {
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
-      if (rowNums.length === 0) return ''
-      if (rowNums.length === 1) return `=${resolveColValue(colMeta.excelCol)}${rowNums[0]}`
-      return sumFormula(rowNums[0], colMeta.excelCol, rowNums[rowNums.length - 1], colMeta.excelCol)
+      return sumByRowsOrContiguousRange(colMeta.excelCol)
     }
     return ''
   }
@@ -1340,7 +1346,7 @@ export function ExcelOrderView() {
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalDirectQty),
     0,
   )
-  const totalColumnCount = 6 + U_COLUMNS.length + 2
+  const totalColumnCount = 1 + 6 + U_COLUMNS.length + 2
   const totalExcelColumn = U_START_EXCEL_COL + U_COLUMNS.length
   const revenueExcelColumn = totalExcelColumn + 1
   const totalMappingQtyByColumn = Array.from({ length: U_COLUMNS.length }, (_, idx) =>
@@ -1357,7 +1363,7 @@ export function ExcelOrderView() {
       ['A:상품코드', 1],
       ['A:상품명', 2],
       ['A:코드', 3],
-      ['A:옵션명', 5],
+      ['A:옵션명', 4],
       ['A:단가', PRICE_EXCEL_COLUMN],
       [DIRECT_CELL_SCREEN_KEY, DIRECT_EXCEL_COLUMN],
     ]
@@ -1509,21 +1515,38 @@ export function ExcelOrderView() {
     return map
   }, [groupRows])
 
-  const rowCoordinates = useMemo(() => {
-    const map = new Map<string, number>()
-    rowMetaByKey.forEach((meta, key) => {
-      map.set(key, meta.screenRow)
-    })
-    return map
-  }, [rowMetaByKey])
-
-  const colCoordinates = useMemo(() => {
-    const map = new Map<string, number>()
-    colMetaByKey.forEach((meta, key) => {
-      map.set(key, meta.screenCol)
-    })
-    return map
-  }, [colMetaByKey])
+  const excelColumnLabels = useMemo(() => {
+    const fixed = [
+      { key: 'A:상품코드', className: 'sticky sticky-code' },
+      { key: 'A:상품명', className: 'sticky sticky-name' },
+      { key: 'A:코드', className: 'sticky sticky-option-code' },
+      { key: 'A:옵션명', className: 'sticky sticky-option-name' },
+      { key: 'A:단가', className: 'sticky sticky-price' },
+      { key: DIRECT_CELL_SCREEN_KEY, className: 'sticky sticky-direct' },
+    ].map((item) => ({
+      ...item,
+      label: toExcelCol(colMetaByKey.get(item.key)?.excelCol ?? 0),
+    }))
+    const uColumns = U_COLUMNS.map((col, idx) => ({
+      key: `B:${col.uProduct}-${col.uVariant}`,
+      label: toExcelCol(U_START_EXCEL_COL + idx),
+      className: `matrix-variant ${uColumnClass(idx)}`,
+    }))
+    return [
+      ...fixed,
+      ...uColumns,
+      {
+        key: TOTAL_SCREEN_KEY,
+        label: toExcelCol(totalExcelColumn),
+        className: 'sticky sticky-total',
+      },
+      {
+        key: REVENUE_SCREEN_KEY,
+        label: toExcelCol(revenueExcelColumn),
+        className: 'sticky sticky-rev',
+      },
+    ]
+  }, [colMetaByKey, totalExcelColumn, revenueExcelColumn])
 
   const rowFormulaByKey = useMemo(() => {
     const map = new Map<string, string>()
@@ -1555,7 +1578,7 @@ export function ExcelOrderView() {
     const rowMeta = rowMetaByKey.get(selectedCell.rowKey)
     const colMeta = colMetaByKey.get(selectedCell.colKey)
     if (!rowMeta || !colMeta) return null
-    return `R${rowMeta.screenRow}/C${colMeta.screenCol}`
+    return a1(rowMeta.excelRow, colMeta.excelCol)
   }, [selectedCell, colMetaByKey, rowMetaByKey])
 
   const selectedFormulaText = useMemo(() => {
@@ -1576,6 +1599,8 @@ export function ExcelOrderView() {
     return uColumnInfoByKey.get(hoveredCell.colKey) ?? null
   }, [hoveredCell, uColumnInfoByKey])
 
+  const excelRowNumber = (rowKey: string) => rowMetaByKey.get(rowKey)?.excelRow ?? ''
+
   useEffect(() => {
     const table = tableRef.current
     if (!table) return
@@ -1584,8 +1609,11 @@ export function ExcelOrderView() {
       const rowKey = cell.getAttribute('data-row-key') ?? ''
       const colKey = cell.getAttribute('data-col-key') ?? ''
       const formula = rowKey && colKey ? rowFormulaByKey.get(`${rowKey}|${colKey}`) : ''
+      const rowMeta = rowMetaByKey.get(rowKey)
+      const colMeta = colMetaByKey.get(colKey)
       cell.setAttribute('data-row', rowKey)
       cell.setAttribute('data-col', colKey)
+      cell.setAttribute('data-a1', rowMeta && colMeta ? a1(rowMeta.excelRow, colMeta.excelCol) : '')
       cell.setAttribute('data-formula', formula ?? '')
       if (formula) {
         cell.classList.add('formula-cell')
@@ -1596,7 +1624,7 @@ export function ExcelOrderView() {
         cell.setAttribute('title', fullText || '값 셀')
       }
     })
-  }, [rowFormulaByKey, state.data])
+  }, [colMetaByKey, rowFormulaByKey, rowMetaByKey, state.data])
 
 
   const currency = state.data?.grand.currency ?? 'KRW'
@@ -1650,6 +1678,193 @@ export function ExcelOrderView() {
   const handleCopyProductCode = (productCode: string) => {
     if (!productCode.trim()) return
     void copyTextToClipboard(productCode, '상품코드 복사됨')
+  }
+
+  const parseExportValue = (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || trimmed === '—') return ''
+    const numeric = trimmed.replace(/[₩,\s]/g, '')
+    if (/^-?\d+(?:\.\d+)?$/.test(numeric)) return Number(numeric)
+    return trimmed
+  }
+
+  const handleExportExcel = async () => {
+    if (!state.data || !tableRef.current) return
+    const ExcelJS = await import('exceljs')
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'catchup'
+    workbook.created = new Date()
+    Object.assign(workbook.calcProperties, {
+      calcMode: 'auto',
+      forceFullCalc: true,
+      fullCalcOnLoad: true,
+    })
+    const worksheet = workbook.addWorksheet('하드왁스', {
+      views: [{ state: 'frozen', xSplit: 6, ySplit: 9 }],
+    })
+
+    const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF334155' } }
+    const setHeaderFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF14532D' } }
+    const headerFont = { bold: true, color: { argb: 'FFF8FAFC' }, size: 9 }
+    const sumFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFEF3C7' } }
+    const setFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFDCFCE7' } }
+    const bodyFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
+    const border = { style: 'thin' as const, color: { argb: 'FF94A3B8' } }
+    const orangeBorder = { style: 'medium' as const, color: { argb: 'FFF59E0B' } }
+    const applyBorder = (cell: { border: unknown; alignment: unknown }) => {
+      cell.border = { top: border, right: border, bottom: border, left: border }
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+    }
+    const styleRange = (
+      startRow: number,
+      startCol: number,
+      endRow: number,
+      endCol: number,
+      style: { fill?: unknown; font?: unknown; alignment?: unknown; border?: unknown },
+    ) => {
+      for (let row = startRow; row <= endRow; row += 1) {
+        for (let col = startCol; col <= endCol; col += 1) {
+          const cell = worksheet.getCell(row, col) as {
+            fill: unknown
+            font: unknown
+            alignment: unknown
+            border: unknown
+          }
+          if (style.fill) cell.fill = style.fill
+          if (style.font) cell.font = style.font
+          if (style.alignment) cell.alignment = style.alignment
+          cell.border = style.border ?? { top: border, right: border, bottom: border, left: border }
+        }
+      }
+    }
+
+    const fixedHeaders: Array<[number, string]> = [
+      [1, '상품코드'],
+      [2, '상품명'],
+      [3, '코드'],
+      [4, '옵션명'],
+      [5, '단가'],
+      [6, '직접판매'],
+    ]
+    fixedHeaders.forEach(([col, label]) => {
+      worksheet.mergeCells(6, col, 8, col)
+      const cell = worksheet.getCell(6, col)
+      cell.value = label
+      styleRange(6, col, 8, col, {
+        fill: headerFill,
+        font: headerFont,
+        alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
+      })
+    })
+
+    let uCol = U_START_EXCEL_COL
+    U_BLOCKS.forEach((block) => {
+      const startCol = uCol
+      const endCol = uCol + block.variants.length - 1
+      worksheet.mergeCells(6, startCol, 7, endCol)
+      const header = worksheet.getCell(6, startCol)
+      header.value = `${U_GROUP_LABEL_BY_GROUP[block.group]}\n${block.productCode}\n${block.productLabel}`
+      styleRange(6, startCol, 7, endCol, {
+        fill: block.group === 'set' ? setHeaderFill : headerFill,
+        font: headerFont,
+        alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
+      })
+      block.variants.forEach((variant, idx) => {
+        const cell = worksheet.getCell(8, startCol + idx)
+        cell.value = variant
+        cell.fill = headerFill
+        cell.font = headerFont
+        applyBorder(cell)
+      })
+      uCol = endCol + 1
+    })
+
+    worksheet.mergeCells(6, totalExcelColumn, 8, totalExcelColumn)
+    const totalHeader = worksheet.getCell(6, totalExcelColumn)
+    totalHeader.value = '총판매'
+    styleRange(6, totalExcelColumn, 8, totalExcelColumn, {
+      fill: sumFill,
+      font: { bold: true, color: { argb: 'FF92400E' } },
+      alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
+    })
+    worksheet.mergeCells(6, revenueExcelColumn, 8, revenueExcelColumn)
+    const revenueHeader = worksheet.getCell(6, revenueExcelColumn)
+    revenueHeader.value = '매출'
+    styleRange(6, revenueExcelColumn, 8, revenueExcelColumn, {
+      fill: sumFill,
+      font: { bold: true, color: { argb: 'FF92400E' } },
+      alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
+    })
+
+    tableRef.current.querySelectorAll<HTMLTableCellElement>('td[data-a1][data-col-key]').forEach((domCell) => {
+      const address = domCell.dataset.a1
+      if (!address) return
+      const cell = worksheet.getCell(address)
+      const formula = domCell.dataset.formula
+      const value = parseExportValue(domCell.textContent ?? '')
+      if (formula?.startsWith('=') && !formula.includes('단가미확인')) {
+        cell.value = { formula: formula.slice(1), result: typeof value === 'number' ? value : undefined }
+      } else {
+        cell.value = value
+      }
+      cell.fill = bodyFill
+      if (domCell.classList.contains('sticky-rev') || domCell.classList.contains('sticky-price')) {
+        cell.numFmt = '"₩"#,##0'
+      } else if (typeof value === 'number') {
+        cell.numFmt = '#,##0'
+      }
+      if (domCell.classList.contains('u-col-set')) {
+        cell.fill = setFill
+      }
+      if (domCell.classList.contains('sticky-total') || domCell.classList.contains('sticky-rev')) {
+        cell.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFFAF0' } }
+      }
+      if (domCell.closest('.subtotal-row') || domCell.closest('tfoot')) {
+        cell.fill = sumFill
+        cell.font = { bold: true }
+      }
+      applyBorder(cell)
+      if (domCell.classList.contains('u-group-start')) {
+        cell.border = { ...cell.border, left: { style: 'medium' as const, color: { argb: 'FF15803D' } } }
+      }
+      if (domCell.classList.contains('sticky-total') || domCell.classList.contains('sticky-rev')) {
+        cell.border = { ...cell.border, left: orangeBorder }
+      }
+      if (domCell.classList.contains('sticky-name') || domCell.classList.contains('sticky-option-name')) {
+        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+      }
+    })
+
+    worksheet.getRow(5).height = 14
+    worksheet.getRow(6).height = 38
+    worksheet.getRow(7).height = 38
+    worksheet.getRow(8).height = 18
+    for (let row = 9; row <= worksheet.rowCount; row += 1) {
+      worksheet.getRow(row).height = 18
+    }
+
+    worksheet.columns = [
+      { width: 14 },
+      { width: 52 },
+      { width: 6 },
+      { width: 37 },
+      { width: 10 },
+      { width: 9 },
+      ...Array.from({ length: U_COLUMNS.length }, () => ({ width: 4.6 })),
+      { width: 11 },
+      { width: 20 },
+    ]
+
+    worksheet.views = [{ state: 'frozen', xSplit: 6, ySplit: 8 }]
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `hardwax_${state.data.start}_${state.data.end}.xlsx`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const updateTopScrollbarWidth = () => {
@@ -1729,6 +1944,9 @@ export function ExcelOrderView() {
               onEndChange={setEnd}
               endMin={start}
             />
+            <button type="button" className="btn" onClick={handleExportExcel} disabled={!dataReady}>
+              Excel 다운로드
+            </button>
             {dataReady ? (
               <div className="hardwax-filter-status">
                 <span className="excel-period">
@@ -1752,14 +1970,7 @@ export function ExcelOrderView() {
                       <span className="selection-pin">📍</span>
                       <span className="selection-item">
                         <span className="selection-dot selection-dot-row" aria-hidden="true" />
-                        {`R${rowCoordinates.get(selectedCell.rowKey) ?? '-'}`}
-                      </span>
-                      <span className="selection-separator" aria-hidden="true">
-                        |
-                      </span>
-                      <span className="selection-item">
-                        <span className="selection-dot selection-dot-col" aria-hidden="true" />
-                        {`C${colCoordinates.get(selectedCell.colKey) ?? '-'}`}
+                        {selectedCoordinateText ?? '-'}
                       </span>
                     </span>
                   ) : (
@@ -1855,7 +2066,20 @@ export function ExcelOrderView() {
           >
             <table className="excel-table excel-matrix" ref={tableRef}>
               <thead>
+                <tr className="excel-column-letter-row">
+                  <th className="excel-corner-cell" aria-label="Excel 좌표 기준" />
+                  {excelColumnLabels.map((col) => (
+                    <th
+                      key={`excel-col-${col.key}`}
+                      className={`excel-column-letter ${col.className}`}
+                      title={`${col.label}열`}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
                 <tr>
+                  <th rowSpan={2} className="excel-row-head excel-header-row-head" />
                   <th rowSpan={2} className="sticky sticky-code">
                     상품코드
                   </th>
@@ -1922,6 +2146,7 @@ export function ExcelOrderView() {
                   })}
                 </tr>
                 <tr className="u-direct-row">
+                  <th className="excel-row-head">{excelRowNumber('hardwax-u-direct')}</th>
                   <td
                     className={`num sticky sticky-code u-direct-label ${getCellSelectionClass('hardwax-u-direct', 'A:상품코드')}`}
                     onClick={() =>
@@ -2114,6 +2339,7 @@ export function ExcelOrderView() {
                          <tr
                            className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent product-merge-start' : 'row-single'}`.trim()}
                           >
+                           <th className="excel-row-head">{excelRowNumber(rowKey)}</th>
                            <td
                              className={`code-cell sticky sticky-code product-merge-cell ${getCellSelectionClass(rowKey, 'A:상품코드')}`}
                              onClick={() =>
@@ -2322,6 +2548,7 @@ export function ExcelOrderView() {
                                 key={`${g.product_code}-${v.variant_code}`}
                                 className="row-child variant-row product-merge-child"
                               >
+                                <th className="excel-row-head">{excelRowNumber(variantRowKey)}</th>
                                 <td
                                   className={`code-cell sticky sticky-code variant-code-cell product-merge-cell ${getCellSelectionClass(variantRowKey, 'A:상품코드')}`}
                                   onClick={() =>
@@ -2516,6 +2743,7 @@ export function ExcelOrderView() {
                     })}
                  {grp.withSubtotal === false ? null : (
                        <tr className="subtotal-row">
+                        <th className="excel-row-head">{excelRowNumber(`subtotal:${grp.label}`)}</th>
                         <td
                           className={`subtotal-label sticky sticky-code ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:상품코드')}`}
                           onClick={() =>
@@ -2676,6 +2904,7 @@ export function ExcelOrderView() {
               </tbody>
               <tfoot>
                     <tr>
+                      <th className="excel-row-head">{excelRowNumber('total:grand')}</th>
                       <td
                         className={`subtotal-label sticky sticky-code ${getCellSelectionClass('total:grand', 'A:상품코드')}`}
                         onClick={() =>

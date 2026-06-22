@@ -8,6 +8,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "^1.49.0",
+    "exceljs": "^4.4.0"
   }
 }
