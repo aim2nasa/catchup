@@ -746,6 +746,7 @@ export function ExcelOrderView() {
   const tableRef = useRef<HTMLTableElement>(null)
   const topScrollbarRef = useRef<HTMLDivElement>(null)
   const bottomSyncRef = useRef(false)
+  const scrollContentWidthRef = useRef(0)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [isLeftCompact, setIsLeftCompact] = useState(false)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
@@ -1870,17 +1871,30 @@ export function ExcelOrderView() {
   const updateTopScrollbarWidth = () => {
     const table = tableRef.current
     const wrap = tableWrapRef.current
-    if (!table || !wrap) return
-    const nextWidth = Math.max(table.scrollWidth, wrap.clientWidth)
+    if (!wrap) return
+    const measuredWidth = Math.max(
+      table?.scrollWidth ?? 0,
+      wrap.scrollWidth,
+      wrap.clientWidth,
+    )
+    const nextWidth = Math.max(scrollContentWidthRef.current, measuredWidth)
+    scrollContentWidthRef.current = nextWidth
     setTopScrollbarWidth((prev) => (prev === nextWidth ? prev : nextWidth))
+  }
+
+  const clampScrollLeft = (el: HTMLElement, left: number) => {
+    const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
+    return Math.min(Math.max(0, left), maxLeft)
   }
 
   const syncScrollLeftFromTop = (left: number) => {
     setIsLeftCompact(left > 24)
     const bottom = tableWrapRef.current
-    if (!bottom || bottomSyncRef.current || bottom.scrollLeft === left) return
+    if (!bottom || bottomSyncRef.current) return
+    const nextLeft = clampScrollLeft(bottom, left)
+    if (bottom.scrollLeft === nextLeft) return
     bottomSyncRef.current = true
-    bottom.scrollLeft = left
+    bottom.scrollLeft = nextLeft
     requestAnimationFrame(() => {
       bottomSyncRef.current = false
     })
@@ -1891,9 +1905,10 @@ export function ExcelOrderView() {
     const top = topScrollbarRef.current
     if (!top) return
     if (bottomSyncRef.current) return
-    if (top.scrollLeft === left) return
+    const nextLeft = clampScrollLeft(top, left)
+    if (top.scrollLeft === nextLeft) return
     bottomSyncRef.current = true
-    top.scrollLeft = left
+    top.scrollLeft = nextLeft
     requestAnimationFrame(() => {
       bottomSyncRef.current = false
     })
@@ -1906,6 +1921,11 @@ export function ExcelOrderView() {
   function handleBottomScroll(event: UIEvent<HTMLDivElement>) {
     syncScrollLeftFromBottom(event.currentTarget.scrollLeft)
   }
+
+  useEffect(() => {
+    scrollContentWidthRef.current = 0
+    setTopScrollbarWidth(0)
+  }, [state.data])
 
   useEffect(() => {
     updateTopScrollbarWidth()
@@ -2064,7 +2084,11 @@ export function ExcelOrderView() {
             onMouseMove={handleTableMouseMove}
             onMouseLeave={clearHoveredCell}
           >
-            <table className="excel-table excel-matrix" ref={tableRef}>
+            <table
+              className="excel-table excel-matrix"
+              ref={tableRef}
+              style={topScrollbarWidth ? { minWidth: `${topScrollbarWidth}px` } : undefined}
+            >
               <thead>
                 <tr className="excel-column-letter-row">
                   <th className="excel-corner-cell" aria-label="Excel 좌표 기준" />
