@@ -140,6 +140,7 @@ interface UBlock {
   productCode: string
   productLabel: string
   variants: string[]
+  group: 'conversion' | 'set'
 }
 
 interface MappingRule {
@@ -191,6 +192,7 @@ const QUERY_CODES = [
     ...L_GROUPS.flatMap((g) => g.codes),
     'P00000QE', 'P00000QD', 'P0000BLR', 'P0000BLA',
     'P00000ZC', 'P00000YZ', 'P00000VM', 'P00000YS', 'P00000YU',
+    'P00000VP', 'P00000VA',
   ]),
 ]
 
@@ -199,42 +201,62 @@ const U_BLOCKS: UBlock[] = [
     productCode: 'P00000QE',
     productLabel: '하드왁스500g 24개',
     variants: ['G', 'H', 'I', 'J', 'K'],
+    group: 'conversion',
   },
   {
     productCode: 'P00000QD',
     productLabel: '하드왁스15개',
     variants: ['CI', 'CJ', 'CK', 'CL', 'CM', 'CN', 'CO', 'CP', 'CQ', 'CR', 'CS', 'CT', 'CU'],
+    group: 'conversion',
   },
   {
     productCode: 'P0000BLR',
     productLabel: '비즈 왁스 4종',
     variants: ['Q', 'R', 'S', 'T', 'U', 'V', 'W'],
+    group: 'conversion',
   },
   {
     productCode: 'P0000BLA',
     productLabel: '비즈 왁스 4종',
     variants: ['J', 'K', 'L', 'M', 'N', 'O', 'P'],
+    group: 'conversion',
   },
   {
     productCode: 'P00000ZC',
     productLabel: '컵비즈 110g 5개 이상 10%',
     variants: ['A', 'B', 'C', 'D'],
-  },
-  {
-    productCode: 'P00000YZ',
-    productLabel: '컵비즈 비즈 세트',
-    variants: ['D', 'E', 'H', 'I'],
+    group: 'conversion',
   },
   {
     productCode: 'P00000VM',
     productLabel: '[묶음할인15%] 하드왁스1kg 5개이상',
     variants: ['CW', 'CX', 'CY', 'CZ', 'DA', 'DB', 'DC', 'DD', 'DE', 'DF', 'DG', 'DH'],
+    group: 'conversion',
   },
-  { productCode: 'P00000YS', productLabel: '제모미인 스타터키트20%', variants: ['A'] },
+  {
+    productCode: 'P00000YZ',
+    productLabel: '컵비즈 비즈 세트',
+    variants: ['D', 'E', 'H', 'I'],
+    group: 'set',
+  },
+  { productCode: 'P00000YS', productLabel: '제모미인 스타터키트20%', variants: ['A'], group: 'set' },
   {
     productCode: 'P00000YU',
     productLabel: '라이콘 바디왁싱 스타터 키트20%할인',
     variants: ['B'],
+    group: 'set',
+  },
+  {
+    productCode: 'P00000VP',
+    productLabel: '[도매묶음20%] 미니스크럽 10종 세트',
+    variants: ['B'],
+    group: 'set',
+  },
+  {
+    productCode: 'P00000VA',
+    productLabel: '화이트닝 키트 20% 할인',
+    variants: ['A'],
+    group: 'set',
   },
 ]
 
@@ -244,6 +266,7 @@ const U_COLUMNS = U_BLOCKS.flatMap((block) =>
     uVariant: variant,
     blockLabel: block.productLabel,
     blockCode: block.productCode,
+    group: block.group,
   })),
 )
 
@@ -332,6 +355,26 @@ for (const col of U_COLUMNS) {
   uVariantIndexes.set(col.uProduct, nextIndex)
 }
 const BLOCK_BY_CODE = new Map(U_BLOCKS.map((b) => [b.productCode, b.productLabel]))
+const U_GROUP_LABEL_BY_GROUP: Record<UBlock['group'], string> = {
+  conversion: '전환상품',
+  set: '세트 상품',
+}
+function uBlockClass(block: UBlock) {
+  return [
+    block.group === 'set' ? 'u-header-set' : 'u-header-conversion',
+    block.group !== (U_BLOCKS[U_BLOCKS.indexOf(block) - 1]?.group ?? block.group) ? 'u-group-start' : '',
+  ].filter(Boolean).join(' ')
+}
+
+function uColumnClass(index: number) {
+  const col = U_COLUMNS[index]
+  if (!col) return ''
+  const previous = U_COLUMNS[index - 1]
+  return [
+    col.group === 'set' ? 'u-col-set' : 'u-col-conversion',
+    col.group !== (previous?.group ?? col.group) ? 'u-group-start' : '',
+  ].filter(Boolean).join(' ')
+}
 
 const DIRECT_CELL_SCREEN_KEY = 'A:직접판매'
 const TOTAL_SCREEN_KEY = 'C:총판매'
@@ -1754,10 +1797,13 @@ export function ExcelOrderView() {
                     <th
                       key={block.productCode}
                       colSpan={block.variants.length}
-                      className="u-header copyable-header"
+                      className={`u-header copyable-header ${uBlockClass(block)}`}
                       title={`${block.productCode} ${block.productLabel} 더블클릭 복사`}
                       onDoubleClick={() => handleCopyProductCode(block.productCode)}
                     >
+                      <div className="u-header-group">
+                        {U_GROUP_LABEL_BY_GROUP[block.group]}
+                      </div>
                       <div
                         className="u-header-code"
                         title={`${block.productCode} ${block.productLabel}`}
@@ -1780,12 +1826,12 @@ export function ExcelOrderView() {
                   </th>
                 </tr>
                 <tr>
-                  {U_COLUMNS.map((col) => {
+                  {U_COLUMNS.map((col, idx) => {
                     const block = BLOCK_BY_CODE.get(col.uProduct) ?? ''
                     return (
                       <th
                         key={`${col.uProduct}${COLUMN_KEY_DELIM}${col.uVariant}`}
-                        className="matrix-variant"
+                        className={`matrix-variant ${uColumnClass(idx)}`}
                         title={`${col.uProduct} / ${col.uVariant}${block ? ` (${block})` : ''}`}
                       >
                         {col.uVariant}
@@ -1889,7 +1935,7 @@ export function ExcelOrderView() {
                   {uDirectQtyByColumn.map((item, idx) => (
                     <td
                       key={`u-direct-${idx}`}
-                      className={`num ${getCellSelectionClass(
+                      className={`num ${uColumnClass(idx)} ${getCellSelectionClass(
                         'hardwax-u-direct',
                         `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`,
                       )}`}
@@ -2098,7 +2144,7 @@ export function ExcelOrderView() {
                                return (
                                  <td
                                    key={`${g.product_code}-${idx}`}
-                                  className={`num ${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
+                                  className={`num ${uColumnClass(idx)} ${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey,
@@ -2302,7 +2348,7 @@ export function ExcelOrderView() {
                                   return (
                                     <td
                                       key={`${g.product_code}-${v.variant_code}-map-${cellIdx}`}
-                                      className={`num ${columnCellClass(state)} ${getCellSelectionClass(variantRowKey, colKey)}`}
+                                      className={`num ${uColumnClass(cellIdx)} ${columnCellClass(state)} ${getCellSelectionClass(variantRowKey, colKey)}`}
                                       onClick={() =>
                                         handleCellSelect({
                                           rowKey: variantRowKey,
@@ -2482,7 +2528,7 @@ export function ExcelOrderView() {
                         {grp.subtotalMappingQtyByColumn.map((q, idx) => (
                           <td
                             key={`subtotal-${grp.label}-${idx}`}
-                            className={`num ${getCellSelectionClass(`subtotal:${grp.label}`, `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
+                            className={`num ${uColumnClass(idx)} ${getCellSelectionClass(`subtotal:${grp.label}`, `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
                             onClick={() =>
                               handleCellSelect({
                                 rowKey: `subtotal:${grp.label}`,
@@ -2642,7 +2688,7 @@ export function ExcelOrderView() {
                       {totalMappingQtyByColumn.map((q, idx) => (
                         <td
                           key={`total-${idx}`}
-                          className={`num ${getCellSelectionClass('total:grand', `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
+                          className={`num ${uColumnClass(idx)} ${getCellSelectionClass('total:grand', `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
                           onClick={() =>
                             handleCellSelect({
                               rowKey: 'total:grand',

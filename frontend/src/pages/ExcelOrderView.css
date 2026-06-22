@@ -414,12 +414,50 @@
   vertical-align: top;
   overflow: visible;
 }
+.excel-table .u-header-set {
+  background: #14532d;
+  color: #f0fdf4;
+}
+.excel-table .u-header-conversion {
+  background: #334155;
+  color: #f8fafc;
+}
+.excel-table .u-header-group {
+  display: inline-block;
+  max-width: 100%;
+  margin-bottom: 2px;
+  padding: 1px 4px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 800;
+  white-space: nowrap;
+}
 .excel-table .copyable-header {
   cursor: copy;
 }
 .excel-table thead tr:first-child th.u-header:first-of-type,
 .excel-table thead tr:nth-child(2) th.matrix-variant:first-child {
   border-left: 2px solid var(--c-sum-border);
+}
+.excel-table thead tr:first-child th.u-header.u-group-start,
+.excel-table thead tr:nth-child(2) th.matrix-variant.u-group-start,
+.excel-table tr td.u-group-start {
+  border-left: 3px solid #15803d;
+}
+.excel-table thead tr:nth-child(2) th.matrix-variant.u-col-set,
+.excel-table tr td.u-col-set {
+  background: #f0fdf4;
+}
+.excel-table tbody tr:hover td.u-col-set,
+.excel-table thead tr.u-direct-row:hover td.u-col-set {
+  background: #dcfce7;
+}
+.excel-table tr.subtotal-row td.u-col-set,
+.excel-table tfoot tr td.u-col-set {
+  background: #ecfdf5;
 }
 .excel-table .u-header-code {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
