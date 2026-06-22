@@ -22,6 +22,12 @@ const MENUS: MenuItem[] = [
     tagKind: 'new',
   },
   {
+    key: 'product-codes',
+    hash: '#product-codes',
+    title: '상품코드',
+    desc: '상품코드별 판매수와 매출을 엑셀 양식 순서로 확인',
+  },
+  {
     key: 'sales',
     hash: '#sales',
     title: 'cafe24 판매 집계 (참고용)',
