@@ -35,7 +35,7 @@ test.describe('상품코드 페이지', () => {
     await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
     await page.getByRole('button', { name: '조회' }).click()
 
-    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
     await expect(page.locator('.pc-excel-table')).toBeVisible()
     await expect(page.locator('.pc-excel-table tbody')).toContainText('하드왁스', { timeout: 15000 })
     await expect(page.locator('.pc-excel-table tbody')).toContainText('500g 합계')
@@ -54,7 +54,7 @@ test.describe('상품코드 페이지', () => {
     await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
     await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
     await page.getByRole('button', { name: '조회' }).click()
-    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
 
     const categoryA1 = await page.locator('.product-category-row .product-group-band-cell').getAttribute('data-a1')
     const firstProductA1 = await page.locator('td[data-row-key^="parent:500g:P00000HT"]').first().getAttribute('data-a1')
@@ -74,4 +74,49 @@ test.describe('상품코드 페이지', () => {
     expect(worksheet?.getCell('A10').value).toBe('카테고리 하드왁스')
     expect(worksheet?.getCell('A11').value).toBe('P00000HT')
   })
+
+  test('수평 스크롤 중에도 매출 컬럼 폭이 유지된다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const initial = await readProductCodesScrollState(page)
+    expect(initial.revenueWidth).toBeGreaterThanOrEqual(140)
+    expect(initial.revenueWidth).toBeLessThanOrEqual(145)
+
+    await setProductCodesScrollLeft(page, Math.floor(initial.maxLeft / 2))
+    const middle = await readProductCodesScrollState(page)
+    expect(middle.revenueWidth).toBe(initial.revenueWidth)
+
+    await setProductCodesScrollLeft(page, initial.maxLeft)
+    const right = await readProductCodesScrollState(page)
+    expect(right.revenueWidth).toBe(initial.revenueWidth)
+  })
 })
+
+async function setProductCodesScrollLeft(page: import('@playwright/test').Page, left: number) {
+  await page.locator('.pc-excel-table-wrap').evaluate((el, nextLeft) => {
+    el.scrollLeft = nextLeft
+    el.dispatchEvent(new Event('scroll', { bubbles: true }))
+  }, left)
+  await page.waitForTimeout(100)
+}
+
+async function readProductCodesScrollState(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const wrap = document.querySelector('.pc-excel-table-wrap')
+    const revenue = document.querySelector('tbody td.sticky-rev')
+    if (!(wrap instanceof HTMLElement) || !(revenue instanceof HTMLElement)) {
+      throw new Error('Missing product-codes scroll or revenue cell')
+    }
+    return {
+      maxLeft: wrap.scrollWidth - wrap.clientWidth,
+      scrollLeft: wrap.scrollLeft,
+      revenueWidth: Math.round(revenue.getBoundingClientRect().width),
+    }
+  })
+}

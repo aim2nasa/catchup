@@ -320,6 +320,7 @@
 
 .pc-excel-table {
   border-collapse: separate;
+  table-layout: fixed;
   border-spacing: 0;
   min-width: 1800px;
   font-size: 11px;
@@ -484,6 +485,7 @@
 .pc-excel-table .sticky-total {
   right: 142px;
   z-index: 3;
+  box-sizing: border-box;
   min-width: 78px;
   width: 78px;
   max-width: 78px;
@@ -496,8 +498,12 @@
 .pc-excel-table .sticky-rev {
   right: 0;
   z-index: 3;
+  box-sizing: border-box;
   min-width: 142px;
+  width: 142px;
+  max-width: 142px;
   padding-left: 8px;
+  padding-right: 8px;
 }
 .pc-excel-table tfoot tr td.sticky-total,
 .pc-excel-table tfoot tr td.sticky-rev {

@@ -1343,6 +1343,23 @@ export function ProductCodesView() {
     0,
   )
   const totalColumnCount = 1 + 6 + U_COLUMNS.length + 2
+  const uColumnPixelWidths = useMemo(
+    () => U_BLOCKS.flatMap((block) =>
+      Array.from({ length: block.variants.length }, () =>
+        Math.max(32, 96 / block.variants.length),
+      ),
+    ),
+    [],
+  )
+  const leftColumnPixelWidths = isLeftCompact
+    ? [98, 180, 40, 180, 68, 64]
+    : [98, 360, 40, 260, 68, 64]
+  const tablePixelWidth =
+    42 +
+    leftColumnPixelWidths.reduce((sum, width) => sum + width, 0) +
+    uColumnPixelWidths.reduce((sum, width) => sum + width, 0) +
+    78 +
+    142
   const totalExcelColumn = U_START_EXCEL_COL + U_COLUMNS.length
   const revenueExcelColumn = totalExcelColumn + 1
   const totalMappingQtyByColumn = Array.from({ length: U_COLUMNS.length }, (_, idx) =>
@@ -2082,8 +2099,19 @@ export function ProductCodesView() {
             <table
               className="pc-excel-table pc-excel-matrix"
               ref={tableRef}
-              style={topScrollbarWidth ? { minWidth: `${topScrollbarWidth}px` } : undefined}
+              style={{ width: `${tablePixelWidth}px`, minWidth: `${tablePixelWidth}px` }}
             >
+              <colgroup>
+                <col style={{ width: '42px' }} />
+                {leftColumnPixelWidths.map((width, idx) => (
+                  <col key={`fixed-col-${idx}`} style={{ width: `${width}px` }} />
+                ))}
+                {uColumnPixelWidths.map((width, idx) => (
+                  <col key={`u-col-${idx}`} style={{ width: `${width}px` }} />
+                ))}
+                <col style={{ width: '78px' }} />
+                <col style={{ width: '142px' }} />
+              </colgroup>
               <thead>
                 <tr className="pc-excel-column-letter-row">
                   <th className="pc-excel-corner-cell" aria-label="Excel 좌표 기준" />
