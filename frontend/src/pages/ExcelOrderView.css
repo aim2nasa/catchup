@@ -405,12 +405,45 @@
   position: sticky;
   background: var(--c-bg);
 }
-.excel-table .sticky-code { left: 0; z-index: 4; min-width: 98px; }
-.excel-table .sticky-name { left: 98px; z-index: 4; min-width: 140px; width: 140px; }
-.excel-table .sticky-option-code { left: 238px; z-index: 4; width: 40px; min-width: 40px; max-width: 40px; text-align: center; }
-.excel-table .sticky-option-name { left: 278px; z-index: 4; min-width: 110px; }
-.excel-table .sticky-price { left: 388px; z-index: 4; min-width: 68px; }
-.excel-table .sticky-direct { left: 456px; z-index: 4; min-width: 64px; }
+.excel-table .sticky-code { left: 0; z-index: 4; min-width: 98px; width: 98px; max-width: 98px; }
+.excel-table .sticky-name { left: 98px; z-index: 4; min-width: 360px; width: 360px; max-width: 360px; }
+.excel-table .sticky-option-code { left: 458px; z-index: 4; width: 40px; min-width: 40px; max-width: 40px; text-align: center; }
+.excel-table .sticky-option-name { left: 498px; z-index: 4; min-width: 260px; width: 260px; max-width: 260px; }
+.excel-table .sticky-price { left: 758px; z-index: 4; min-width: 68px; width: 68px; max-width: 68px; }
+.excel-table .sticky-direct { left: 826px; z-index: 4; min-width: 64px; width: 64px; max-width: 64px; }
+.excel-table .sticky-name,
+.excel-table .sticky-option-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+.excel-table-wrap.is-left-compact .sticky-name {
+  min-width: 180px;
+  width: 180px;
+  max-width: 180px;
+}
+.excel-table-wrap.is-left-compact .sticky-option-code {
+  left: 278px;
+}
+.excel-table-wrap.is-left-compact .sticky-option-name {
+  left: 318px;
+  min-width: 180px;
+  width: 180px;
+  max-width: 180px;
+}
+.excel-table-wrap.is-left-compact .sticky-price {
+  left: 498px;
+}
+.excel-table-wrap.is-left-compact .sticky-direct {
+  left: 566px;
+}
+.excel-table-wrap.is-left-compact .sticky-name,
+.excel-table-wrap.is-left-compact .sticky-option-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .excel-table .sticky-total {
   right: 142px;
   z-index: 3;
@@ -442,8 +475,8 @@
 }
 .excel-table .u-header {
   text-align: center;
-  max-width: 92px;
-  min-width: 76px;
+  max-width: none;
+  min-width: 96px;
   padding: 2px 3px;
   vertical-align: top;
   overflow: visible;
@@ -499,8 +532,8 @@
   line-height: 1.2;
   letter-spacing: -0.01em;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 .excel-table .u-header-name {
   font-size: 9.5px;
@@ -512,6 +545,9 @@
   text-overflow: clip;
   margin-top: 3px;
   display: block;
+  width: 100%;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   text-shadow: 0 1px 1px rgba(15, 23, 42, 0.75);
 }
 .excel-table thead tr:first-child th.sticky-total,

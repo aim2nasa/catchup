@@ -741,6 +741,7 @@ export function ExcelOrderView() {
   const topScrollbarRef = useRef<HTMLDivElement>(null)
   const bottomSyncRef = useRef(false)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
+  const [isLeftCompact, setIsLeftCompact] = useState(false)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [hoveredCell, setHoveredCell] = useState<Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null>(null)
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
@@ -1590,8 +1591,9 @@ export function ExcelOrderView() {
         cell.classList.add('formula-cell')
         cell.setAttribute('title', `수식: ${formula}`)
       } else {
+        const fullText = cell.getAttribute('data-full-text')?.trim()
         cell.classList.remove('formula-cell')
-        cell.setAttribute('title', '값 셀')
+        cell.setAttribute('title', fullText || '값 셀')
       }
     })
   }, [rowFormulaByKey, state.data])
@@ -1659,6 +1661,7 @@ export function ExcelOrderView() {
   }
 
   const syncScrollLeftFromTop = (left: number) => {
+    setIsLeftCompact(left > 24)
     const bottom = tableWrapRef.current
     if (!bottom || bottomSyncRef.current || bottom.scrollLeft === left) return
     bottomSyncRef.current = true
@@ -1669,6 +1672,7 @@ export function ExcelOrderView() {
   }
 
   const syncScrollLeftFromBottom = (left: number) => {
+    setIsLeftCompact(left > 24)
     const top = topScrollbarRef.current
     if (!top) return
     if (bottomSyncRef.current) return
@@ -1843,7 +1847,7 @@ export function ExcelOrderView() {
             />
           </div>
           <div
-            className="excel-table-wrap"
+            className={`excel-table-wrap${isLeftCompact ? ' is-left-compact' : ''}`}
             ref={tableWrapRef}
             onScroll={handleBottomScroll}
             onMouseMove={handleTableMouseMove}
@@ -1875,6 +1879,7 @@ export function ExcelOrderView() {
                       key={block.productCode}
                       colSpan={block.variants.length}
                       className={`u-header copyable-header ${uBlockClass(block)}`}
+                      style={{ minWidth: `${Math.max(block.variants.length * 32, 96)}px` }}
                       title={`${block.productCode} ${block.productLabel} 더블클릭 복사`}
                       onDoubleClick={() => handleCopyProductCode(block.productCode)}
                     >
@@ -2142,6 +2147,7 @@ export function ExcelOrderView() {
                              data-col-key="A:상품명"
                              data-row-label={rowLabel}
                              data-col-label="상품명"
+                             data-full-text={g.product_name}
                            >
                              {g.product_name}
                            </td>
@@ -2176,6 +2182,7 @@ export function ExcelOrderView() {
                              data-col-key="A:옵션명"
                              data-row-label={rowLabel}
                              data-col-label="옵션명"
+                             data-full-text={hasVariantRows ? displayOptionName(firstVariantOption) : undefined}
                            >
                              {hasVariantRows ? displayOptionName(firstVariantOption) : ''}
                            </td>
@@ -2380,6 +2387,7 @@ export function ExcelOrderView() {
                                   data-col-key="A:옵션명"
                                   data-row-label={variantRowLabel}
                                   data-col-label="옵션명"
+                                  data-full-text={displayOptionName(v.option || v.variant_code)}
                                 >
                                   {displayOptionName(v.option || v.variant_code)}
                                 </td>
