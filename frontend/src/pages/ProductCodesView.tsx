@@ -2359,20 +2359,6 @@ export function ProductCodesView() {
                 <span className="pc-excel-period">
                   {state.data!.start} ~ {state.data!.end}
                 </span>
-                <span
-                  className="read-state-legend"
-                  aria-label="조회값 상태 범례. 0은 Cafe24 조회값 0 또는 기준표에 존재하지만 해당 기간 판매 응답이 없는 상품/옵션입니다."
-                  title="0은 Cafe24 조회값 0 또는 기준표에 존재하지만 해당 기간 판매 응답이 없는 상품/옵션입니다."
-                >
-                  <span className="read-state-legend-item">
-                    <span className="read-state-sample read-state-sample--missing">미</span>
-                    <span>확인불가</span>
-                  </span>
-                  <span className="read-state-legend-item">
-                    <span className="read-state-sample read-state-sample--partial">*</span>
-                    <span>확인불가 제외 합계</span>
-                  </span>
-                </span>
                 <div className="pc-excel-selection-indicator">
                   {selectedCell ? (
                     <span

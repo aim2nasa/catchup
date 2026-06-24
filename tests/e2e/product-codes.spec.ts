@@ -193,12 +193,6 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000F"][data-col-key="A:직접판매"]')).toHaveText('0')
     await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000G"][data-col-key="A:직접판매"]')).toHaveText('0')
     await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000H"][data-col-key="A:직접판매"]')).toHaveText('0')
-    await expect(page.locator('.read-state-legend')).toContainText('확인불가')
-    await expect(page.locator('.read-state-legend')).toContainText('확인불가 제외 합계')
-    const legendLeftBefore = await readLegendLeft(page)
-    await page.locator('td[data-row-key="variant:P00000VK:P00000VK000M"][data-col-key="A:직접판매"]').click()
-    const legendLeftAfter = await readLegendLeft(page)
-    expect(legendLeftAfter).toBe(legendLeftBefore)
 
     const knownNoSalesA1 = await page
       .locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:직접판매"]')
@@ -269,10 +263,4 @@ async function readProductCodesScrollState(page: import('@playwright/test').Page
       revenueWidth: Math.round(revenue.getBoundingClientRect().width),
     }
   })
-}
-
-async function readLegendLeft(page: import('@playwright/test').Page) {
-  const box = await page.locator('.read-state-legend').boundingBox()
-  expect(box).toBeTruthy()
-  return Math.round(box!.x)
 }
