@@ -949,6 +949,12 @@ function columnCellState(uProduct: string, hasRule: boolean, qty: number): CellS
   return 'mapped'
 }
 
+function setComponentCellState(hasComponent: boolean, qty: number): CellState {
+  if (hasComponent) return 'mapped'
+  if (!Number.isFinite(qty) || qty <= 0) return 'unmapped'
+  return 'mapped'
+}
+
 function columnCellClass(state: CellState) {
   if (state === 'mapped') return 'map-cell map-cell--mapped'
   if (state === 'unmapped') return 'map-cell map-cell--unmapped'
@@ -998,6 +1004,60 @@ function hasSetComponentDraftChange(
 
 function isSetComponentDraftComplete(draft: SetProductComponentDraft) {
   return Boolean(normalizeProductCode(draft.productCode) && normalizeVariantCode(draft.optionCode))
+}
+
+function getEffectiveSetComponentsForVariant(
+  config: SetProductConfig | null,
+  variantCode: string,
+  addedComponents: Record<string, SetProductComponent[]>,
+  drafts: Record<string, SetProductComponentDraft>,
+) {
+  if (!config) return []
+  const normalizedVariant = normalizeVariantCode(variantCode)
+  const commonScopeKey = makeSetComponentScopeKey(config.productCode, 'common')
+  const optionScopeKey = makeSetComponentScopeKey(config.productCode, 'option', normalizedVariant)
+  const variantConfig = config.variants.find((variant) => normalizeVariantCode(variant.variantCode) === normalizedVariant)
+  const components = [
+    ...(config.commonComponents ?? []),
+    ...(addedComponents[commonScopeKey] ?? []),
+    ...(variantConfig?.components ?? []),
+    ...(addedComponents[optionScopeKey] ?? []),
+  ]
+
+  return components
+    .map((component) => getSetComponentDraft(drafts, component))
+    .filter((draft) => !draft.deleted && isSetComponentDraftComplete(draft))
+}
+
+function getSetComponentMatch(
+  components: SetProductComponentDraft[],
+  productCode: string,
+  optionCode: string | null,
+) {
+  const normalizedProductCode = normalizeProductCode(productCode)
+  const normalizedOptionCode = normalizeVariantCode(optionCode ?? '')
+  return components
+    .filter((component) => {
+      if (normalizeProductCode(component.productCode) !== normalizedProductCode) return false
+      return normalizeVariantCode(component.optionCode) === normalizedOptionCode
+    })
+    .reduce(
+      (acc, component) => {
+        const componentQty = Number(component.qty) || 0
+        const componentSetPrice = Number(component.setPrice) || 0
+        return {
+          hasComponent: true,
+          qtyPerSet: acc.qtyPerSet + componentQty,
+          revenuePerSet: acc.revenuePerSet + componentQty * componentSetPrice,
+        }
+      },
+      { hasComponent: false, qtyPerSet: 0, revenuePerSet: 0 },
+    )
+}
+
+function getSetComponentUnitPrice(match: { qtyPerSet: number; revenuePerSet: number }) {
+  if (!Number.isFinite(match.qtyPerSet) || match.qtyPerSet <= 0) return 0
+  return match.revenuePerSet / match.qtyPerSet
 }
 
 function getSetComponentDraftAmount(draft: SetProductComponentDraft) {
@@ -1725,14 +1785,19 @@ export function ProductCodesView() {
 
       U_COLUMNS.forEach((col, idx) => {
         const key = makeUCellKey(col.uProduct, col.uVariant)
-        const rule = col.group === 'set' ? undefined : effectiveRuleMap.get(key)
+        const isSetColumn = col.group === 'set'
+        const setConfig = isSetColumn ? getSetConfigByProductCode(col.uProduct) : null
+        const setComponents = isSetColumn
+          ? getEffectiveSetComponentsForVariant(setConfig, col.uVariant, setAddedComponents, setComponentDrafts)
+          : []
+        const rule = isSetColumn ? undefined : effectiveRuleMap.get(key)
         const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(key) ?? null
 
         const uGroup = byCode.get(normalizeProductCode(col.uProduct))
         let uQty = 0
         let uPrice = 0
         let uPriceFound = false
-        if (uGroup && !EXCLUDED_U_PRODUCTS.has(col.uProduct)) {
+        if (uGroup && (isSetColumn || !EXCLUDED_U_PRODUCTS.has(col.uProduct))) {
           const targetVariant = findUVariantData(uGroup, col.uProduct, col.uVariant)
           uQty = targetVariant?.qty ?? 0
           const rawVariantPrice = targetVariant?.price ?? Number.NaN
@@ -1750,67 +1815,98 @@ export function ProductCodesView() {
         mappingPriceByColumn[idx] = uPrice
         mappingPriceIsFoundByColumn[idx] = uPriceFound
 
-        mappingHasRuleByColumn[idx] = hasRuleMatch(
-          rule,
-          normalizedCode,
-          null,
-          null,
-          ruleUVariantIndex,
-          hasLVariants,
-        )
+        // 세트상품 구성 환산은 옵션 단위 의미이므로 variantMapping 쪽에만 넣는다.
+        // 부모행 렌더링은 대표 옵션 값을 합산해 보여주기 때문에 여기에도 넣으면 단일 옵션 행이 중복 계산된다.
+        const parentSetMatch = { hasComponent: false, qtyPerSet: 0, revenuePerSet: 0 }
 
-        const { qty, rev } = rule
-          ? getRuleMatchQty(
+        mappingHasRuleByColumn[idx] = isSetColumn
+          ? parentSetMatch.hasComponent
+          : hasRuleMatch(
               rule,
               normalizedCode,
               null,
               null,
               ruleUVariantIndex,
-              uQty,
-              uPrice,
               hasLVariants,
-          )
-          : { qty: 0, rev: 0 }
+            )
+
+        const { qty, rev } = isSetColumn
+          ? {
+              qty: parentSetMatch.qtyPerSet * uQty,
+              rev: parentSetMatch.revenuePerSet * uQty,
+            }
+          : rule
+            ? getRuleMatchQty(
+                rule,
+                normalizedCode,
+                null,
+                null,
+                ruleUVariantIndex,
+                uQty,
+                uPrice,
+                hasLVariants,
+            )
+            : { qty: 0, rev: 0 }
         mappingQtyByColumn[idx] = qty
         mappingRevByColumn[idx] = rev
-        mappingStateByColumn[idx] = columnCellState(
-          col.uProduct,
-          mappingHasRuleByColumn[idx] ?? false,
-          qty,
-        )
+        if (isSetColumn) {
+          mappingPriceByColumn[idx] = getSetComponentUnitPrice(parentSetMatch)
+          mappingPriceIsFoundByColumn[idx] = parentSetMatch.hasComponent
+        }
+        mappingStateByColumn[idx] = isSetColumn
+          ? setComponentCellState(mappingHasRuleByColumn[idx] ?? false, qty)
+          : columnCellState(
+              col.uProduct,
+              mappingHasRuleByColumn[idx] ?? false,
+              qty,
+            )
 
         variants.forEach((v, vIdx) => {
           const targetLVariant = normalizeVariantSuffix(normalizedCode, v.variant_code).toUpperCase()
           const targetLVariantIndex = vIdx
-          variantMappingHasRuleByColumn[vIdx][idx] = hasRuleMatch(
-            rule,
-            normalizedCode,
-            targetLVariant,
-            targetLVariantIndex,
-            ruleUVariantIndex,
-            hasLVariants,
-          )
-          const { qty: variantQty, rev: variantRev } = rule
-            ? getRuleMatchQty(
+          const variantSetMatch = isSetColumn
+            ? getSetComponentMatch(setComponents, normalizedCode, targetLVariant)
+            : { hasComponent: false, qtyPerSet: 0, revenuePerSet: 0 }
+          variantMappingHasRuleByColumn[vIdx][idx] = isSetColumn
+            ? variantSetMatch.hasComponent
+            : hasRuleMatch(
                 rule,
                 normalizedCode,
                 targetLVariant,
                 targetLVariantIndex,
                 ruleUVariantIndex,
-                uQty,
-                uPrice,
                 hasLVariants,
               )
-            : { qty: 0, rev: 0 }
+          const { qty: variantQty, rev: variantRev } = isSetColumn
+            ? {
+                qty: variantSetMatch.qtyPerSet * uQty,
+                rev: variantSetMatch.revenuePerSet * uQty,
+              }
+            : rule
+              ? getRuleMatchQty(
+                  rule,
+                  normalizedCode,
+                  targetLVariant,
+                  targetLVariantIndex,
+                  ruleUVariantIndex,
+                  uQty,
+                  uPrice,
+                  hasLVariants,
+                )
+              : { qty: 0, rev: 0 }
           variantMappingQtyByColumn[vIdx][idx] = variantQty
           variantMappingRevByColumn[vIdx][idx] = variantRev
-          variantMappingPriceByColumn[vIdx][idx] = uPrice
-          variantMappingPriceIsFoundByColumn[vIdx][idx] = mappingPriceIsFoundByColumn[idx]
-          variantMappingStateByColumn[vIdx][idx] = columnCellState(
-            col.uProduct,
-            variantMappingHasRuleByColumn[vIdx][idx] ?? false,
-            variantQty,
-          )
+          variantMappingPriceByColumn[vIdx][idx] = isSetColumn ? getSetComponentUnitPrice(variantSetMatch) : uPrice
+          variantMappingPriceIsFoundByColumn[vIdx][idx] = isSetColumn
+            ? variantSetMatch.hasComponent
+            : mappingPriceIsFoundByColumn[idx]
+          variantMappingStateByColumn[vIdx][idx] = isSetColumn
+            ? setComponentCellState(variantMappingHasRuleByColumn[vIdx][idx] ?? false, variantQty)
+            : columnCellState(
+                col.uProduct,
+                variantMappingHasRuleByColumn[vIdx][idx] ?? false,
+                variantQty,
+              )
         })
       })
 
@@ -1982,7 +2078,7 @@ export function ProductCodesView() {
         ),
       }
     })
-  }, [allGroups, effectiveRuleMap])
+  }, [allGroups, effectiveRuleMap, setAddedComponents, setComponentDrafts])
 
   const totalQty = groupRows.reduce(
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalQty),

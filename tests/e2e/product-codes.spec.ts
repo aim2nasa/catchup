@@ -274,7 +274,8 @@ test.describe('상품코드 페이지', () => {
         conversion: conversionCell ? getComputedStyle(conversionCell).backgroundColor : null,
       }
     })
-    expect(cellBackgrounds.excludedSet).toBe(cellBackgrounds.unmappedSet)
+    expect(cellBackgrounds.excludedSet).toBeNull()
+    expect(cellBackgrounds.unmappedSet).toBeTruthy()
     expect(cellBackgrounds.conversion).not.toBe(cellBackgrounds.unmappedSet)
 
     const optionHeaderColors = await page.locator('.pc-excel-table').evaluate((table) => {
@@ -290,6 +291,37 @@ test.describe('상품코드 페이지', () => {
     expect(optionHeaderColors.set).not.toBe(optionHeaderColors.conversion)
     expect(optionHeaderColors.left).not.toBe(optionHeaderColors.conversion)
     expect(optionHeaderColors.left).not.toBe(optionHeaderColors.set)
+  })
+
+  test('세트상품 구성 교차셀은 세트 판매량에 구성 수량을 곱해 표시한다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const cases = [
+      { colKey: 'B:P00000YZ-D', rowKey: 'parent:500g:P00000ZB', componentQty: 1 },
+      { colKey: 'B:P00000YZ-D', rowKey: 'parent:제모미인제품:P00000ZA', componentQty: 1 },
+      { colKey: 'B:P00000YS-A', rowKey: 'parent:500g:P00000HT', componentQty: 1 },
+      { colKey: 'B:P00000YS-A', rowKey: 'parent:제모미인제품:P00000XW', componentQty: 5 },
+      { colKey: 'B:P00000YU-B', rowKey: 'variant:P00000VK:P00000VK000M', componentQty: 1 },
+      { colKey: 'B:P00000VP-B', rowKey: 'parent:슈거스크럽:P00000OG', componentQty: 4 },
+      { colKey: 'B:P00000VA-A', rowKey: 'parent:파우치:P00000UK', componentQty: 50 },
+    ]
+
+    for (const testCase of cases) {
+      const directQty = await readProductCodesNumericCell(page, 'product-codes-u-direct', testCase.colKey)
+      const mappedCell = page.locator(`td[data-row-key="${testCase.rowKey}"][data-col-key="${testCase.colKey}"]`)
+      await expect(mappedCell).toHaveText(String(directQty * testCase.componentQty))
+      await expect(mappedCell).toHaveClass(/map-cell--mapped/)
+    }
+
+    const oldDirectSetCell = page.locator('td[data-row-key="parent:500g:P00000ZB"][data-col-key="B:P00000YS-A"]')
+    await expect(oldDirectSetCell).toHaveText('')
+    await expect(oldDirectSetCell).not.toHaveClass(/map-cell--mapped/)
   })
 
   test('수평 스크롤 중에도 왼쪽 컬럼 압축과 행 높이 기준이 안정적으로 유지된다', async ({ page }) => {
@@ -387,9 +419,20 @@ test.describe('상품코드 페이지', () => {
     expect(conversionCardColor.borderTop).toBe('rgb(37, 99, 235)')
     expect(conversionCardColor.borderLeft).toBe('rgb(184, 196, 210)')
 
-    const setProductCrossCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:P00000YS-A"]')
-    await expect(setProductCrossCell).toHaveText('')
-    await expect(setProductCrossCell).not.toHaveClass(/map-cell--mapped/)
+    const setColumnDirectQtyText = await page
+      .locator('td[data-row-key="product-codes-u-direct"][data-col-key="B:P00000YS-A"]')
+      .textContent()
+    const setColumnDirectQty = Number((setColumnDirectQtyText ?? '').replace(/,/g, '').trim())
+    expect(setColumnDirectQty).toBeGreaterThan(0)
+
+    const setProductCrossCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="B:P00000YS-A"]')
+    await expect(setProductCrossCell).toHaveText(String(setColumnDirectQty))
+    await expect(setProductCrossCell).toHaveClass(/map-cell--mapped/)
+    const setMaskComponentCell = page.locator('td[data-row-key="parent:제모미인제품:P00000XW"][data-col-key="B:P00000YS-A"]')
+    await expect(setMaskComponentCell).toHaveText(String(setColumnDirectQty * 5))
+    await expect(setMaskComponentCell).toHaveClass(/map-cell--mapped/)
+    const setMaskComponentA1 = await setMaskComponentCell.getAttribute('data-a1')
+    expect(setMaskComponentA1).toBeTruthy()
     await setProductCrossCell.evaluate((cell) => (cell as HTMLElement).click())
     await page.mouse.move(5, 5)
     await expect(page.getByLabel('위쪽 상품')).toContainText('세트 상품')
@@ -402,6 +445,16 @@ test.describe('상품코드 페이지', () => {
     expect(setCardColor.borderTop).toBe('rgb(22, 163, 74)')
     expect(setCardColor.borderLeft).toBe('rgb(184, 196, 210)')
     expect(setCardColor.badgeBackground).not.toBe(conversionCardColor.badgeBackground)
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Excel 다운로드' }).click()
+    const download = await downloadPromise
+    const filePath = await download.path()
+    expect(filePath).toBeTruthy()
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.readFile(filePath!)
+    const worksheet = workbook.getWorksheet('상품코드')
+    expect(worksheet?.getCell(setMaskComponentA1!).value).toBe(setColumnDirectQty * 5)
 
     await page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key^="B:"]').first().hover()
     await expect(page.getByLabel('왼쪽 상품')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
@@ -579,6 +632,17 @@ async function setProductCodesScrollLeft(page: import('@playwright/test').Page, 
     el.dispatchEvent(new Event('scroll', { bubbles: true }))
   }, left)
   await page.waitForTimeout(100)
+}
+
+async function readProductCodesNumericCell(
+  page: import('@playwright/test').Page,
+  rowKey: string,
+  colKey: string,
+) {
+  const text = await page.locator(`td[data-row-key="${rowKey}"][data-col-key="${colKey}"]`).textContent()
+  const value = Number((text ?? '').replace(/[^\d.-]/g, ''))
+  expect(Number.isFinite(value)).toBe(true)
+  return value
 }
 
 async function readProductCodesScrollState(page: import('@playwright/test').Page) {
