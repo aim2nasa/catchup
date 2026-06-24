@@ -1725,7 +1725,7 @@ export function ProductCodesView() {
 
       U_COLUMNS.forEach((col, idx) => {
         const key = makeUCellKey(col.uProduct, col.uVariant)
-        const rule = effectiveRuleMap.get(key)
+        const rule = col.group === 'set' ? undefined : effectiveRuleMap.get(key)
         const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(key) ?? null
 
         const uGroup = byCode.get(normalizeProductCode(col.uProduct))

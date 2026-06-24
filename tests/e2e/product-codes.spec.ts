@@ -387,9 +387,10 @@ test.describe('상품코드 페이지', () => {
     expect(conversionCardColor.borderTop).toBe('rgb(37, 99, 235)')
     expect(conversionCardColor.borderLeft).toBe('rgb(184, 196, 210)')
 
-    await page
-      .locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:P00000YS-A"]')
-      .evaluate((cell) => (cell as HTMLElement).click())
+    const setProductCrossCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:P00000YS-A"]')
+    await expect(setProductCrossCell).toHaveText('')
+    await expect(setProductCrossCell).not.toHaveClass(/map-cell--mapped/)
+    await setProductCrossCell.evaluate((cell) => (cell as HTMLElement).click())
     await page.mouse.move(5, 5)
     await expect(page.getByLabel('위쪽 상품')).toContainText('세트 상품')
     await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-set/)
