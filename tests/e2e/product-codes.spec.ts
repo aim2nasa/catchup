@@ -239,6 +239,7 @@ test.describe('상품코드 페이지', () => {
     expect(middle.firstDataRowHeight).toBe(initial.firstDataRowHeight)
     expect(middle.longProductRowHeight).toBe(initial.longProductRowHeight)
     expect(middle.lastVisibleRowNumber).toBe(initial.lastVisibleRowNumber)
+    expect(middle.categoryLeft).toBe(initial.categoryLeft)
 
     await setProductCodesScrollLeft(page, initial.maxLeft)
     const right = await readProductCodesScrollState(page)
@@ -247,6 +248,7 @@ test.describe('상품코드 페이지', () => {
     expect(right.firstDataRowHeight).toBe(initial.firstDataRowHeight)
     expect(right.longProductRowHeight).toBe(initial.longProductRowHeight)
     expect(right.lastVisibleRowNumber).toBe(initial.lastVisibleRowNumber)
+    expect(right.categoryLeft).toBe(initial.categoryLeft)
   })
 })
 
@@ -262,6 +264,7 @@ async function readProductCodesScrollState(page: import('@playwright/test').Page
   return page.evaluate(() => {
     const wrap = document.querySelector('.pc-excel-table-wrap')
     const revenue = document.querySelector('tbody td.sticky-rev')
+    const categoryCell = document.querySelector('td[data-row-key="category:하드왁스"]')
     const firstDataRow = document.querySelector('tbody tr:not(.category-scope-row)')
     const longProductRowHead = Array.from(document.querySelectorAll('tbody tr .pc-excel-row-head'))
       .find((cell) => cell.textContent?.trim() === '29')
@@ -269,6 +272,7 @@ async function readProductCodesScrollState(page: import('@playwright/test').Page
     if (
       !(wrap instanceof HTMLElement) ||
       !(revenue instanceof HTMLElement) ||
+      !(categoryCell instanceof HTMLElement) ||
       !(firstDataRow instanceof HTMLElement) ||
       !(longProductRow instanceof HTMLElement)
     ) {
@@ -288,6 +292,7 @@ async function readProductCodesScrollState(page: import('@playwright/test').Page
       scrollLeft: wrap.scrollLeft,
       isLeftCompact: wrap.classList.contains('is-left-compact'),
       revenueWidth: Math.round(revenue.getBoundingClientRect().width),
+      categoryLeft: Math.round(categoryCell.getBoundingClientRect().left),
       firstDataRowHeight: Math.round(firstDataRow.getBoundingClientRect().height),
       longProductRowHeight: Math.round(longProductRow.getBoundingClientRect().height),
       lastVisibleRowNumber: visibleRowNumbers.at(-1) ?? 0,

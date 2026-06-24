@@ -705,6 +705,17 @@
   white-space: nowrap;
 }
 
+.product-group-band-sticky {
+  position: sticky;
+  left: 42px;
+  z-index: 5;
+  background: #eef2f7;
+}
+
+.product-group-band-fill {
+  padding: 0;
+}
+
 .product-category-badge {
   display: inline-block;
   margin-right: 10px;

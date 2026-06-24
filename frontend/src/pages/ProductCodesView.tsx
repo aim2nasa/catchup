@@ -2727,8 +2727,8 @@ export function ProductCodesView() {
                       <tr className="product-category-row">
                         <th className="pc-excel-row-head">{excelRowNumber(categoryRowKey(grp.category))}</th>
                         <td
-                          className="product-group-band-cell"
-                          colSpan={totalColumnCount - 1}
+                          className="product-group-band-cell product-group-band-sticky"
+                          colSpan={6}
                           data-row-key={categoryRowKey(grp.category)}
                           data-col-key="A:상품코드"
                           data-row-label={grp.category}
@@ -2737,6 +2737,13 @@ export function ProductCodesView() {
                         >
                           <span className="product-category-badge">카테고리</span>
                           <span className="product-group-band-value">{grp.category}</span>
+                        </td>
+                        <td
+                          className="product-group-band-fill"
+                          colSpan={totalColumnCount - 7}
+                          aria-hidden="true"
+                        >
+                          {''}
                         </td>
                       </tr>
                     ) : null}
