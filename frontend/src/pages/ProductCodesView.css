@@ -452,9 +452,9 @@
 .pc-excel-table .sticky-direct { left: 868px; z-index: 4; min-width: 64px; width: 64px; max-width: 64px; }
 .pc-excel-table .sticky-name,
 .pc-excel-table .sticky-option-name {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  text-overflow: clip;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.25;
 }
 .pc-excel-table-wrap.is-left-compact .sticky-name {

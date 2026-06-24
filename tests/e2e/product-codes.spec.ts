@@ -219,7 +219,7 @@ test.describe('상품코드 페이지', () => {
     expect(worksheet?.getColumn(2).values).toContain('확인불가 항목 제외 합계')
   })
 
-  test('수평 스크롤 중에도 매출 컬럼 폭이 유지된다', async ({ page }) => {
+  test('수평 스크롤 중에도 왼쪽 컬럼 압축과 행 높이 기준이 안정적으로 유지된다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
     await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
@@ -234,11 +234,19 @@ test.describe('상품코드 페이지', () => {
 
     await setProductCodesScrollLeft(page, Math.floor(initial.maxLeft / 2))
     const middle = await readProductCodesScrollState(page)
+    expect(middle.isLeftCompact).toBe(true)
     expect(middle.revenueWidth).toBe(initial.revenueWidth)
+    expect(middle.firstDataRowHeight).toBe(initial.firstDataRowHeight)
+    expect(middle.longProductRowHeight).toBe(initial.longProductRowHeight)
+    expect(middle.lastVisibleRowNumber).toBe(initial.lastVisibleRowNumber)
 
     await setProductCodesScrollLeft(page, initial.maxLeft)
     const right = await readProductCodesScrollState(page)
+    expect(right.isLeftCompact).toBe(true)
     expect(right.revenueWidth).toBe(initial.revenueWidth)
+    expect(right.firstDataRowHeight).toBe(initial.firstDataRowHeight)
+    expect(right.longProductRowHeight).toBe(initial.longProductRowHeight)
+    expect(right.lastVisibleRowNumber).toBe(initial.lastVisibleRowNumber)
   })
 })
 
@@ -254,13 +262,35 @@ async function readProductCodesScrollState(page: import('@playwright/test').Page
   return page.evaluate(() => {
     const wrap = document.querySelector('.pc-excel-table-wrap')
     const revenue = document.querySelector('tbody td.sticky-rev')
-    if (!(wrap instanceof HTMLElement) || !(revenue instanceof HTMLElement)) {
-      throw new Error('Missing product-codes scroll or revenue cell')
+    const firstDataRow = document.querySelector('tbody tr:not(.category-scope-row)')
+    const longProductRowHead = Array.from(document.querySelectorAll('tbody tr .pc-excel-row-head'))
+      .find((cell) => cell.textContent?.trim() === '29')
+    const longProductRow = longProductRowHead?.closest('tr')
+    if (
+      !(wrap instanceof HTMLElement) ||
+      !(revenue instanceof HTMLElement) ||
+      !(firstDataRow instanceof HTMLElement) ||
+      !(longProductRow instanceof HTMLElement)
+    ) {
+      throw new Error('Missing product-codes scroll, revenue cell, or measured data row')
     }
+    const wrapRect = wrap.getBoundingClientRect()
+    const visibleRowNumbers = Array.from(wrap.querySelectorAll('tbody tr .pc-excel-row-head'))
+      .filter((cell): cell is HTMLElement => cell instanceof HTMLElement)
+      .filter((cell) => {
+        const rect = cell.getBoundingClientRect()
+        return rect.top < wrapRect.bottom && rect.bottom > wrapRect.top
+      })
+      .map((cell) => Number(cell.textContent?.trim() ?? 0))
+      .filter((rowNumber) => Number.isFinite(rowNumber) && rowNumber > 0)
     return {
       maxLeft: wrap.scrollWidth - wrap.clientWidth,
       scrollLeft: wrap.scrollLeft,
+      isLeftCompact: wrap.classList.contains('is-left-compact'),
       revenueWidth: Math.round(revenue.getBoundingClientRect().width),
+      firstDataRowHeight: Math.round(firstDataRow.getBoundingClientRect().height),
+      longProductRowHeight: Math.round(longProductRow.getBoundingClientRect().height),
+      lastVisibleRowNumber: visibleRowNumbers.at(-1) ?? 0,
     }
   })
 }
