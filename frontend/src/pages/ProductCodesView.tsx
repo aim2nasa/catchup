@@ -55,6 +55,34 @@ type RevenueFormulaBuildResult = {
 type ReadStatus = 'loaded' | 'missing' | 'fallback' | 'partial' | 'calculated'
 type ReadSource = 'cafe24' | 'set-design' | 'local-rule' | 'calculated'
 type ProductCodesViewMode = 'detail' | 'wide' | 'focus'
+type SetEditorLayout = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+type SetEditorDragState =
+  | {
+    mode: 'move'
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    width: number
+    height: number
+  }
+  | {
+    mode: 'resize'
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    originWidth: number
+    originHeight: number
+  }
 
 type ReadMeta = {
   status: ReadStatus
@@ -724,6 +752,9 @@ const PRODUCT_CODES_VIEW_MODES: Array<{ value: ProductCodesViewMode; label: stri
   { value: 'wide', label: '넓게', title: '단가를 숨기고 상품명/옵션명을 줄여 오른쪽 숫자 영역을 넓게 표시' },
   { value: 'focus', label: '더 넓게', title: '상품코드, 코드, 직접판매만 남겨 오른쪽 숫자 영역을 더 넓게 표시' },
 ]
+const SET_EDITOR_MIN_WIDTH = 760
+const SET_EDITOR_MIN_HEIGHT = 420
+const SET_EDITOR_MARGIN = 12
 
 const loadedMeta: ReadMeta = { status: 'loaded', source: 'cafe24' }
 const periodNoSalesMeta: ReadMeta = { status: 'loaded', source: 'set-design' }
@@ -738,6 +769,10 @@ function readInitialProductCodesViewMode(): ProductCodesViewMode {
   if (typeof window === 'undefined') return 'detail'
   const saved = window.localStorage.getItem(PRODUCT_CODES_VIEW_MODE_KEY)
   return isProductCodesViewMode(saved) ? saved : 'detail'
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
 }
 
 function leftColumnWidthsForViewMode(viewMode: ProductCodesViewMode, isCompact: boolean) {
@@ -1266,13 +1301,16 @@ export function ProductCodesView() {
   const tableWrapRef = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLTableElement>(null)
   const topScrollbarRef = useRef<HTMLDivElement>(null)
+  const setEditorModalRef = useRef<HTMLDivElement>(null)
   const bottomSyncRef = useRef(false)
   const scrollContentWidthRef = useRef(0)
+  const setEditorDragRef = useRef<SetEditorDragState | null>(null)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [isLeftCompact, setIsLeftCompact] = useState(false)
   const [viewMode, setViewMode] = useState<ProductCodesViewMode>(readInitialProductCodesViewMode)
   const [editingSetProductCode, setEditingSetProductCode] = useState<string | null>(null)
   const [selectedSetVariantCode, setSelectedSetVariantCode] = useState('')
+  const [setEditorLayout, setSetEditorLayout] = useState<SetEditorLayout | null>(null)
   const [setComponentDrafts, setSetComponentDrafts] = useState<Record<string, SetProductComponentDraft>>({})
   const [setAddedComponents, setSetAddedComponents] = useState<Record<string, SetProductComponent[]>>({})
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
@@ -2318,6 +2356,147 @@ export function ProductCodesView() {
     (setAddedComponents[commonSetScopeKey]?.length ?? 0) > 0
     || (setAddedComponents[optionSetScopeKey]?.length ?? 0) > 0
   ))
+  const showSetCommonCard = activeSetCommonComponents.length > 0
+  const setEditorLayoutStyle: CSSProperties | undefined = setEditorLayout
+    ? {
+      left: `${setEditorLayout.x}px`,
+      top: `${setEditorLayout.y}px`,
+      width: `${setEditorLayout.width}px`,
+      height: `${setEditorLayout.height}px`,
+    }
+    : undefined
+
+  const constrainSetEditorLayout = (layout: SetEditorLayout): SetEditorLayout => {
+    if (typeof window === 'undefined') return layout
+    const maxWidth = Math.max(SET_EDITOR_MIN_WIDTH, window.innerWidth - SET_EDITOR_MARGIN * 2)
+    const maxHeight = Math.max(SET_EDITOR_MIN_HEIGHT, window.innerHeight - SET_EDITOR_MARGIN * 2)
+    const width = clampNumber(layout.width, SET_EDITOR_MIN_WIDTH, maxWidth)
+    const height = clampNumber(layout.height, SET_EDITOR_MIN_HEIGHT, maxHeight)
+    const maxX = Math.max(SET_EDITOR_MARGIN, window.innerWidth - width - SET_EDITOR_MARGIN)
+    const maxY = Math.max(SET_EDITOR_MARGIN, window.innerHeight - height - SET_EDITOR_MARGIN)
+    return {
+      x: clampNumber(layout.x, SET_EDITOR_MARGIN, maxX),
+      y: clampNumber(layout.y, SET_EDITOR_MARGIN, maxY),
+      width,
+      height,
+    }
+  }
+
+  const readCurrentSetEditorLayout = (): SetEditorLayout | null => {
+    const modal = setEditorModalRef.current
+    if (!modal) return null
+    const rect = modal.getBoundingClientRect()
+    return constrainSetEditorLayout({
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+    })
+  }
+
+  const startSetEditorMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    const layout = readCurrentSetEditorLayout()
+    if (!layout) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setEditorDragRef.current = {
+      mode: 'move',
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: layout.x,
+      originY: layout.y,
+      width: layout.width,
+      height: layout.height,
+    }
+    setSetEditorLayout(layout)
+  }
+
+  const startSetEditorResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    const layout = readCurrentSetEditorLayout()
+    if (!layout) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setEditorDragRef.current = {
+      mode: 'resize',
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: layout.x,
+      originY: layout.y,
+      originWidth: layout.width,
+      originHeight: layout.height,
+    }
+    setSetEditorLayout(layout)
+  }
+
+  const moveSetEditorLayout = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const state = setEditorDragRef.current
+    if (!state || state.pointerId !== event.pointerId) return
+    event.preventDefault()
+    if (state.mode === 'move') {
+      setSetEditorLayout(constrainSetEditorLayout({
+        x: state.originX + event.clientX - state.startX,
+        y: state.originY + event.clientY - state.startY,
+        width: state.width,
+        height: state.height,
+      }))
+      return
+    }
+    setSetEditorLayout(constrainSetEditorLayout({
+      x: state.originX,
+      y: state.originY,
+      width: state.originWidth + event.clientX - state.startX,
+      height: state.originHeight + event.clientY - state.startY,
+    }))
+  }
+
+  const stopSetEditorLayoutChange = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const state = setEditorDragRef.current
+    if (!state || state.pointerId !== event.pointerId) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setEditorDragRef.current = null
+  }
+
+  const getSetScopeKeysForConfig = (config: SetProductConfig) => [
+    makeSetComponentScopeKey(config.productCode, 'common'),
+    ...config.variants.map((variant) =>
+      makeSetComponentScopeKey(config.productCode, 'option', variant.variantCode)
+    ),
+  ]
+
+  const getSetComponentsForConfig = (config: SetProductConfig) => [
+    ...(config.commonComponents ?? []),
+    ...(setAddedComponents[makeSetComponentScopeKey(config.productCode, 'common')] ?? []),
+    ...config.variants.flatMap((variant) => [
+      ...variant.components,
+      ...(setAddedComponents[makeSetComponentScopeKey(config.productCode, 'option', variant.variantCode)] ?? []),
+    ]),
+  ]
+
+  const clearSetDraftForConfig = (config: SetProductConfig) => {
+    const componentIds = new Set(getSetComponentsForConfig(config).map((component) => component.id))
+    const scopeKeys = getSetScopeKeysForConfig(config)
+
+    setSetComponentDrafts((prev) => {
+      const next = { ...prev }
+      componentIds.forEach((componentId) => {
+        delete next[componentId]
+      })
+      return next
+    })
+    setSetAddedComponents((prev) => {
+      const next = { ...prev }
+      scopeKeys.forEach((scopeKey) => {
+        delete next[scopeKey]
+      })
+      return next
+    })
+  }
 
   const openSetConfigModal = (productCode: string, variantCode?: string) => {
     const config = getSetConfigByProductCode(productCode)
@@ -2415,22 +2594,13 @@ export function ProductCodesView() {
   }
 
   const resetActiveSetDraft = () => {
-    setSetComponentDrafts((prev) => {
-      const next = { ...prev }
-      activeSetComponents.forEach((component) => {
-        delete next[component.id]
-      })
-      return next
-    })
-    setSetAddedComponents((prev) => {
-      if (!activeSetConfig) return prev
-      const next = { ...prev }
-      delete next[commonSetScopeKey]
-      activeSetConfig.variants.forEach((variant) => {
-        delete next[makeSetComponentScopeKey(activeSetConfig.productCode, 'option', variant.variantCode)]
-      })
-      return next
-    })
+    if (!activeSetConfig) return
+    clearSetDraftForConfig(activeSetConfig)
+  }
+
+  const cancelActiveSetDraft = () => {
+    if (activeSetConfig) clearSetDraftForConfig(activeSetConfig)
+    setEditingSetProductCode(null)
   }
 
   const excelRowNumber = (rowKey: string) => rowMetaByKey.get(rowKey)?.excelRow ?? ''
@@ -4161,9 +4331,23 @@ export function ProductCodesView() {
 
       {activeSetConfig && editingSetProductCode ? (
         <div className="set-editor-backdrop" role="presentation">
-          <div className="set-editor-modal" role="dialog" aria-modal="true" aria-labelledby="set-editor-title">
+          <div
+            ref={setEditorModalRef}
+            className={`set-editor-modal${setEditorLayout ? ' is-positioned' : ''}`}
+            style={setEditorLayoutStyle}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="set-editor-title"
+          >
             <header className="set-editor-header">
-              <div>
+              <div
+                className="set-editor-drag-handle"
+                title="드래그해서 모달 이동"
+                onPointerDown={startSetEditorMove}
+                onPointerMove={moveSetEditorLayout}
+                onPointerUp={stopSetEditorLayoutChange}
+                onPointerCancel={stopSetEditorLayoutChange}
+              >
                 <span className="set-editor-eyebrow">세트상품 구성 편집</span>
                 <h2 id="set-editor-title">{activeSetConfig.productName}</h2>
                 <p>
@@ -4184,9 +4368,9 @@ export function ProductCodesView() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setEditingSetProductCode(null)}
+                  onClick={cancelActiveSetDraft}
                 >
-                  닫기
+                  취소
                 </button>
                 <button
                   type="button"
@@ -4237,42 +4421,40 @@ export function ProductCodesView() {
                 </div>
               </aside>
 
-              <main className="set-editor-main">
-                <section className="set-editor-card">
-                  <div className="set-editor-card-head">
-                    <div>
-                      <strong>공통 구성</strong>
-                      <span>모든 옵션에 공통으로 포함</span>
+              <main className={`set-editor-main${showSetCommonCard ? '' : ' is-option-only'}`}>
+                {showSetCommonCard ? (
+                  <section className="set-editor-card" data-set-editor-section="common">
+                    <div className="set-editor-card-head">
+                      <div>
+                        <strong>공통 구성</strong>
+                        <span>모든 옵션에 공통으로 포함</span>
+                      </div>
+                      <button type="button" className="btn btn-secondary" onClick={() => addSetComponent('common')}>
+                        왼쪽상품 추가
+                      </button>
                     </div>
-                    <button type="button" className="btn btn-secondary" onClick={() => addSetComponent('common')}>
-                      왼쪽상품 추가
-                    </button>
-                  </div>
-                  <div className="set-editor-table-wrap">
-                    <table className="set-editor-table">
-                      <thead>
-                        <tr>
-                          <th>구분</th>
-                          <th>왼쪽상품 선택</th>
-                          <th>옵션 선택</th>
-                          <th>수량</th>
-                          <th>세트가</th>
-                          <th>금액</th>
-                          <th>작업</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeSetCommonComponents.length > 0 ? renderSetComponentRows(activeSetCommonComponents) : (
+                    <div className="set-editor-table-wrap">
+                      <table className="set-editor-table">
+                        <thead>
                           <tr>
-                            <td colSpan={7} className="set-editor-empty">공통 구성 상품이 없습니다.</td>
+                            <th>구분</th>
+                            <th>왼쪽상품 선택</th>
+                            <th>옵션 선택</th>
+                            <th>수량</th>
+                            <th>세트가</th>
+                            <th>금액</th>
+                            <th>작업</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
+                        </thead>
+                        <tbody>
+                          {renderSetComponentRows(activeSetCommonComponents)}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                ) : null}
 
-                <section className="set-editor-card">
+                <section className="set-editor-card" data-set-editor-section="option">
                   <div className="set-editor-card-head">
                     <div>
                       <strong>선택 옵션 구성</strong>
@@ -4284,6 +4466,11 @@ export function ProductCodesView() {
                     </div>
                     <div className="set-editor-card-actions">
                       <span className="set-editor-total">구성 합계 {fmtCurrency(activeSetTotal, currency)}</span>
+                      {!showSetCommonCard ? (
+                        <button type="button" className="btn btn-secondary" onClick={() => addSetComponent('common')}>
+                          공통구성 추가
+                        </button>
+                      ) : null}
                       <button type="button" className="btn btn-secondary" onClick={() => addSetComponent('option')}>
                         왼쪽상품 추가
                       </button>
@@ -4314,6 +4501,16 @@ export function ProductCodesView() {
                 </section>
               </main>
             </div>
+            <div
+              className="set-editor-resize-handle"
+              aria-label="세트상품 구성 편집 모달 크기 조절"
+              role="separator"
+              title="드래그해서 모달 크기 조절"
+              onPointerDown={startSetEditorResize}
+              onPointerMove={moveSetEditorLayout}
+              onPointerUp={stopSetEditorLayoutChange}
+              onPointerCancel={stopSetEditorLayoutChange}
+            />
           </div>
         </div>
       ) : null}

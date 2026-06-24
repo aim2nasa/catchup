@@ -453,7 +453,7 @@ test.describe('상품코드 페이지', () => {
     await expect(modal).toContainText('구성 합계 ₩44,380')
     await expect(modal).not.toContainText('화면 초안')
 
-    await page.getByRole('button', { name: '닫기' }).click()
+    await page.getByRole('button', { name: '취소' }).click()
     await expect(modal).toBeHidden()
 
     await setProductCodesScrollLeft(page, 2600)
@@ -462,6 +462,101 @@ test.describe('상품코드 페이지', () => {
     await expect(yuModal).toContainText('P00000TX')
     await expect(yuModal).toContainText('P00000DG')
     await expect(yuModal).toContainText('구성 합계 ₩304,080')
+  })
+
+  test('세트상품 편집 모달은 위치/크기를 바꿀 수 있고 공통구성이 없으면 공간을 숨긴다', async ({ page }) => {
+    await page.setViewportSize({ width: 1800, height: 980 })
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    await setProductCodesScrollLeft(page, 2900)
+    await page.getByRole('button', { name: 'P00000VP 세트상품 구성 편집' }).click()
+
+    const modal = page.getByRole('dialog', { name: '[도매묶음20%] 미니스크럽 10종 세트' })
+    await expect(modal).toBeVisible()
+    await expect(modal.locator('[data-set-editor-section="common"]')).toHaveCount(0)
+    await expect(modal.locator('[data-set-editor-section="option"]')).toBeVisible()
+    await expect(modal.getByRole('button', { name: '공통구성 추가' })).toBeVisible()
+
+    await modal.getByRole('button', { name: '공통구성 추가' }).click()
+    await expect(modal.locator('[data-set-editor-section="common"]')).toBeVisible()
+    await expect(modal.locator('select[aria-label$="왼쪽상품"]')).toHaveCount(4)
+
+    const optionTableWrap = modal.locator('[data-set-editor-section="option"] .set-editor-table-wrap')
+    const initialOptionWrapBox = await optionTableWrap.boundingBox()
+    expect(initialOptionWrapBox).not.toBeNull()
+
+    const initialBox = await modal.boundingBox()
+    const dragHandleBox = await modal.locator('.set-editor-drag-handle').boundingBox()
+    expect(initialBox).not.toBeNull()
+    expect(dragHandleBox).not.toBeNull()
+    await page.mouse.move(dragHandleBox!.x + 60, dragHandleBox!.y + 22)
+    await page.mouse.down()
+    await page.mouse.move(dragHandleBox!.x + 150, dragHandleBox!.y + 72)
+    await page.mouse.up()
+    const movedBox = await modal.boundingBox()
+    expect(movedBox).not.toBeNull()
+    expect(movedBox!.x).toBeGreaterThan(initialBox!.x + 15)
+    expect(movedBox!.y).toBeGreaterThan(initialBox!.y + 20)
+
+    const resizeHandleBox = await modal.locator('.set-editor-resize-handle').boundingBox()
+    expect(resizeHandleBox).not.toBeNull()
+    await page.mouse.move(resizeHandleBox!.x + 8, resizeHandleBox!.y + 8)
+    await page.mouse.down()
+    await page.mouse.move(resizeHandleBox!.x + 118, resizeHandleBox!.y + 92)
+    await page.mouse.up()
+    const enlargedBox = await modal.boundingBox()
+    const enlargedOptionWrapBox = await optionTableWrap.boundingBox()
+    expect(enlargedBox).not.toBeNull()
+    expect(enlargedOptionWrapBox).not.toBeNull()
+    expect(enlargedBox!.height).toBeGreaterThan(movedBox!.height + 40)
+    expect(enlargedOptionWrapBox!.height).toBeGreaterThan(initialOptionWrapBox!.height + 20)
+
+    const shrinkHandleBox = await modal.locator('.set-editor-resize-handle').boundingBox()
+    expect(shrinkHandleBox).not.toBeNull()
+    await page.mouse.move(shrinkHandleBox!.x + 8, shrinkHandleBox!.y + 8)
+    await page.mouse.down()
+    await page.mouse.move(shrinkHandleBox!.x - 112, shrinkHandleBox!.y - 52)
+    await page.mouse.up()
+    const resizedBox = await modal.boundingBox()
+    expect(resizedBox).not.toBeNull()
+    expect(resizedBox!.width).toBeLessThan(enlargedBox!.width - 60)
+    expect(resizedBox!.height).toBeLessThan(enlargedBox!.height - 20)
+  })
+
+  test('세트상품 편집 모달 취소는 적용 전 변경을 버린다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    await setProductCodesScrollLeft(page, 1500)
+    await page.getByRole('button', { name: 'P00000YZ 세트상품 구성 편집' }).click()
+
+    const modal = page.locator('.set-editor-modal')
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText('P00000YZ')
+    const firstQty = modal.locator('input[aria-label$="수량"]').first()
+    await firstQty.fill('7')
+    await expect(modal).toContainText('화면 초안')
+
+    await page.getByRole('button', { name: '취소' }).click()
+    await expect(modal).toBeHidden()
+
+    await page.getByRole('button', { name: 'P00000YZ 세트상품 구성 편집' }).click()
+    const reopenedModal = page.locator('.set-editor-modal')
+    await expect(reopenedModal).toBeVisible()
+    await expect(reopenedModal).toContainText('P00000YZ')
+    await expect(reopenedModal).not.toContainText('화면 초안')
+    await expect(reopenedModal.locator('input[aria-label$="수량"]').first()).toHaveValue('1')
   })
 })
 

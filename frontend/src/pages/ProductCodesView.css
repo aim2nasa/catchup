@@ -111,9 +111,11 @@
 }
 
 .set-editor-modal {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: min(1480px, 94vw);
+  height: auto;
   max-height: 88vh;
   overflow: hidden;
   border: 1px solid var(--grid-border);
@@ -121,6 +123,12 @@
   background: #ffffff;
   color: #0f172a;
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+}
+
+.set-editor-modal.is-positioned {
+  position: fixed;
+  max-width: none;
+  max-height: none;
 }
 
 .set-editor-header {
@@ -132,6 +140,13 @@
   padding: 12px 14px;
   border-bottom: 1px solid var(--grid-border);
   background: var(--axis-top-set-bg);
+}
+
+.set-editor-drag-handle {
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: move;
+  user-select: none;
 }
 
 .set-editor-eyebrow {
@@ -185,6 +200,7 @@
 .set-editor-body {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
@@ -264,12 +280,18 @@
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 8px;
   background: #ffffff;
 }
 
+.set-editor-main.is-option-only {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .set-editor-card {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--grid-border);
@@ -301,7 +323,8 @@
 }
 
 .set-editor-table-wrap {
-  max-height: 240px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -418,6 +441,26 @@
   height: 40px;
   color: #64748b;
   text-align: center;
+}
+
+.set-editor-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+}
+
+.set-editor-resize-handle::before {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #94a3b8;
+  border-bottom: 2px solid #94a3b8;
+  content: "";
 }
 
 .pc-excel-table .u-header-set.is-set-editable {
