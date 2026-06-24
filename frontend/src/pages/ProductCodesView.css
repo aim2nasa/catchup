@@ -1,7 +1,30 @@
 .pc-excel-container {
+  --axis-left-bg: #e0e7ff;
+  --axis-left-text: #312e81;
+  --axis-left-border: #c7d2fe;
+  --axis-left-border-strong: #a5b4fc;
+  --axis-top-conversion-bg: #dbeafe;
+  --axis-top-conversion-cell-bg: #eff6ff;
+  --axis-top-conversion-text: #1e3a8a;
+  --axis-top-conversion-border: #93c5fd;
+  --axis-top-conversion-accent: #2563eb;
+  --axis-top-set-bg: #dcfce7;
+  --axis-top-set-cell-bg: #f0fdf4;
+  --axis-top-set-text: #14532d;
+  --axis-top-set-border: #86efac;
+  --axis-top-set-accent: #16a34a;
+  --grid-border: #d8e0ea;
+  --grid-border-strong: #b8c4d2;
+  --grid-border-soft: #e8eef6;
+  --cross-row-bg: #edf8ff;
+  --cross-row-border: #7dd3fc;
+  --cross-col-bg: #fff7d6;
+  --cross-col-border: #f6c453;
+  --cross-cell-bg: #dffbf4;
+  --cross-cell-border: #0f766e;
   --c-sum-bg: #f1f5f9;
   --c-sum-text: #1f2937;
-  --c-sum-border: #94a3b8;
+  --c-sum-border: var(--grid-border-strong);
   font: 12px/1.4 "Malgun Gothic", "Apple SD Gothic Neo", "맑은 고딕", sans-serif;
   background: var(--c-bg);
   color: var(--c-text);
@@ -29,7 +52,7 @@
 .pc-excel-copy-toast {
   flex: 0 0 auto;
   padding: 4px 10px;
-  border: 1px solid #86efac;
+  border: 1px solid var(--axis-top-set-border);
   border-radius: 999px;
   background: #ecfdf5;
   color: #065f46;
@@ -143,7 +166,7 @@
   width: 100%;
   min-height: 116px;
   padding-top: 5px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--grid-border);
   overflow: visible;
 }
 
@@ -159,7 +182,7 @@
 
 .view-mode-label {
   padding: 0 6px;
-  color: #64748b;
+  color: var(--grid-border-strong);
   font-size: 11px;
   font-weight: 800;
 }
@@ -178,7 +201,7 @@
 }
 
 .view-mode-button:hover {
-  background: #e2e8f0;
+  background: var(--grid-border);
 }
 
 .view-mode-button.is-active {
@@ -225,7 +248,7 @@
 
 .selection-label {
   flex: 0 0 auto;
-  color: #64748b;
+  color: var(--grid-border-strong);
   font-size: 11px;
   font-weight: 800;
 }
@@ -241,7 +264,7 @@
 
 .selection-period {
   flex: 0 0 auto;
-  color: #64748b;
+  color: var(--grid-border-strong);
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
   font-weight: 700;
 }
@@ -259,22 +282,64 @@
   padding: 5px 8px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
-  background: #ffffff;
+  background: #f8fafc;
 }
 
 .selection-product-panel-left {
-  border-left: 4px solid #2563eb;
+  border-left: 1px solid var(--axis-left-border-strong);
+  background: var(--axis-left-bg);
 }
 
 .selection-product-panel-top {
-  border-left: 4px solid #0f766e;
+  border-top: 1px solid var(--grid-border-strong);
+  border-left: 1px solid var(--grid-border-strong);
+  background: #ffffff;
+}
+
+.selection-product-panel-top.is-conversion {
+  border-top-color: var(--axis-top-conversion-accent);
+  background: var(--axis-top-conversion-bg);
+}
+
+.selection-product-panel-top.is-set {
+  border-top-color: var(--axis-top-set-accent);
+  background: var(--axis-top-set-bg);
 }
 
 .selection-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 2px;
   color: #334155;
   font-size: 11px;
   font-weight: 900;
+}
+
+.selection-product-panel-top .selection-panel-title {
+  color: #1f2937;
+}
+
+.selection-panel-type {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.selection-product-panel-top.is-conversion .selection-panel-type {
+  background: var(--axis-top-conversion-bg);
+  color: var(--axis-top-conversion-text);
+}
+
+.selection-product-panel-top.is-set .selection-panel-type {
+  background: var(--axis-top-set-bg);
+  color: var(--axis-top-set-text);
 }
 
 .selection-detail-field {
@@ -309,7 +374,7 @@
 
 .selection-formula-price {
   color: #1d4ed8;
-  background: #dbeafe;
+  background: var(--axis-top-conversion-bg);
   border-radius: 3px;
   padding: 0 2px;
 }
@@ -380,7 +445,7 @@
 }
 .pc-excel-table th,
 .pc-excel-table td {
-  border: 1px solid var(--c-border);
+  border: 1px solid var(--grid-border);
   padding: 2px 3px;
   text-align: left;
   white-space: nowrap;
@@ -395,21 +460,21 @@
 .pc-excel-table tbody tr td.pc-excel-row-selected,
 .pc-excel-table thead tr td.pc-excel-row-selected,
 .pc-excel-table tfoot tr td.pc-excel-row-selected {
-  background: #dbeafe;
+  background: var(--cross-row-bg);
 }
 
 .pc-excel-table tbody tr td.pc-excel-col-selected,
 .pc-excel-table thead tr td.pc-excel-col-selected,
 .pc-excel-table tfoot tr td.pc-excel-col-selected {
-  background: #dbeafe;
+  background: var(--cross-col-bg);
 }
 
 .pc-excel-table tbody tr td.pc-excel-cell-selected,
 .pc-excel-table thead tr td.pc-excel-cell-selected,
 .pc-excel-table tfoot tr td.pc-excel-cell-selected {
-  background: #93c5fd;
+  background: var(--cross-cell-bg);
   font-weight: 700;
-  box-shadow: inset 0 0 0 2px #1d4ed8;
+  box-shadow: inset 0 0 0 1px var(--cross-cell-border);
 }
 .pc-excel-table th {
   background: var(--c-table-head);
@@ -450,7 +515,10 @@
 }
 .pc-excel-table thead th.sticky {
   position: sticky;
-  background: var(--c-table-head);
+  background: var(--axis-left-bg);
+  color: var(--axis-left-text);
+  border-color: var(--grid-border);
+  border-top: 1px solid var(--grid-border);
   z-index: 3;
 }
 .pc-excel-table thead td.sticky {
@@ -460,7 +528,8 @@
 
 .pc-excel-table td.sticky {
   position: sticky;
-  background: var(--c-bg);
+  background: var(--axis-left-bg);
+  border-color: var(--grid-border);
 }
 .pc-excel-table .pc-excel-row-head,
 .pc-excel-table .pc-excel-corner-cell {
@@ -502,6 +571,9 @@
 .pc-excel-table .sticky-option-name { left: var(--pc-option-name-left, 540px); z-index: 4; min-width: var(--pc-option-name-w, 260px); width: var(--pc-option-name-w, 260px); max-width: var(--pc-option-name-w, 260px); }
 .pc-excel-table .sticky-price { left: var(--pc-price-left, 800px); z-index: 4; min-width: var(--pc-price-w, 68px); width: var(--pc-price-w, 68px); max-width: var(--pc-price-w, 68px); }
 .pc-excel-table .sticky-direct { left: var(--pc-direct-left, 868px); z-index: 4; min-width: var(--pc-direct-w, 64px); width: var(--pc-direct-w, 64px); max-width: var(--pc-direct-w, 64px); }
+.pc-excel-table .sticky-direct {
+  border-right: 1px solid var(--grid-border-strong);
+}
 .pc-excel-table .sticky-name,
 .pc-excel-table .sticky-option-name {
   white-space: nowrap;
@@ -532,7 +604,7 @@
   min-width: 78px;
   width: 78px;
   max-width: 78px;
-  border-left: 2px solid var(--c-sum-border);
+  border-left: 1px solid var(--grid-border-strong);
   box-shadow: none;
   padding-left: 4px;
   padding-right: 4px;
@@ -566,14 +638,19 @@
   padding: 2px 3px;
   vertical-align: top;
   overflow: visible;
+  background: #f8fafc;
+  color: #0f172a;
+  border-top: 1px solid var(--grid-border-strong);
 }
 .pc-excel-table .u-header-set {
-  background: #334155;
-  color: #f8fafc;
+  background: var(--axis-top-set-bg);
+  color: var(--axis-top-set-text);
+  border-top-color: var(--axis-top-set-accent);
 }
 .pc-excel-table .u-header-conversion {
-  background: #334155;
-  color: #f8fafc;
+  background: var(--axis-top-conversion-bg);
+  color: var(--axis-top-conversion-text);
+  border-top-color: var(--axis-top-conversion-accent);
 }
 .pc-excel-table .u-header-group {
   display: inline-block;
@@ -581,24 +658,51 @@
   margin-bottom: 2px;
   padding: 1px 4px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
   font-size: 9px;
   line-height: 1.2;
   font-weight: 800;
   white-space: nowrap;
+}
+.pc-excel-table .u-header-conversion .u-header-group {
+  background: var(--axis-top-conversion-bg);
+  color: var(--axis-top-conversion-text);
+}
+.pc-excel-table .u-header-set .u-header-group {
+  background: var(--axis-top-set-bg);
+  color: var(--axis-top-set-text);
 }
 .pc-excel-table .copyable-header {
   cursor: copy;
 }
 .pc-excel-table thead tr:nth-child(2) th.u-header:first-of-type,
 .pc-excel-table thead tr:nth-child(3) th.matrix-variant:first-child {
-  border-left: 2px solid var(--c-sum-border);
+  border-left: 1px solid var(--grid-border-strong);
 }
 .pc-excel-table thead tr:nth-child(2) th.u-header.u-group-start,
 .pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-group-start,
 .pc-excel-table tr td.u-group-start {
-  border-left: 3px solid #15803d;
+  border-left: 1px solid var(--grid-border-strong);
+}
+.pc-excel-table thead tr:nth-child(2) th.u-header-conversion.u-group-start,
+.pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-col-conversion.u-group-start,
+.pc-excel-table tr td.u-col-conversion.u-group-start {
+  border-left-color: var(--axis-top-conversion-accent);
+}
+.pc-excel-table thead tr:nth-child(2) th.u-header-set.u-group-start,
+.pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-col-set.u-group-start,
+.pc-excel-table tr td.u-col-set.u-group-start {
+  border-left-color: var(--axis-top-set-accent);
+}
+.pc-excel-table thead tr:nth-child(3) th.matrix-variant {
+  background: #374151;
+  color: #f8fafc;
+  border-top-color: var(--grid-border-strong);
+}
+.pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-col-conversion {
+  border-top: 1px solid var(--axis-top-conversion-border);
+}
+.pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-col-set {
+  border-top: 1px solid var(--axis-top-set-border);
 }
 .pc-excel-table .u-header-code {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
@@ -612,7 +716,7 @@
 .pc-excel-table .u-header-name {
   font-size: 9.5px;
   line-height: 1.25;
-  color: #dbeafe;
+  color: #0f172a;
   font-weight: 700;
   white-space: normal;
   overflow: visible;
@@ -622,7 +726,30 @@
   width: 100%;
   word-break: keep-all;
   overflow-wrap: anywhere;
-  text-shadow: 0 1px 1px rgba(15, 23, 42, 0.75);
+}
+.pc-excel-table .u-header-conversion .u-header-name {
+  color: var(--axis-top-conversion-text);
+}
+.pc-excel-table .u-header-set .u-header-name {
+  color: var(--axis-top-set-text);
+}
+.pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-col-conversion {
+  background: var(--axis-top-conversion-cell-bg);
+  color: var(--axis-top-conversion-text);
+}
+.pc-excel-table thead tr:nth-child(3) th.matrix-variant.u-col-set {
+  background: var(--axis-top-set-cell-bg);
+  color: var(--axis-top-set-text);
+}
+.pc-excel-table tr td.u-col-conversion {
+  --u-col-bg: var(--axis-top-conversion-cell-bg);
+  --u-col-hover-bg: var(--axis-top-conversion-bg);
+  background: var(--u-col-bg);
+}
+.pc-excel-table tr td.u-col-set {
+  --u-col-bg: var(--axis-top-set-cell-bg);
+  --u-col-hover-bg: var(--axis-top-set-bg);
+  background: var(--u-col-bg);
 }
 .pc-excel-table thead tr:nth-child(2) th.sticky-total,
 .pc-excel-table thead tr:nth-child(2) th.sticky-rev,
@@ -630,13 +757,13 @@
 .pc-excel-table tbody tr td:last-child,
 .pc-excel-table tfoot tr td:nth-last-child(2),
 .pc-excel-table tfoot tr td:last-child {
-  border-left: 2px solid var(--c-sum-border);
+  border-left: 1px solid var(--grid-border-strong);
 }
 .pc-excel-table tbody tr td:nth-child(8),
 .pc-excel-table tfoot tr td:nth-child(8),
 .pc-excel-table .u-direct-row td:nth-child(8),
 .pc-excel-table tr.subtotal-row td:nth-child(8) {
-  border-left: 2px solid var(--c-sum-border);
+  border-left: 1px solid var(--grid-border-strong);
   box-shadow: none;
 }
 .pc-excel-table .num {
@@ -645,7 +772,7 @@
   word-break: keep-all;
 }
 .pc-excel-table td.read-cell--missing {
-  background: #fef3c7;
+  background: var(--cross-col-bg);
   color: #92400e;
   font-weight: 800;
   text-align: center;
@@ -661,7 +788,7 @@
   background: #fde68a;
 }
 .pc-excel-table tbody tr:hover td.read-cell--partial {
-  background: #fef3c7;
+  background: var(--cross-col-bg);
 }
 .pc-excel-table tbody tr td.read-cell--missing.pc-excel-row-selected,
 .pc-excel-table tbody tr td.read-cell--missing.pc-excel-col-selected,
@@ -675,7 +802,7 @@
 .pc-excel-table tbody tr td.read-cell--partial.pc-excel-col-selected,
 .pc-excel-table tbody tr td.read-cell--partial.pc-excel-hover-row,
 .pc-excel-table tbody tr td.read-cell--partial.pc-excel-hover-col {
-  background: #fef3c7;
+  background: var(--cross-col-bg);
   color: #78350f;
   box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.7);
 }
@@ -709,17 +836,17 @@
 }
 .pc-excel-table tbody tr.subtotal-row td {
   font-weight: 600;
-  background: #f8fafc;
+  background: #f9fbfd;
   color: var(--c-sum-text);
-  border-top: 1px solid #cbd5e1;
-  border-bottom: 1px solid #cbd5e1;
+  border-top: 1px solid var(--grid-border);
+  border-bottom: 1px solid var(--grid-border);
 }
 
 .pc-excel-table tr.product-category-row th,
 .pc-excel-table tr.product-category-row td {
-  border-top: 2px solid #94a3b8;
-  border-bottom: 1px solid #cbd5e1;
-  background: #eef2f7;
+  border-top: 1px solid var(--grid-border-strong);
+  border-bottom: 1px solid var(--grid-border);
+  background: #f6f9fc;
   color: #0f172a;
 }
 
@@ -737,7 +864,7 @@
   position: sticky;
   left: 42px;
   z-index: 5;
-  background: #eef2f7;
+  background: #f6f9fc;
 }
 
 .product-group-band-fill {
@@ -763,7 +890,7 @@
 
 .pc-excel-table tbody tr.group-start-row > th,
 .pc-excel-table tbody tr.group-start-row > td {
-  border-top: 1px solid #94a3b8;
+  border-top: 1px solid var(--grid-border);
 }
 
 .pc-excel-table tr.category-scope-row > .sticky-code {
@@ -776,7 +903,7 @@
 
 .pc-excel-table tbody tr.category-end-row > th,
 .pc-excel-table tbody tr.category-end-row > td {
-  border-bottom: 2px solid #475569;
+  border-bottom: 1px solid var(--grid-border-strong);
 }
 
 .pc-excel-table tbody tr.subtotal-row td.sticky-total,
@@ -790,9 +917,9 @@
 .pc-excel-table tr.section-separator-row td {
   border-left: none;
   border-right: none;
-  border-top: 3px solid #64748b;
-  background: #f1f5f9;
-  height: 7px;
+  border-top: 1px solid var(--grid-border);
+  background: #f8fafc;
+  height: 4px;
   padding: 0;
 }
 .pc-excel-table tbody tr.subtotal-row:hover td { background: #f8fafc; }
@@ -812,17 +939,20 @@
 .product-merge-cell {
   vertical-align: middle;
 }
+.pc-excel-table tbody tr.variant-row:hover td.product-merge-cell {
+  background: var(--axis-left-bg);
+}
 .product-merge-start .product-merge-cell {
-  border-bottom-color: transparent;
+  border-bottom-color: transparent !important;
 }
 .product-merge-child .product-merge-cell {
-  border-top-color: transparent;
-  border-bottom-color: transparent;
+  border-top-color: transparent !important;
+  border-bottom-color: transparent !important;
   color: transparent;
 }
 .product-merge-child + :not(.product-merge-child) .product-merge-cell,
 .product-merge-child:last-child .product-merge-cell {
-  border-bottom-color: var(--c-border);
+  border-bottom-color: var(--grid-border) !important;
 }
 .variant-cell {
   color: #0f172a;
@@ -840,7 +970,7 @@
 .map-cell {
   position: relative;
   text-align: right;
-  background: #f8fafc;
+  background: var(--u-col-bg, #f8fafc);
   border-color: var(--c-border);
 }
 .pc-excel-table tbody tr td.map-cell--mapped {
@@ -851,7 +981,7 @@
   color: #0f172a;
   font-weight: 800;
   text-align: center;
-  border-color: #64748b;
+  border-color: var(--grid-border-strong);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
     inset 1px 0 0 rgba(255, 255, 255, 0.48),
@@ -862,107 +992,139 @@
   transform: translateY(-1px);
 }
 .pc-excel-table tbody tr td.map-cell--unmapped {
-  background: #f5f7f9;
-  color: #475569;
-  border-color: #e2e8f0;
+  background: var(--u-col-bg, #f5f7f9);
+  color: var(--grid-border-strong);
+  border-color: var(--grid-border);
   font-weight: 500;
 }
 .pc-excel-table tbody tr td.map-cell--excluded {
-  background: #f5f7f9;
-  color: #475569;
-  border-color: #e2e8f0;
+  background: var(--u-col-bg, #f5f7f9);
+  color: var(--grid-border-strong);
+  border-color: var(--grid-border);
   font-weight: 500;
 }
 .pc-excel-table tbody tr:hover td.map-cell--unmapped,
 .pc-excel-table tbody tr.variant-row:hover td.map-cell--unmapped,
 .pc-excel-table tbody tr:hover td.map-cell--excluded,
 .pc-excel-table tbody tr.variant-row:hover td.map-cell--excluded {
-  background: #f5f7f9;
+  background: var(--u-col-hover-bg, #f5f7f9);
 }
 .pc-excel-table tbody tr td.map-cell--unmapped.pc-excel-row-selected {
-  background: #dbeafe;
+  background: var(--cross-row-bg);
 }
 .pc-excel-table tbody tr td.map-cell--unmapped.pc-excel-col-selected {
-  background: #dbeafe;
+  background: var(--cross-col-bg);
 }
 .pc-excel-table tbody tr td.map-cell--unmapped.pc-excel-cell-selected {
-  background: #93c5fd;
-  border-color: #94a3b8;
-  box-shadow: inset 0 0 0 1px #94a3b8;
+  background: var(--cross-cell-bg);
+  border-color: var(--cross-cell-border);
+  box-shadow: inset 0 0 0 1px var(--cross-cell-border);
 }
 .pc-excel-table tbody tr:hover td.map-cell--mapped,
 .pc-excel-table tbody tr.variant-row:hover td.map-cell--mapped {
   background-color: #d1d5db;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.68) 24%, rgba(255, 255, 255, 0) 48%),
-    linear-gradient(145deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 72%, #e5e7eb 100%);
+    linear-gradient(145deg, #ffffff 0%, var(--grid-border) 38%, var(--grid-border-strong) 72%, #e5e7eb 100%);
 }
 .pc-excel-table tbody tr td.pc-excel-row-selected,
 .pc-excel-table thead tr td.pc-excel-row-selected,
 .pc-excel-table tfoot tr td.pc-excel-row-selected {
-  background: #dbeafe;
+  background: var(--cross-row-bg);
+  border-top-color: var(--cross-row-border);
+  border-bottom-color: var(--cross-row-border);
 }
 .pc-excel-table tbody tr td.pc-excel-col-selected,
 .pc-excel-table thead tr td.pc-excel-col-selected,
 .pc-excel-table tfoot tr td.pc-excel-col-selected {
-  background: #fef08a;
+  background: var(--cross-col-bg);
+  border-left-color: var(--cross-col-border);
+  border-right-color: var(--cross-col-border);
 }
 .pc-excel-table tbody tr td.pc-excel-cell-selected,
 .pc-excel-table thead tr td.pc-excel-cell-selected,
 .pc-excel-table tfoot tr td.pc-excel-cell-selected {
-  background: #93c5fd;
+  background: var(--cross-cell-bg);
+  border-color: var(--cross-cell-border);
+  box-shadow: inset 0 0 0 1px var(--cross-cell-border);
 }
 .pc-excel-table tbody tr td.pc-excel-hover-row,
 .pc-excel-table thead tr td.pc-excel-hover-row,
 .pc-excel-table tfoot tr td.pc-excel-hover-row {
-  border-top-color: #38bdf8;
-  border-bottom-color: #38bdf8;
+  background: var(--cross-row-bg) !important;
+  border-top-color: var(--cross-row-border);
+  border-bottom-color: var(--cross-row-border);
 }
 .pc-excel-table tbody tr td.pc-excel-hover-col,
 .pc-excel-table thead tr td.pc-excel-hover-col,
 .pc-excel-table tfoot tr td.pc-excel-hover-col {
-  border-left-color: #eab308;
-  border-right-color: #eab308;
-  background: #fef08a;
+  background: var(--cross-col-bg) !important;
+  border-left-color: var(--cross-col-border);
+  border-right-color: var(--cross-col-border);
 }
 .pc-excel-table tbody tr td.pc-excel-hover-row.pc-excel-hover-col,
 .pc-excel-table thead tr td.pc-excel-hover-row.pc-excel-hover-col,
 .pc-excel-table tfoot tr td.pc-excel-hover-row.pc-excel-hover-col {
-  border-color: #0891b2 #eab308;
-  background: #dbeafe;
+  background: var(--cross-cell-bg) !important;
+  border-color: var(--cross-cell-border);
 }
 .pc-excel-table tbody tr td.pc-excel-hover-cell,
 .pc-excel-table thead tr td.pc-excel-hover-cell,
 .pc-excel-table tfoot tr td.pc-excel-hover-cell {
+  background: var(--cross-cell-bg) !important;
+  border-color: var(--cross-cell-border);
   box-shadow:
-    inset 0 0 0 2px #0891b2,
+    inset 0 0 0 1px var(--cross-cell-border),
     0 0 0 1px rgba(15, 23, 42, 0.14);
 }
 .pc-excel-table tbody tr td.map-cell--mapped.pc-excel-hover-row,
 .pc-excel-table tbody tr td.map-cell--mapped.pc-excel-hover-col,
-.pc-excel-table tbody tr td.map-cell--mapped.pc-excel-hover-row.pc-excel-hover-col,
 .pc-excel-table tbody tr td.map-cell--mapped.pc-excel-row-selected,
 .pc-excel-table tbody tr td.map-cell--mapped.pc-excel-col-selected {
   background-color: #d1d5db;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.68) 24%, rgba(255, 255, 255, 0) 48%),
-    linear-gradient(145deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 72%, #e5e7eb 100%);
-  border-color: #475569;
+    linear-gradient(145deg, #ffffff 0%, var(--grid-border) 38%, var(--grid-border-strong) 72%, #e5e7eb 100%);
+  border-color: var(--grid-border-strong);
   color: #0f172a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.32),
+    inset -1px 0 0 rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(71, 85, 105, 0.42),
+    0 2px 4px rgba(15, 23, 42, 0.22);
+}
+.pc-excel-table tbody tr td.map-cell--mapped.pc-excel-hover-row.pc-excel-hover-col {
+  border-color: var(--cross-cell-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.32),
+    inset -1px 0 0 rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(15, 118, 110, 0.72),
+    0 2px 4px rgba(15, 23, 42, 0.22);
 }
 .pc-excel-table tbody tr td.map-cell--mapped.pc-excel-hover-cell,
 .pc-excel-table tbody tr td.map-cell--mapped.pc-excel-cell-selected {
   background-color: #d1d5db;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.68) 24%, rgba(255, 255, 255, 0) 48%),
-    linear-gradient(145deg, #ffffff 0%, #e2e8f0 38%, #94a3b8 72%, #e5e7eb 100%);
-  border-color: #2563eb;
+    linear-gradient(145deg, #ffffff 0%, var(--grid-border) 38%, var(--grid-border-strong) 72%, #e5e7eb 100%);
+  border-color: var(--cross-cell-border);
   color: #0f172a;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
     inset 0 -1px 0 rgba(15, 23, 42, 0.32),
-    0 0 0 2px rgba(37, 99, 235, 0.72),
+    0 0 0 1px rgba(15, 118, 110, 0.82),
     0 3px 6px rgba(15, 23, 42, 0.24);
+}
+.product-merge-start .product-merge-cell {
+  border-bottom-color: transparent !important;
+}
+.product-merge-child .product-merge-cell {
+  border-top-color: transparent !important;
+  border-bottom-color: transparent !important;
 }
 .lu-confirm-backdrop {
   position: fixed;
@@ -1011,7 +1173,7 @@
   margin: 0 0 16px;
   padding: 12px;
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--grid-border);
   border-radius: 4px;
 }
 
@@ -1022,7 +1184,7 @@
 }
 
 .lu-confirm-details dt {
-  color: #64748b;
+  color: var(--grid-border-strong);
   font-weight: 700;
 }
 
@@ -1047,7 +1209,7 @@
 
 .lu-confirm-name {
   margin-top: 3px;
-  color: #475569;
+  color: var(--grid-border-strong);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
@@ -1085,7 +1247,7 @@
 
 .lu-confirm-actions .btn.btn-primary:hover:not([disabled]) {
   background: #1d4ed8;
-  border-color: #1e40af;
+  border-color: var(--axis-top-conversion-text);
   color: #fff;
 }
 
@@ -1104,7 +1266,7 @@
   font-weight: 700;
   background: var(--c-sum-bg);
   color: var(--c-sum-text);
-  border-top: 2px solid var(--c-sum-border);
+  border-top: 1px solid var(--grid-border-strong);
   border-bottom: none;
 }
 

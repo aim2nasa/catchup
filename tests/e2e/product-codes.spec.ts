@@ -229,24 +229,32 @@ test.describe('상품코드 페이지', () => {
     await page.getByRole('button', { name: '조회' }).click()
     await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
 
-    const excludedCell = page.locator('td.map-cell--excluded').first()
-    const unmappedCell = page.locator('td.map-cell--unmapped').first()
-    await expect(excludedCell).toBeVisible()
-    await expect(unmappedCell).toBeVisible()
-
-    const excludedBackground = await excludedCell.evaluate((cell) => getComputedStyle(cell).backgroundColor)
-    const unmappedBackground = await unmappedCell.evaluate((cell) => getComputedStyle(cell).backgroundColor)
-    expect(excludedBackground).toBe(unmappedBackground)
+    const cellBackgrounds = await page.locator('.pc-excel-table').evaluate((table) => {
+      const excludedSet = table.querySelector('td.map-cell--excluded.u-col-set')
+      const unmappedSet = table.querySelector('td.map-cell--unmapped.u-col-set')
+      const conversionCell = table.querySelector('td.map-cell--unmapped.u-col-conversion')
+      return {
+        excludedSet: excludedSet ? getComputedStyle(excludedSet).backgroundColor : null,
+        unmappedSet: unmappedSet ? getComputedStyle(unmappedSet).backgroundColor : null,
+        conversion: conversionCell ? getComputedStyle(conversionCell).backgroundColor : null,
+      }
+    })
+    expect(cellBackgrounds.excludedSet).toBe(cellBackgrounds.unmappedSet)
+    expect(cellBackgrounds.conversion).not.toBe(cellBackgrounds.unmappedSet)
 
     const optionHeaderColors = await page.locator('.pc-excel-table').evaluate((table) => {
-      const conversionOption = table.querySelector('thead th.matrix-variant.u-col-conversion')
-      const setOption = table.querySelector('thead th.matrix-variant.u-col-set')
+      const conversionOption = table.querySelector('thead tr:nth-child(3) th.matrix-variant.u-col-conversion')
+      const setOption = table.querySelector('thead tr:nth-child(3) th.matrix-variant.u-col-set')
+      const leftHeader = table.querySelector('thead th.sticky-code')
       return {
         conversion: conversionOption ? getComputedStyle(conversionOption).backgroundColor : null,
         set: setOption ? getComputedStyle(setOption).backgroundColor : null,
+        left: leftHeader ? getComputedStyle(leftHeader).backgroundColor : null,
       }
     })
-    expect(optionHeaderColors.set).toBe(optionHeaderColors.conversion)
+    expect(optionHeaderColors.set).not.toBe(optionHeaderColors.conversion)
+    expect(optionHeaderColors.left).not.toBe(optionHeaderColors.conversion)
+    expect(optionHeaderColors.left).not.toBe(optionHeaderColors.set)
   })
 
   test('수평 스크롤 중에도 왼쪽 컬럼 압축과 행 높이 기준이 안정적으로 유지된다', async ({ page }) => {
@@ -314,6 +322,12 @@ test.describe('상품코드 페이지', () => {
     await expect(page.getByLabel('왼쪽 상품')).toContainText('라이코젯아이브로우')
     await expect(page.getByLabel('왼쪽 상품')).toContainText('옵션')
     await expect(page.getByLabel('왼쪽 상품')).toContainText('-')
+    const leftCardColor = await page.getByLabel('왼쪽 상품').evaluate((card) => ({
+      background: getComputedStyle(card).backgroundColor,
+      borderLeft: getComputedStyle(card).borderLeftColor,
+    }))
+    expect(leftCardColor.background).toBe('rgb(224, 231, 255)')
+    expect(leftCardColor.borderLeft).toBe('rgb(165, 180, 252)')
     const hiddenContextTitle = await page
       .locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:직접판매"]')
       .getAttribute('title')
@@ -326,8 +340,32 @@ test.describe('상품코드 페이지', () => {
     await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:"]').first().click()
     await expect(page.getByLabel('왼쪽 상품')).toContainText('라이코젯아이브로우')
     await expect(page.getByLabel('위쪽 상품')).not.toContainText('-')
+    await expect(page.getByLabel('위쪽 상품')).toContainText('전환상품')
     await expect(page.getByLabel('위쪽 상품')).toContainText('상품')
     await expect(page.getByLabel('위쪽 상품')).toContainText('옵션')
+    await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-conversion/)
+    const conversionCardColor = await page.locator('.selection-product-panel-top').evaluate((card) => ({
+      borderTop: getComputedStyle(card).borderTopColor,
+      borderLeft: getComputedStyle(card).borderLeftColor,
+      badgeBackground: getComputedStyle(card.querySelector('.selection-panel-type')!).backgroundColor,
+    }))
+    expect(conversionCardColor.borderTop).toBe('rgb(37, 99, 235)')
+    expect(conversionCardColor.borderLeft).toBe('rgb(184, 196, 210)')
+
+    await page
+      .locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:P00000YS-A"]')
+      .click()
+    await expect(page.getByLabel('위쪽 상품')).toContainText('세트 상품')
+    await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-set/)
+    const setCardColor = await page.locator('.selection-product-panel-top').evaluate((card) => ({
+      borderTop: getComputedStyle(card).borderTopColor,
+      borderLeft: getComputedStyle(card).borderLeftColor,
+      badgeBackground: getComputedStyle(card.querySelector('.selection-panel-type')!).backgroundColor,
+    }))
+    expect(setCardColor.borderTop).toBe('rgb(22, 163, 74)')
+    expect(setCardColor.borderLeft).toBe('rgb(184, 196, 210)')
+    expect(setCardColor.badgeBackground).not.toBe(conversionCardColor.badgeBackground)
+
     await page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key^="B:"]').first().hover()
     await expect(page.getByLabel('왼쪽 상품')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
     await expect(page.getByLabel('왼쪽 상품')).toContainText('D')

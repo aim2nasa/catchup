@@ -1391,6 +1391,7 @@ export function ProductCodesView() {
       productLabel: string
       variantCode: string
       optionLabel: string
+      group: UBlock['group']
     }>()
 
     U_COLUMNS.forEach((col, idx) => {
@@ -1402,12 +1403,14 @@ export function ProductCodesView() {
         productLabel: col.blockLabel,
         variantCode: col.uVariant,
         optionLabel,
+        group: col.group,
       })
       map.set(`B:${col.uProduct}-${col.uVariant || idx}`, {
         productCode: col.uProduct,
         productLabel: col.blockLabel,
         variantCode: col.uVariant,
         optionLabel,
+        group: col.group,
       })
     })
 
@@ -2524,8 +2527,24 @@ export function ProductCodesView() {
                         <span className="selection-detail-value">{activeRowContext?.option || '-'}</span>
                       </div>
                     </section>
-                    <section className="selection-product-panel selection-product-panel-top" aria-label="위쪽 상품">
-                      <div className="selection-panel-title">위쪽 상품</div>
+                    <section
+                      className={`selection-product-panel selection-product-panel-top ${
+                        activeUColumnInfo
+                          ? activeUColumnInfo.group === 'set'
+                            ? 'is-set'
+                            : 'is-conversion'
+                          : 'is-empty'
+                      }`}
+                      aria-label="위쪽 상품"
+                    >
+                      <div className="selection-panel-title">
+                        <span>위쪽 상품</span>
+                        {activeUColumnInfo ? (
+                          <span className="selection-panel-type">
+                            {U_GROUP_LABEL_BY_GROUP[activeUColumnInfo.group]}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="selection-detail-field">
                         <span className="selection-label">상품</span>
                         <span className="selection-detail-value">
