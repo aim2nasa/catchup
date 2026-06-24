@@ -390,6 +390,8 @@ test.describe('상품코드 페이지', () => {
     await expect(page.getByLabel('왼쪽 상품')).toContainText('라이코젯아이브로우')
     await expect(page.getByLabel('왼쪽 상품')).toContainText('옵션')
     await expect(page.getByLabel('왼쪽 상품')).toContainText('-')
+    await expect(page.getByLabel('왼쪽 상품')).toContainText('가격')
+    await expect(page.getByLabel('왼쪽 상품')).toContainText('₩26,300')
     const leftCardColor = await page.getByLabel('왼쪽 상품').evaluate((card) => ({
       background: getComputedStyle(card).backgroundColor,
       borderLeft: getComputedStyle(card).borderLeftColor,
@@ -405,12 +407,14 @@ test.describe('상품코드 페이지', () => {
     await expect(page.getByLabel('왼쪽 상품')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
     await expect(page.getByLabel('왼쪽 상품')).toContainText('D')
     await expect(page.getByLabel('왼쪽 상품')).toContainText('자디니 베이비 히터(220g)')
+    await expect(page.getByLabel('왼쪽 상품')).toContainText('₩44,000')
     await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:"]').first().click()
     await expect(page.getByLabel('왼쪽 상품')).toContainText('라이코젯아이브로우')
     await expect(page.getByLabel('위쪽 상품')).not.toContainText('-')
     await expect(page.getByLabel('위쪽 상품')).toContainText('전환상품')
     await expect(page.getByLabel('위쪽 상품')).toContainText('상품')
     await expect(page.getByLabel('위쪽 상품')).toContainText('옵션')
+    await expect(page.getByLabel('위쪽 상품')).toContainText('가격')
     await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-conversion/)
     const conversionCardColor = await page.locator('.selection-product-panel-top').evaluate((card) => ({
       borderTop: getComputedStyle(card).borderTopColor,

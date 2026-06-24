@@ -771,6 +771,10 @@
   overflow-wrap: anywhere;
 }
 
+.selection-price-value {
+  font-variant-numeric: tabular-nums;
+}
+
 .selection-formula-value {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
 }

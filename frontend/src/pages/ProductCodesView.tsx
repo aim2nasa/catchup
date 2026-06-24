@@ -172,6 +172,7 @@ type RowFormulaMeta = {
   product_name?: string
   variant_code?: string
   option_name?: string
+  unit_price?: number
   screenRow: number
   excelRow: number
   revenueDirectQty?: number
@@ -913,6 +914,11 @@ function findUVariantData(group: { variants: Variant[]; price: number } | undefi
       || normalizedVariantOnly === `${normalizedProductCode}0${target}`
       || normalizedVariantOnly === `${normalizedProductCode}00${target}`
   }) ?? null
+}
+
+function formatSelectionPrice(price: number | undefined, currency: string) {
+  if (!Number.isFinite(price) || (price ?? 0) <= 0) return '-'
+  return fmtCurrency(price ?? 0, currency)
 }
 
 function toExcelCol(col: number) {
@@ -1709,6 +1715,7 @@ export function ProductCodesView() {
       productLabel: string
       variantCode: string
       optionLabel: string
+      price: number
       group: UBlock['group']
     }>()
 
@@ -1716,11 +1723,13 @@ export function ProductCodesView() {
       const uGroup = byCode.get(normalizeProductCode(col.uProduct))
       const variant = findUVariantData(uGroup, col.uProduct, col.uVariant)
       const optionLabel = displayOptionName(variant?.option || variant?.variant_code || col.uVariant)
+      const price = variant?.price || uGroup?.price || 0
       map.set(`B:${col.uProduct}-${col.uVariant}`, {
         productCode: col.uProduct,
         productLabel: col.blockLabel,
         variantCode: col.uVariant,
         optionLabel,
+        price,
         group: col.group,
       })
       map.set(`B:${col.uProduct}-${col.uVariant || idx}`, {
@@ -1728,6 +1737,7 @@ export function ProductCodesView() {
         productLabel: col.blockLabel,
         variantCode: col.uVariant,
         optionLabel,
+        price,
         group: col.group,
       })
     })
@@ -2255,6 +2265,7 @@ export function ProductCodesView() {
           product_name: row.product_name,
           variant_code: row.variants[0]?.variant_code,
           option_name: row.variants[0]?.option,
+          unit_price: row.directUnitPrice,
           revenueDirectQty: row.directQty,
           revenueMissing: row.revenueMissing,
           revenueMappedTerms: parentMapped.terms,
@@ -2286,6 +2297,7 @@ export function ProductCodesView() {
               product_name: row.product_name,
               variant_code: variant.variant_code,
               option_name: variant.option || variant.variant_code,
+              unit_price: variant.price || row.price || 0,
               revenueDirectQty: variant.qty,
               revenueMissing: row.variantRevenueMissing[variantIdx] ?? false,
               revenueMappedTerms: variantMapped.terms,
@@ -2402,6 +2414,7 @@ export function ProductCodesView() {
     return splitFormulaForDisplay(selectedFormulaText)
   }, [selectedFormulaText])
 
+  const currency = state.data?.grand.currency ?? 'KRW'
   const activeDetailCell = hoveredCell ?? selectedCell
 
   const activeRowContext = useMemo(() => {
@@ -2418,8 +2431,9 @@ export function ProductCodesView() {
         ? `${rowMeta.product_code} / ${rowMeta.product_name}`
         : rowMeta.product_name,
       option: displayOptionWithCode(rowMeta.product_code, rowMeta.variant_code, rowMeta.option_name),
+      price: formatSelectionPrice(rowMeta.unit_price, currency),
     }
-  }, [activeDetailCell, rowMetaByKey, selectedCell])
+  }, [activeDetailCell, currency, rowMetaByKey, selectedCell])
 
   const hoveredUColumnInfo = useMemo(() => {
     if (!hoveredCell) return null
@@ -2765,7 +2779,6 @@ export function ProductCodesView() {
   }, [colMetaByKey, rowFormulaByKey, rowMetaByKey, state.data])
 
 
-  const currency = state.data?.grand.currency ?? 'KRW'
   const isRunning = state.status === 'running'
   const dataReady = !!state.data
 
@@ -3283,6 +3296,12 @@ export function ProductCodesView() {
                         <span className="selection-label">옵션</span>
                         <span className="selection-detail-value">{activeRowContext?.option || '-'}</span>
                       </div>
+                      <div className="selection-detail-field">
+                        <span className="selection-label">가격</span>
+                        <span className="selection-detail-value selection-price-value">
+                          {activeRowContext?.price ?? '-'}
+                        </span>
+                      </div>
                     </section>
                     <section
                       className={`selection-product-panel selection-product-panel-top ${
@@ -3315,6 +3334,14 @@ export function ProductCodesView() {
                         <span className="selection-detail-value">
                           {activeUColumnInfo
                             ? `${activeUColumnInfo.variantCode} · ${activeUColumnInfo.optionLabel}`
+                            : '-'}
+                        </span>
+                      </div>
+                      <div className="selection-detail-field">
+                        <span className="selection-label">가격</span>
+                        <span className="selection-detail-value selection-price-value">
+                          {activeUColumnInfo
+                            ? formatSelectionPrice(activeUColumnInfo.price, currency)
                             : '-'}
                         </span>
                       </div>
