@@ -136,10 +136,15 @@
 
 .product-codes-filter-status {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: stretch;
   min-width: 0;
-  flex: 1 1 540px;
+  flex: 1 0 100%;
+  order: 20;
+  width: 100%;
+  min-height: 116px;
+  padding-top: 5px;
+  border-top: 1px solid #e2e8f0;
+  overflow: visible;
 }
 
 .product-codes-view-mode {
@@ -182,26 +187,32 @@
 }
 
 .pc-excel-selection-indicator {
-  display: flex;
-  gap: 10px;
-  flex-wrap: nowrap;
-  align-items: center;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  row-gap: 4px;
   min-width: 0;
-  flex: 1 1 auto;
+  width: 100%;
   padding: 0;
   border-bottom: 0;
   color: var(--c-text-muted);
   font-size: 11px;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+.selection-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 18px;
 }
 
 .selection-coordinates,
 .selection-empty {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 11px;
-  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
 }
 
 .selection-copy-trigger {
@@ -212,89 +223,88 @@
   color: var(--c-text);
 }
 
-.selection-pin {
-  font-size: 12px;
+.selection-label {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .selection-item {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-weight: 700;
-}
-
-.selection-dot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-}
-
-.selection-dot-row {
-  background: #dbeafe;
-}
-
-.selection-dot-col {
-  background: #fef08a;
-}
-
-.selection-separator {
-  color: var(--c-text-muted);
-}
-
-.selection-u-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  max-width: min(40vw, 620px);
-  padding: 1px 7px;
-  border: 1px solid #99f6e4;
-  border-radius: 999px;
-  background: #ecfeff;
-  color: #0f766e;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.selection-u-option-label {
-  flex: 0 0 auto;
-  color: #0f766e;
-}
-
-.selection-u-option-code {
-  flex: 0 0 auto;
-  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
-  color: #155e75;
-}
-
-.selection-u-option-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: #0f172a;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-weight: 700;
 }
 
-.selection-formula {
-  display: inline-flex;
-  align-items: center;
+.selection-period {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-weight: 700;
+}
+
+.selection-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.selection-product-panel {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.selection-product-panel-left {
+  border-left: 4px solid #2563eb;
+}
+
+.selection-product-panel-top {
+  border-left: 4px solid #0f766e;
+}
+
+.selection-panel-title {
+  margin-bottom: 2px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.selection-detail-field {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: start;
   gap: 5px;
   min-width: 0;
-  padding-left: 8px;
-  color: var(--c-text);
+}
+
+.selection-detail-formula {
+  grid-column: 1 / -1;
+}
+
+.selection-detail-formula {
+  padding: 0 2px;
+}
+
+.selection-detail-value,
+.selection-formula-value {
+  min-width: 0;
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .selection-formula-value {
-  display: inline-block;
-  max-width: min(46vw, 720px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
-  font-weight: 700;
-  color: #0f172a;
 }
 
 .selection-formula-price {
@@ -304,25 +314,18 @@
   padding: 0 2px;
 }
 
-.selection-row-context {
-  display: inline-block;
-  max-width: min(34vw, 520px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #334155;
-  font-weight: 700;
-}
-
-.selection-cell-kind {
+.selection-target {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: #f8fafc;
-  color: #475569;
-  font-size: 11px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.selection-target-value {
+  max-width: none;
+  overflow: visible;
+  white-space: nowrap;
+  color: #0f172a;
   font-weight: 700;
 }
 

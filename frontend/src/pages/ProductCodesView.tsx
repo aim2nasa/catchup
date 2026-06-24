@@ -141,7 +141,9 @@ type RowFormulaMeta = {
   rowType: RowType
   groupLabel: string
   product_code?: string
+  product_name?: string
   variant_code?: string
+  option_name?: string
   screenRow: number
   excelRow: number
   revenueDirectQty?: number
@@ -569,9 +571,9 @@ const MISSING_NOTE = '상품/옵션 존재 기준을 확인할 수 없어 0으�
 const PARTIAL_NOTE = '확인불가 항목 제외 합계'
 const PRODUCT_CODES_VIEW_MODE_KEY = 'product-codes:view-mode'
 const PRODUCT_CODES_VIEW_MODES: Array<{ value: ProductCodesViewMode; label: string; title: string }> = [
-  { value: 'detail', label: '상세', title: '상품코드부터 직접판매까지 모두 표시' },
-  { value: 'wide', label: '넓게', title: '단가를 숨기고 상품명/옵션명을 줄여 U상품 영역을 넓게 표시' },
-  { value: 'focus', label: '초점', title: '상품코드, 코드, 직접판매만 남겨 U상품 영역에 집중' },
+  { value: 'detail', label: '기본', title: '상품코드부터 직접판매까지 기본 폭으로 표시' },
+  { value: 'wide', label: '넓게', title: '단가를 숨기고 상품명/옵션명을 줄여 오른쪽 숫자 영역을 넓게 표시' },
+  { value: 'focus', label: '더 넓게', title: '상품코드, 코드, 직접판매만 남겨 오른쪽 숫자 영역을 더 넓게 표시' },
 ]
 
 const loadedMeta: ReadMeta = { status: 'loaded', source: 'cafe24' }
@@ -765,6 +767,22 @@ function columnCellClass(state: CellState) {
 
 function displayOptionName(option?: string) {
   return option ? option.replaceAll('=', ' : ') : '-'
+}
+
+function productContextTitle(productName: string, optionName?: string, meta?: ReadMeta) {
+  const normalizedOption = displayOptionName(optionName)
+  const lines = [`상품명: ${productName}`, `옵션명: ${normalizedOption}`]
+  if (meta?.note && meta.status !== 'loaded' && meta.status !== 'calculated') {
+    lines.push(meta.note)
+  }
+  return lines.join('\n')
+}
+
+function displayOptionWithCode(productCode?: string, variantCode?: string, optionName?: string) {
+  const optionLabel = displayOptionName(optionName)
+  if (!productCode || !variantCode) return optionLabel
+  const optionCode = normalizeVariantSuffix(productCode, variantCode).toUpperCase()
+  return optionCode ? `${optionCode} · ${optionLabel}` : optionLabel
 }
 
 function formatFormulaPrice(value: number) {
@@ -1877,6 +1895,9 @@ export function ProductCodesView() {
           rowType: 'product',
           groupLabel: grp.label,
           product_code: row.product_code,
+          product_name: row.product_name,
+          variant_code: row.variants[0]?.variant_code,
+          option_name: row.variants[0]?.option,
           revenueDirectQty: row.directQty,
           revenueMissing: row.revenueMissing,
           revenueMappedTerms: parentMapped.terms,
@@ -1905,7 +1926,9 @@ export function ProductCodesView() {
               rowType: 'variant',
               groupLabel: grp.label,
               product_code: row.product_code,
+              product_name: row.product_name,
               variant_code: variant.variant_code,
+              option_name: variant.option || variant.variant_code,
               revenueDirectQty: variant.qty,
               revenueMissing: row.variantRevenueMissing[variantIdx] ?? false,
               revenueMappedTerms: variantMapped.terms,
@@ -2022,10 +2045,36 @@ export function ProductCodesView() {
     return splitFormulaForDisplay(selectedFormulaText)
   }, [selectedFormulaText])
 
+  const activeDetailCell = hoveredCell ?? selectedCell
+
+  const activeRowContext = useMemo(() => {
+    if (!activeDetailCell) return null
+    const rowMeta = rowMetaByKey.get(activeDetailCell.rowKey)
+    if (!rowMeta?.product_name) {
+      return {
+        product: selectedCell?.rowKey === activeDetailCell.rowKey ? selectedCell.rowLabel : rowMeta?.groupLabel ?? '-',
+        option: '',
+      }
+    }
+    return {
+      product: rowMeta.product_code
+        ? `${rowMeta.product_code} / ${rowMeta.product_name}`
+        : rowMeta.product_name,
+      option: displayOptionWithCode(rowMeta.product_code, rowMeta.variant_code, rowMeta.option_name),
+    }
+  }, [activeDetailCell, rowMetaByKey, selectedCell])
+
   const hoveredUColumnInfo = useMemo(() => {
     if (!hoveredCell) return null
     return uColumnInfoByKey.get(hoveredCell.colKey) ?? null
   }, [hoveredCell, uColumnInfoByKey])
+
+  const selectedUColumnInfo = useMemo(() => {
+    if (!selectedCell) return null
+    return uColumnInfoByKey.get(selectedCell.colKey) ?? null
+  }, [selectedCell, uColumnInfoByKey])
+
+  const activeUColumnInfo = hoveredUColumnInfo ?? selectedUColumnInfo
 
   const excelRowNumber = (rowKey: string) => rowMetaByKey.get(rowKey)?.excelRow ?? ''
 
@@ -2036,6 +2085,7 @@ export function ProductCodesView() {
     cells.forEach((cell) => {
       const rowKey = cell.getAttribute('data-row-key') ?? ''
       const colKey = cell.getAttribute('data-col-key') ?? ''
+      const explicitTitle = cell.getAttribute('title')?.trim()
       const formula = rowKey && colKey ? rowFormulaByKey.get(`${rowKey}|${colKey}`) : ''
       const rowMeta = rowMetaByKey.get(rowKey)
       const colMeta = colMetaByKey.get(colKey)
@@ -2049,7 +2099,7 @@ export function ProductCodesView() {
       } else {
         const fullText = cell.getAttribute('data-full-text')?.trim()
         cell.classList.remove('formula-cell')
-        cell.setAttribute('title', fullText || '값 셀')
+        cell.setAttribute('title', explicitTitle || fullText || '선택한 셀')
       }
     })
   }, [colMetaByKey, rowFormulaByKey, rowMetaByKey, state.data])
@@ -2434,54 +2484,72 @@ export function ProductCodesView() {
             </div>
             {dataReady ? (
               <div className="product-codes-filter-status">
-                <span className="pc-excel-period">
-                  {state.data!.start} ~ {state.data!.end}
-                </span>
-                <div className="pc-excel-selection-indicator">
-                  {selectedCell ? (
-                    <span
-                      className="selection-coordinates selection-copy-trigger"
-                      role="button"
-                      tabIndex={0}
-                      title="셀주소 더블클릭 복사"
-                      onDoubleClick={handleCopySelection}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          handleCopySelection()
-                        }
-                      }}
-                    >
-                      <span className="selection-pin">📍</span>
-                      <span className="selection-item">
-                        <span className="selection-dot selection-dot-row" aria-hidden="true" />
-                        {selectedCoordinateText ?? '-'}
-                      </span>
+                <div className={`pc-excel-selection-indicator${selectedCell ? ' is-selected' : ' is-empty'}`}>
+                  <div className="selection-summary-row">
+                    <span className="selection-period">
+                      기간 {state.data!.start} ~ {state.data!.end}
                     </span>
-                  ) : (
-                    <span className="selection-empty">
-                      <span className="selection-pin">📍</span>
-                      <span>선택 없음</span>
-                    </span>
-                  )}
-                  {hoveredUColumnInfo ? (
-                    <span
-                      className="selection-u-option"
-                      title={`${hoveredUColumnInfo.productCode} ${hoveredUColumnInfo.productLabel} / ${hoveredUColumnInfo.variantCode} ${hoveredUColumnInfo.optionLabel}`}
-                    >
-                      <span className="selection-u-option-label">U옵션</span>
-                      <span className="selection-u-option-code">
-                        {hoveredUColumnInfo.productCode}/{hoveredUColumnInfo.variantCode}
+                    {selectedCell ? (
+                      <>
+                        <span
+                          className="selection-coordinates selection-copy-trigger"
+                          role="button"
+                          tabIndex={0}
+                          title="셀주소 더블클릭 복사"
+                          onDoubleClick={handleCopySelection}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              handleCopySelection()
+                            }
+                          }}
+                        >
+                          <span className="selection-label">선택</span>
+                          <span className="selection-item">{selectedCoordinateText ?? '-'}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <span className="selection-empty">
+                        <span className="selection-label">선택</span>
+                        <span>선택 없음</span>
                       </span>
-                      <span className="selection-u-option-name">
-                        {hoveredUColumnInfo.productLabel} / {hoveredUColumnInfo.optionLabel}
-                      </span>
-                    </span>
-                  ) : null}
-                  {selectedCell ? (
-                    selectedFormulaText ? (
-                      <span className="selection-formula">
-                        <span className="selection-item">수식:</span>
+                    )}
+                  </div>
+
+                  <div className="selection-detail-grid" aria-label="선택 상세">
+                    <section className="selection-product-panel selection-product-panel-left" aria-label="왼쪽 상품">
+                      <div className="selection-panel-title">왼쪽 상품</div>
+                      <div className="selection-detail-field">
+                        <span className="selection-label">상품</span>
+                        <span className="selection-detail-value">{activeRowContext?.product ?? '-'}</span>
+                      </div>
+                      <div className="selection-detail-field">
+                        <span className="selection-label">옵션</span>
+                        <span className="selection-detail-value">{activeRowContext?.option || '-'}</span>
+                      </div>
+                    </section>
+                    <section className="selection-product-panel selection-product-panel-top" aria-label="위쪽 상품">
+                      <div className="selection-panel-title">위쪽 상품</div>
+                      <div className="selection-detail-field">
+                        <span className="selection-label">상품</span>
+                        <span className="selection-detail-value">
+                          {activeUColumnInfo
+                            ? `${activeUColumnInfo.productCode} · ${activeUColumnInfo.productLabel}`
+                            : '-'}
+                        </span>
+                      </div>
+                      <div className="selection-detail-field">
+                        <span className="selection-label">옵션</span>
+                        <span className="selection-detail-value">
+                          {activeUColumnInfo
+                            ? `${activeUColumnInfo.variantCode} · ${activeUColumnInfo.optionLabel}`
+                            : '-'}
+                        </span>
+                      </div>
+                    </section>
+                    {selectedFormulaText ? (
+                      <div className="selection-detail-field selection-detail-formula">
+                        <span className="selection-label">수식</span>
                         <span className="selection-formula-value">
                           {selectedFormulaParts.map((part, idx) => (
                             <span
@@ -2492,16 +2560,9 @@ export function ProductCodesView() {
                             </span>
                           ))}
                         </span>
-                      </span>
-                    ) : (
-                      <span className="selection-cell-kind">값 셀</span>
-                    )
-                  ) : null}
-                  {selectedCell && viewMode !== 'detail' ? (
-                    <span className="selection-row-context" title={selectedCell.rowLabel}>
-                      행: {selectedCell.rowLabel}
-                    </span>
-                  ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -2846,6 +2907,10 @@ export function ProductCodesView() {
                          const remainingVariants = hasVariantRows ? g.variants.slice(1) : []
                          const rowKey = `parent:${grp.label}:${g.product_code}`
                          const rowLabel = rowHeaderLabelByCode(g.product_code, g.product_name)
+                         const parentContextTitle = productContextTitle(
+                           g.product_name,
+                           hasVariantRows ? firstVariantOption : undefined,
+                         )
                          const parentHasLVariants = !!g.is_multi || g.variants.length > 1
                          const parentQtyByColumn = hasVariantRows
                            ? g.mappingQtyByColumn.map((q, idx) => {
@@ -2881,7 +2946,7 @@ export function ProductCodesView() {
                                })
                              }
                              onDoubleClick={() => handleCopyProductCode(g.product_code)}
-                             title="상품코드 더블클릭 복사"
+                             title={`${parentContextTitle}\n상품코드 더블클릭 복사`}
                              data-row-key={rowKey}
                              data-col-key="A:상품코드"
                              data-row-label={rowLabel}
@@ -2904,6 +2969,7 @@ export function ProductCodesView() {
                              data-row-label={rowLabel}
                              data-col-label="상품명"
                              data-full-text={g.product_name}
+                             title={g.product_name}
                            >
                              {g.product_name}
                            </td>
@@ -2921,6 +2987,7 @@ export function ProductCodesView() {
                              data-col-key="A:코드"
                              data-row-label={rowLabel}
                              data-col-label="코드"
+                             title={parentContextTitle}
                            >
                              {hasVariantRows ? firstVariantSuffix : ''}
                            </td>
@@ -2939,6 +3006,7 @@ export function ProductCodesView() {
                              data-row-label={rowLabel}
                              data-col-label="옵션명"
                              data-full-text={hasVariantRows ? displayOptionName(firstVariantOption) : undefined}
+                             title={parentContextTitle}
                            >
                              {hasVariantRows ? displayOptionName(firstVariantOption) : ''}
                            </td>
@@ -2974,6 +3042,11 @@ export function ProductCodesView() {
                              data-row-label={rowLabel}
                              data-col-label="직접판매"
                              {...readStatusAttrs(g.directQtyMeta, g.directQtyMissing ? '' : firstVariantDirectQty)}
+                             title={productContextTitle(
+                               g.product_name,
+                               hasVariantRows ? firstVariantOption : undefined,
+                               g.directQtyMeta,
+                             )}
                            >
                              {g.missing ? '—' : formatReadNumber(firstVariantDirectQty, g.directQtyMeta)}
                            </td>
@@ -3017,10 +3090,11 @@ export function ProductCodesView() {
                                          },
                                      )
                                    }
-                                   data-row-key={rowKey}
+                                  data-row-key={rowKey}
                                    data-col-key={colKey}
                                    data-row-label={rowLabel}
                                   data-col-label={colLabel}
+                                  title={parentContextTitle}
                                 >
                                   {state !== 'excluded' &&
                                    !(state === 'unmapped' && q === 0)
@@ -3079,6 +3153,7 @@ export function ProductCodesView() {
                             const variantRevenueMeta = g.variantRevenueMeta[idx] ?? loadedMeta
                             const variantRowKey = `variant:${g.product_code}:${v.variant_code}`
                             const variantRowLabel = `${rowHeaderLabelByCode(g.product_code, g.product_name)} / ${displayOptionName(v.option || v.variant_code)}`
+                            const variantContextTitle = productContextTitle(g.product_name, v.option || v.variant_code)
                             return (
                               <tr
                                 key={`${g.product_code}-${v.variant_code}`}
@@ -3099,6 +3174,7 @@ export function ProductCodesView() {
                                   data-col-key="A:상품코드"
                                   data-row-label={variantRowLabel}
                                   data-col-label="상품코드"
+                                  title={variantContextTitle}
                                 >
                                   {' '}
                                 </td>
@@ -3133,6 +3209,7 @@ export function ProductCodesView() {
                                   data-col-key="A:코드"
                                   data-row-label={variantRowLabel}
                                   data-col-label="코드"
+                                  title={variantContextTitle}
                                 >
                                   {suffix || '—'}
                                 </td>
@@ -3151,6 +3228,7 @@ export function ProductCodesView() {
                                   data-row-label={variantRowLabel}
                                   data-col-label="옵션명"
                                   data-full-text={displayOptionName(v.option || v.variant_code)}
+                                  title={variantContextTitle}
                                 >
                                   {displayOptionName(v.option || v.variant_code)}
                                 </td>
@@ -3186,6 +3264,7 @@ export function ProductCodesView() {
                                   data-row-label={variantRowLabel}
                                   data-col-label="직접판매"
                                   {...readStatusAttrs(variantDirectMeta, g.variantDirectQtyMissing[idx] ? '' : v.qty)}
+                                  title={productContextTitle(g.product_name, v.option || v.variant_code, variantDirectMeta)}
                                 >
                                   {g.missing ? '—' : formatReadNumber(v.qty, variantDirectMeta)}
                                 </td>
@@ -3231,6 +3310,7 @@ export function ProductCodesView() {
                                       data-col-key={colKey}
                                       data-row-label={variantRowLabel}
                                       data-col-label={colLabel}
+                                      title={variantContextTitle}
                                     >
                                       {state !== 'excluded' && !(state === 'unmapped' && q === 0)
                                         ? fmtNumber(q)
