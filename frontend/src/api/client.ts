@@ -27,6 +27,26 @@ export async function getJson<T>(
   return res.json() as Promise<T>
 }
 
+export async function postJson<T>(
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const res = await fetch(apiUrl(path), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    const message =
+      (errBody as { detail?: string; error?: string }).detail ||
+      (errBody as { detail?: string; error?: string }).error ||
+      `HTTP ${res.status}`
+    throw new Error(message)
+  }
+  return res.json() as Promise<T>
+}
+
 export interface VersionInfo {
   version: string
   started_at: string

@@ -28,7 +28,7 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      command: 'npm --prefix frontend run dev -- --host 127.0.0.1',
+      command: 'npm --prefix frontend run dev',
       url: 'http://127.0.0.1:5173/catchup/',
       reuseExistingServer: true,
       timeout: 30_000,

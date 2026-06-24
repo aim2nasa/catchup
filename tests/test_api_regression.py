@@ -188,6 +188,47 @@ class TestReportSSE(_Patched):
                 self.assertAlmostEqual(g["rev"], sv_r, places=4, msg=f"{g['product_code']} rev 불일치")
 
 
+class TestProductsReportRequestSSE(_Patched):
+    def _collect_stream_events(self, request_id):
+        with self.client.stream("GET", f"/api/products-report-stream/{request_id}") as r:
+            self.assertEqual(r.status_code, 200)
+            events = []
+            for line in r.iter_lines():
+                if line.startswith("data: "):
+                    events.append(json.loads(line[6:]))
+            return events
+
+    def test_product_codes_report_uses_short_registered_stream_url(self):
+        codes = [f"P{i:07d}" for i in range(250)]
+        r = self.client.post("/api/products-report-requests", json={
+            "start": "2026-04-25",
+            "end": "2026-04-26",
+            "codes": codes,
+        })
+        self.assertEqual(r.status_code, 200)
+        payload = r.json()
+        self.assertRegex(payload["request_id"], r"^[0-9a-f]{32}$")
+
+        evs = self._collect_stream_events(payload["request_id"])
+        types = [e["type"] for e in evs]
+        self.assertIn("data", types)
+        self.assertEqual(types[-1], "done")
+        progress = [e.get("msg", "") for e in evs if e["type"] == "progress"]
+        self.assertTrue(any("250개 코드" in msg for msg in progress))
+
+    def test_product_codes_report_request_validates_required_codes(self):
+        r = self.client.post("/api/products-report-requests", json={
+            "start": "2026-04-25",
+            "end": "2026-04-26",
+            "codes": [],
+        })
+        self.assertEqual(r.status_code, 400)
+
+    def test_unknown_product_codes_stream_request_returns_404(self):
+        r = self.client.get("/api/products-report-stream/not-found")
+        self.assertEqual(r.status_code, 404)
+
+
 class TestExcelDownload(_Patched):
     def _download(self, mode):
         r = self.client.get("/api/excel", params={

@@ -123,7 +123,21 @@ test.describe('상품코드 페이지', () => {
   })
 
   test('조회 데이터가 비어도 기준표에 존재하는 L상품 옵션은 기간 판매 0으로 표시한다', async ({ page }) => {
-    await page.route('**/api/products-report?**', async (route) => {
+    const requestedUrls: string[] = []
+    page.on('request', (request) => {
+      requestedUrls.push(request.url())
+    })
+    await page.route('**/api/products-report-requests', async (route) => {
+      expect(route.request().method()).toBe('POST')
+      const body = route.request().postDataJSON() as { codes: string[] }
+      expect(body.codes.length).toBeGreaterThan(40)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ request_id: 'mock-empty-products', expires_in_seconds: 600 }),
+      })
+    })
+    await page.route('**/api/products-report-stream/mock-empty-products', async (route) => {
       const payloads = [
         { type: 'progress', msg: 'mock empty result' },
         {
@@ -148,6 +162,7 @@ test.describe('상품코드 페이지', () => {
     await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
     await page.getByRole('button', { name: '조회' }).click()
     await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+    expect(requestedUrls.some((url) => url.includes('/api/products-report?'))).toBe(false)
 
     await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:상품명"]')).toHaveText(
       '라이코플렉스 바닐라 스트립(Lycoflex Vanilla Strip Wax) 800ml',
@@ -171,6 +186,26 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:직접판매"]')).toHaveText('0')
     await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:코드"]')).toHaveText('B')
     await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:직접판매"]')).toHaveText('0')
+  })
+
+  test('백엔드 헬스체크 실패 시 SSE를 열지 않고 명확한 서버 오류를 표시한다', async ({ page }) => {
+    const requestedUrls: string[] = []
+    page.on('request', (request) => {
+      requestedUrls.push(request.url())
+    })
+    await page.route('**/api/version', async (route) => {
+      await route.abort('connectionrefused')
+    })
+
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+
+    await expect(page.locator('.error-box')).toContainText('백엔드 서버에 연결할 수 없습니다')
+    expect(requestedUrls.some((url) => url.includes('/api/products-report-stream/'))).toBe(false)
+    expect(requestedUrls.some((url) => url.includes('/api/products-report?'))).toBe(false)
   })
 
   test('존재 확인된 옵션의 기간 응답 누락은 화면과 엑셀에서 0으로 표시한다', async ({ page }) => {

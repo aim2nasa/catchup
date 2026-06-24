@@ -1,10 +1,14 @@
 """매출 집계 SSE 스트리밍 + Excel 다운로드 라우트."""
 import json
+import time
 import traceback
+from threading import Lock
+from uuid import uuid4
 
 import requests
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 from backend.shared.aggregation import aggregate
 from backend.shared.cafe24 import (
@@ -21,9 +25,102 @@ from backend.shared.excel_writer import build_workbook
 
 router = APIRouter()
 
+_PRODUCT_REPORT_REQUEST_TTL_SECONDS = 10 * 60
+_product_report_requests: dict[str, dict[str, object]] = {}
+_product_report_requests_lock = Lock()
+
+
+class ProductReportRequest(BaseModel):
+    start: str
+    end: str
+    codes: list[str] = Field(default_factory=list)
+
 
 def _sse(data):
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _normalize_codes(codes):
+    seen = set()
+    normalized = []
+    for code in codes:
+        value = str(code).strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _cleanup_product_report_requests(now=None):
+    now = now or time.time()
+    expired = [
+        request_id
+        for request_id, item in _product_report_requests.items()
+        if float(item.get("expires_at", 0)) <= now
+    ]
+    for request_id in expired:
+        _product_report_requests.pop(request_id, None)
+
+
+def _products_report_events(start: str, end: str, code_list: list[str]):
+    try:
+        yield _sse({"type": "progress", "msg": f"[1/3] 상품 조회 ({len(code_list)}개 코드)"})
+        products = fetch_products_by_codes(code_list)
+        yield _sse({"type": "progress", "msg": f"  → {len(products)}개 매칭 (없는 코드는 placeholder 처리)"})
+
+        yield _sse({"type": "progress", "msg": f"[2/3] 주문 조회 ({start} ~ {end})"})
+        orders = []
+        offset = 0
+        while True:
+            res = requests.get(f"{BASE}/orders", headers=auth_headers(), params={
+                "start_date": start, "end_date": end,
+                "embed": "items", "limit": 100, "offset": offset,
+            })
+            res.raise_for_status()
+            page = res.json().get("orders", [])
+            if not page:
+                break
+            orders.extend(page)
+            yield _sse({"type": "progress", "msg": f"    ... {len(orders)}건 누적"})
+            if len(page) < 100:
+                break
+            offset += 100
+        currency = detect_currency(orders)
+        yield _sse({"type": "progress", "msg": f"  → 총 {len(orders)}건 / 통화 {currency}"})
+
+        yield _sse({"type": "progress", "msg": "[3/3] 집계"})
+        groups = aggregate(products, orders)
+        cqty = sum(g["qty"] for g in groups)
+        crev = sum(g["rev"] for g in groups)
+        yield _sse({
+            "type": "data",
+            "results": [{
+                "category_no": 0,
+                "category_name": "",
+                "groups": groups,
+                "qty": cqty,
+                "rev": crev,
+            }],
+            "grand": {"qty": cqty, "rev": crev, "currency": currency, "order_count": len(orders)},
+            "start": start,
+            "end": end,
+        })
+        yield _sse({"type": "done"})
+    except Exception as e:
+        yield _sse({
+            "type": "error",
+            "msg": f"{type(e).__name__}: {e}",
+            "trace": traceback.format_exc(),
+        })
+
+
+def _products_report_response(start: str, end: str, code_list: list[str]):
+    return StreamingResponse(
+        _products_report_events(start, end, code_list),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/api/report")
@@ -117,62 +214,49 @@ def api_products_report(start: str, end: str, codes: str):
     results 는 하나의 가상 그룹(category_no=0, name="")으로만 묶음.
     """
 
-    def gen():
-        try:
-            code_list = [c.strip() for c in codes.split(",") if c.strip()]
-            yield _sse({"type": "progress", "msg": f"[1/3] 상품 조회 ({len(code_list)}개 코드)"})
-            products = fetch_products_by_codes(code_list)
-            yield _sse({"type": "progress", "msg": f"  → {len(products)}개 매칭 (없는 코드는 placeholder 처리)"})
+    code_list = _normalize_codes(codes.split(","))
+    return _products_report_response(start, end, code_list)
 
-            yield _sse({"type": "progress", "msg": f"[2/3] 주문 조회 ({start} ~ {end})"})
-            orders = []
-            offset = 0
-            while True:
-                res = requests.get(f"{BASE}/orders", headers=auth_headers(), params={
-                    "start_date": start, "end_date": end,
-                    "embed": "items", "limit": 100, "offset": offset,
-                })
-                res.raise_for_status()
-                page = res.json().get("orders", [])
-                if not page:
-                    break
-                orders.extend(page)
-                yield _sse({"type": "progress", "msg": f"    ... {len(orders)}건 누적"})
-                if len(page) < 100:
-                    break
-                offset += 100
-            currency = detect_currency(orders)
-            yield _sse({"type": "progress", "msg": f"  → 총 {len(orders)}건 / 통화 {currency}"})
 
-            yield _sse({"type": "progress", "msg": "[3/3] 집계"})
-            groups = aggregate(products, orders)
-            cqty = sum(g["qty"] for g in groups)
-            crev = sum(g["rev"] for g in groups)
-            yield _sse({
-                "type": "data",
-                "results": [{
-                    "category_no": 0,
-                    "category_name": "",
-                    "groups": groups,
-                    "qty": cqty,
-                    "rev": crev,
-                }],
-                "grand": {"qty": cqty, "rev": crev, "currency": currency, "order_count": len(orders)},
-                "start": start,
-                "end": end,
-            })
-            yield _sse({"type": "done"})
-        except Exception as e:
-            yield _sse({
-                "type": "error",
-                "msg": f"{type(e).__name__}: {e}",
-                "trace": traceback.format_exc(),
-            })
+@router.post("/api/products-report-requests")
+def api_create_products_report_request(payload: ProductReportRequest):
+    """긴 상품코드 목록을 URL에 싣지 않기 위한 SSE 요청 등록 endpoint."""
+    start = payload.start.strip()
+    end = payload.end.strip()
+    code_list = _normalize_codes(payload.codes)
+    if not start or not end:
+        raise HTTPException(status_code=400, detail="start/end 값이 필요합니다.")
+    if not code_list:
+        raise HTTPException(status_code=400, detail="codes 값이 필요합니다.")
 
-    return StreamingResponse(
-        gen(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    request_id = uuid4().hex
+    now = time.time()
+    with _product_report_requests_lock:
+        _cleanup_product_report_requests(now)
+        _product_report_requests[request_id] = {
+            "start": start,
+            "end": end,
+            "codes": code_list,
+            "expires_at": now + _PRODUCT_REPORT_REQUEST_TTL_SECONDS,
+        }
+    return {
+        "request_id": request_id,
+        "expires_in_seconds": _PRODUCT_REPORT_REQUEST_TTL_SECONDS,
+    }
+
+
+@router.get("/api/products-report-stream/{request_id}")
+def api_products_report_stream(request_id: str):
+    with _product_report_requests_lock:
+        _cleanup_product_report_requests()
+        item = _product_report_requests.get(request_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="상품코드 조회 요청을 찾을 수 없습니다.")
+
+    return _products_report_response(
+        str(item["start"]),
+        str(item["end"]),
+        list(item["codes"]),
     )
 
 
