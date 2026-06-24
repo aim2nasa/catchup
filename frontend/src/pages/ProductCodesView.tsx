@@ -140,6 +140,17 @@ type LGroup = {
   withSubtotal?: boolean
 }
 
+type LVariantDisplaySpec = {
+  code: string
+  option: string
+  price?: number
+}
+
+type LProductDisplaySpec = {
+  name: string
+  variants: LVariantDisplaySpec[]
+}
+
 interface UBlock {
   productCode: string
   productLabel: string
@@ -187,7 +198,148 @@ const L_GROUPS: LGroup[] = [
       'P00000CE', 'P00000KH', 'P00000CD', 'P00000CF',
     ],
   },
+  {
+    category: '스트립왁스',
+    label: '스트립왁스',
+    codes: ['P00000CM'],
+  },
+  {
+    category: '전후처리제',
+    label: '전후처리제',
+    codes: ['P00000BU'],
+  },
+  {
+    category: '슈거스크럽',
+    label: '슈거스크럽',
+    codes: ['P00000OG'],
+  },
+  {
+    category: '사후관리제품',
+    label: '사후관리제품',
+    codes: ['P00000BJ'],
+  },
+  {
+    category: '제모미인제품',
+    label: '제모미인제품',
+    codes: ['P00000XU', 'P00000XW', 'P0000BJC', 'P00000ZA'],
+  },
+  {
+    category: '파우치',
+    label: '파우치',
+    codes: ['P00000UK'],
+  },
+  {
+    category: '워머기&컵',
+    label: '워머기&컵',
+    codes: ['P00000VK'],
+  },
+  {
+    category: '소모품',
+    label: '소모품',
+    codes: ['P00000DD', 'P00000TX', 'P00000DG'],
+  },
 ]
+
+const L_DISPLAY_VARIANTS_BY_CODE: Record<string, LVariantDisplaySpec[]> = {
+  P00000ZB: [
+    { code: 'A', option: '컵왁스 선택 : 로제트 컵 왁스 비즈 110g', price: 6200 },
+    { code: 'B', option: '컵왁스 선택 : 라벤더 컵 왁스 비즈 110g', price: 6200 },
+    { code: 'C', option: '컵왁스 선택 : 하이브리드 컵 왁스 비즈 110g', price: 6200 },
+    { code: 'D', option: '컵왁스 선택 : 핑키니 컵 왁스 비즈 110g', price: 6200 },
+  ],
+  P00000OG: [
+    { code: 'H', option: '선택=석류스크럽100ml', price: 8400 },
+    { code: 'I', option: '선택=자몽스크럽100ml', price: 8400 },
+    { code: 'K', option: '선택=라벤더스크럽100ml', price: 8400 },
+  ],
+  P00000VK: [
+    { code: 'C', option: '2구워머기(1000+1000)', price: 195000 },
+    { code: 'D', option: '자디니 베이비 히터(220g)', price: 44000 },
+    { code: 'M', option: '2구워머기(1000+1000)', price: 204000 },
+    { code: 'N', option: '자디니베이비히터(220g)', price: 46200 },
+  ],
+  P00000TX: [
+    { code: 'B', option: '선택=바디스파츌라(박스구매 100개)', price: 170000 },
+    { code: 'C', option: '선택=패들팝스파츌라(박스구매 100개)', price: 170000 },
+    { code: 'D', option: '선택=페이셜스파츌라(박스구매 100개)', price: 170000 },
+    { code: 'F', option: '선택=바디 스파츌러(박스 구매 100개)', price: 170000 },
+    { code: 'G', option: '선택=패들팝 스파츌러(박스 구매 100개)', price: 170000 },
+    { code: 'H', option: '선택=페이셜 스파츌러(박스 구매 100개)', price: 170000 },
+  ],
+}
+
+const L_PRODUCT_DISPLAY_BY_CODE: Record<string, LProductDisplaySpec> = {
+  P00000ZB: {
+    name: '라이콘 컵 왁스 비즈 110g 4종 (로제트 / 라벤더 / 하이브리드 / 핑키니)',
+    variants: L_DISPLAY_VARIANTS_BY_CODE.P00000ZB,
+  },
+  P00000ZA: {
+    name: '제모미인 페이스왁싱 스킨클렌져 & 왁싱 프리오일 100mL',
+    variants: [
+      { code: 'A', option: '선택=왁싱 스킨클렌져 100mL', price: 6600 },
+      { code: 'B', option: '선택=왁싱 프리오일 100mL', price: 6600 },
+    ],
+  },
+  P00000VK: {
+    name: '라이콘워머기 2구 / 자디니 베이비 히터기 220g',
+    variants: L_DISPLAY_VARIANTS_BY_CODE.P00000VK,
+  },
+  P00000HT: {
+    name: '라이코젯아이브로우(Lycojet Eyebrow Hot Wax) 500g',
+    variants: [{ code: 'A', option: '-', price: 26300 }],
+  },
+  P00000XU: {
+    name: '자디니 리본 미스트 110ml (모공/인그로운 케어)',
+    variants: [{ code: 'A', option: '-', price: 16000 }],
+  },
+  P00000XW: {
+    name: '자디니 시카 마스크 (1박스 5매입 / 50매 번들)',
+    variants: [
+      { code: 'B', option: '선택=자디니 시카 마스크 1Box(5개입)', price: 10000 },
+      { code: 'C', option: '선택=50개 묶음(단상자 미포함)', price: 90000 },
+    ],
+  },
+  P00000TX: {
+    name: '스파츌러 박스 구매시(바디, 패들팝, 페이셜) 할인',
+    variants: L_DISPLAY_VARIANTS_BY_CODE.P00000TX,
+  },
+  P00000CH: {
+    name: '로즈퓨어 핫왁스 (Rose Pure-Rosette  Hot Wax) 1Kg',
+    variants: [{ code: 'A', option: '-', price: 37800 }],
+  },
+  P00000CM: {
+    name: '라이코플렉스 바닐라 스트립(Lycoflex Vanilla Strip Wax) 800ml',
+    variants: [{ code: 'A', option: '-', price: 34700 }],
+  },
+  P00000BU: {
+    name: '미니전후처리제 5종세트125ml',
+    variants: [{ code: 'A', option: '-', price: 47000 }],
+  },
+  P00000BJ: {
+    name: '인그로운 X-IT 솔루션 125ml',
+    variants: [{ code: 'A', option: '-', price: 14700 }],
+  },
+  P00000DD: {
+    name: '라이콘 스트립 부직포 250매',
+    variants: [{ code: 'A', option: '-', price: 18000 }],
+  },
+  P00000DG: {
+    name: '라이콘 메탈 스파츌라 (바디용)',
+    variants: [{ code: 'H', option: '선택=라이콘', price: 18900 }],
+  },
+  P00000OG: {
+    name: '슈가스크럽 100ml 6종',
+    variants: L_DISPLAY_VARIANTS_BY_CODE.P00000OG,
+  },
+  P0000BJC: {
+    name: '자디니 포레스트 센트 바디 워시 200ml',
+    variants: [{ code: 'A', option: '-', price: 12000 }],
+  },
+  P00000UK: {
+    name: '화이트브라질리언마스크팩 1박스(10장)',
+    variants: [{ code: 'A', option: '-', price: 17500 }],
+  },
+}
 
 const QUERY_CODES = [
   ...new Set([
@@ -402,6 +554,58 @@ function normalizeVariantSuffix(productCode: string, variantCode: string) {
     ? normalizedVariantCode.slice(normalizedProductCode.length)
     : normalizedVariantCode
   return raw.replace(/^0+/, '') || raw
+}
+
+function makeVariantCode(productCode: string, variantCode: string) {
+  return `${normalizeProductCode(productCode)}000${normalizeVariantCode(variantCode)}`
+}
+
+function buildDisplayVariants(productCode: string, variants: Variant[], parentPrice: number): Variant[] {
+  const normalizedProductCode = normalizeProductCode(productCode)
+  const displaySpecs = L_PRODUCT_DISPLAY_BY_CODE[normalizedProductCode]?.variants
+    ?? L_DISPLAY_VARIANTS_BY_CODE[normalizedProductCode]
+  if (!displaySpecs) return variants
+
+  const variantsBySuffix = new Map(
+    variants.map((variant) => [
+      normalizeVariantSuffix(productCode, variant.variant_code).toUpperCase(),
+      variant,
+    ]),
+  )
+
+  return displaySpecs.map((spec) => {
+    const normalizedSpecCode = normalizeVariantCode(spec.code)
+    const existing = variantsBySuffix.get(normalizedSpecCode)
+    return {
+      variant_code: existing?.variant_code ?? makeVariantCode(productCode, normalizedSpecCode),
+      option: existing?.option || spec.option,
+      qty: existing?.qty ?? 0,
+      rev: existing?.rev ?? 0,
+      price: existing?.price || spec.price || parentPrice || 0,
+    }
+  })
+}
+
+function buildFallbackGroup(productCode: string) {
+  const normalizedProductCode = normalizeProductCode(productCode)
+  const spec = L_PRODUCT_DISPLAY_BY_CODE[normalizedProductCode]
+  if (!spec) return null
+  const variants: Variant[] = spec.variants.map((variant) => ({
+    variant_code: makeVariantCode(normalizedProductCode, variant.code),
+    option: variant.option,
+    qty: 0,
+    rev: 0,
+    price: variant.price ?? 0,
+  }))
+  return {
+    product_code: normalizedProductCode,
+    product_name: spec.name,
+    price: variants.length === 1 ? variants[0]?.price ?? 0 : 0,
+    is_multi: variants.length > 1,
+    qty: 0,
+    rev: 0,
+    variants,
+  }
 }
 
 function findUVariantData(group: { variants: Variant[]; price: number } | undefined, uProduct: string, uVariant: string) {
@@ -1095,8 +1299,8 @@ export function ProductCodesView() {
     const byCode = new Map(allGroups.map((g) => [normalizeProductCode(g.product_code), g]))
     const buildRow = (code: string): Row => {
       const normalizedCode = normalizeProductCode(code)
-      const g = byCode.get(normalizedCode)
-      const variants = g?.variants ?? []
+      const g = byCode.get(normalizedCode) ?? buildFallbackGroup(normalizedCode)
+      const variants = buildDisplayVariants(normalizedCode, g?.variants ?? [], g?.price ?? 0)
       const hasLVariants = g ? !!g.is_multi || variants.length > 1 : variants.length > 1
       const hasVariantRows = variants.length > 0
       const firstVariant = hasVariantRows ? variants[0] : null

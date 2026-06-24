@@ -27,7 +27,7 @@ test.describe('상품코드 페이지', () => {
     await expect(page.getByRole('link', { name: '상품코드' })).toHaveCount(0)
   })
 
-  test('상품코드 페이지 내용은 하드왁스 페이지와 동일한 집계표 흐름이다', async ({ page }) => {
+  test('상품코드 페이지는 하드왁스 뒤에 L상품 카테고리를 이어서 표시한다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
     await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
@@ -42,8 +42,16 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('.pc-excel-table tbody')).toContainText('P00000ZB')
     await expect(page.locator('.pc-excel-table tbody')).toContainText('1kg 합계')
     await expect(page.getByText('라이코젯아이브로우')).toBeVisible()
+    await expect(page.locator('.pc-excel-table tbody')).toContainText('스트립왁스')
+    await expect(page.locator('.pc-excel-table tbody')).toContainText('P00000CM')
+    await expect(page.locator('.pc-excel-table tbody')).toContainText('워머기&컵')
+    await expect(page.locator('.pc-excel-table tbody')).toContainText('P00000VK')
+    await expect(page.locator('.pc-excel-table tbody')).toContainText('소모품')
+    await expect(page.locator('.pc-excel-table tbody')).toContainText('P00000TX')
+    await expect(page.locator('.pc-excel-table tbody')).toContainText('P00000DG')
 
-    await expect(page.locator('.product-category-row .pc-excel-row-head')).toHaveText(/\d+/)
+    await expect(page.locator('.product-category-row .pc-excel-row-head').first()).toHaveText(/\d+/)
+    await expect(page.locator('.product-category-row')).toHaveCount(9)
     await expect(page.locator('.product-segment-row')).toHaveCount(0)
   })
 
@@ -56,11 +64,21 @@ test.describe('상품코드 페이지', () => {
     await page.getByRole('button', { name: '조회' }).click()
     await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
 
-    const categoryA1 = await page.locator('.product-category-row .product-group-band-cell').getAttribute('data-a1')
+    const categoryA1 = await page
+      .locator('td[data-row-key="category:하드왁스"]')
+      .getAttribute('data-a1')
     const firstProductA1 = await page.locator('td[data-row-key^="parent:500g:P00000HT"]').first().getAttribute('data-a1')
+    const firstAddedCategoryA1 = await page
+      .locator('td[data-row-key="category:스트립왁스"]')
+      .getAttribute('data-a1')
+    const firstAddedProductA1 = await page
+      .locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:상품코드"]')
+      .getAttribute('data-a1')
     expect(categoryA1).toBe('A10')
     await expect(page.locator('.product-segment-row')).toHaveCount(0)
     expect(firstProductA1).toBe('A11')
+    expect(firstAddedCategoryA1).toBe('A48')
+    expect(firstAddedProductA1).toBe('A49')
 
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Excel 다운로드' }).click()
@@ -73,6 +91,81 @@ test.describe('상품코드 페이지', () => {
     const worksheet = workbook.getWorksheet('상품코드')
     expect(worksheet?.getCell('A10').value).toBe('카테고리 하드왁스')
     expect(worksheet?.getCell('A11').value).toBe('P00000HT')
+    expect(worksheet?.getCell('A48').value).toBe('카테고리 스트립왁스')
+    expect(worksheet?.getCell('A49').value).toBe('P00000CM')
+  })
+
+  test('상품코드 L상품은 스크린샷 기준 옵션까지 표시한다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    await expect(page.locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:코드"]')).toHaveText('C')
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:코드"]')).toHaveText('D')
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000M"][data-col-key="A:코드"]')).toHaveText('M')
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000N"][data-col-key="A:코드"]')).toHaveText('N')
+
+    await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:코드"]')).toHaveText('B')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000C"][data-col-key="A:코드"]')).toHaveText('C')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000D"][data-col-key="A:코드"]')).toHaveText('D')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000F"][data-col-key="A:코드"]')).toHaveText('F')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000G"][data-col-key="A:코드"]')).toHaveText('G')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000H"][data-col-key="A:코드"]')).toHaveText('H')
+
+    await expect(page.locator('td[data-row-key="parent:슈거스크럽:P00000OG"][data-col-key="A:코드"]')).toHaveText('H')
+    await expect(page.locator('td[data-row-key="variant:P00000OG:P00000OG000I"][data-col-key="A:코드"]')).toHaveText('I')
+    await expect(page.locator('td[data-row-key="variant:P00000OG:P00000OG000K"][data-col-key="A:코드"]')).toHaveText('K')
+    await expect(page.locator('td[data-row-key="variant:P00000OG:P00000OG000J"][data-col-key="A:코드"]')).toHaveCount(0)
+  })
+
+  test('조회 데이터가 비어도 L상품 기준 상품명 옵션 단가 직접판매를 표시한다', async ({ page }) => {
+    await page.route('**/api/products-report?**', async (route) => {
+      const payloads = [
+        { type: 'progress', msg: 'mock empty result' },
+        {
+          type: 'data',
+          results: [],
+          grand: { qty: 0, rev: 0, currency: 'KRW', order_count: 0 },
+          start: PRODUCT_CODES_START,
+          end: PRODUCT_CODES_END,
+        },
+        { type: 'done' },
+      ]
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream; charset=utf-8',
+        body: payloads.map((payload) => `data: ${JSON.stringify(payload)}\n\n`).join(''),
+      })
+    })
+
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:상품명"]')).toHaveText(
+      '라이코플렉스 바닐라 스트립(Lycoflex Vanilla Strip Wax) 800ml',
+    )
+    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:코드"]')).toHaveText('A')
+    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:옵션명"]')).toHaveText('-')
+    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:단가"]')).toHaveText('₩34,700')
+    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:직접판매"]')).toHaveText('0')
+
+    await expect(page.locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:상품명"]')).toHaveText(
+      '라이콘워머기 2구 / 자디니 베이비 히터기 220g',
+    )
+    await expect(page.locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:코드"]')).toHaveText('C')
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:옵션명"]')).toHaveText(
+      '자디니 베이비 히터(220g)',
+    )
+    await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:코드"]')).toHaveText('B')
+    await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:직접판매"]')).toHaveText('0')
   })
 
   test('수평 스크롤 중에도 매출 컬럼 폭이 유지된다', async ({ page }) => {
