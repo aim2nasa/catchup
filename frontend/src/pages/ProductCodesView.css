@@ -142,6 +142,45 @@
   flex: 1 1 540px;
 }
 
+.product-codes-view-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.view-mode-label {
+  padding: 0 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.view-mode-button {
+  min-width: 38px;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.view-mode-button:hover {
+  background: #e2e8f0;
+}
+
+.view-mode-button.is-active {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
 .pc-excel-selection-indicator {
   display: flex;
   gap: 10px;
@@ -263,6 +302,16 @@
   background: #dbeafe;
   border-radius: 3px;
   padding: 0 2px;
+}
+
+.selection-row-context {
+  display: inline-block;
+  max-width: min(34vw, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #334155;
+  font-weight: 700;
 }
 
 .selection-cell-kind {
@@ -444,12 +493,12 @@
   color: #334155;
   z-index: 7;
 }
-.pc-excel-table .sticky-code { left: 42px; z-index: 4; min-width: 98px; width: 98px; max-width: 98px; }
-.pc-excel-table .sticky-name { left: 140px; z-index: 4; min-width: 360px; width: 360px; max-width: 360px; }
-.pc-excel-table .sticky-option-code { left: 500px; z-index: 4; width: 40px; min-width: 40px; max-width: 40px; text-align: center; }
-.pc-excel-table .sticky-option-name { left: 540px; z-index: 4; min-width: 260px; width: 260px; max-width: 260px; }
-.pc-excel-table .sticky-price { left: 800px; z-index: 4; min-width: 68px; width: 68px; max-width: 68px; }
-.pc-excel-table .sticky-direct { left: 868px; z-index: 4; min-width: 64px; width: 64px; max-width: 64px; }
+.pc-excel-table .sticky-code { left: var(--pc-code-left, 42px); z-index: 4; min-width: var(--pc-code-w, 98px); width: var(--pc-code-w, 98px); max-width: var(--pc-code-w, 98px); }
+.pc-excel-table .sticky-name { left: var(--pc-name-left, 140px); z-index: 4; min-width: var(--pc-name-w, 360px); width: var(--pc-name-w, 360px); max-width: var(--pc-name-w, 360px); }
+.pc-excel-table .sticky-option-code { left: var(--pc-option-code-left, 500px); z-index: 4; width: var(--pc-option-code-w, 40px); min-width: var(--pc-option-code-w, 40px); max-width: var(--pc-option-code-w, 40px); text-align: center; }
+.pc-excel-table .sticky-option-name { left: var(--pc-option-name-left, 540px); z-index: 4; min-width: var(--pc-option-name-w, 260px); width: var(--pc-option-name-w, 260px); max-width: var(--pc-option-name-w, 260px); }
+.pc-excel-table .sticky-price { left: var(--pc-price-left, 800px); z-index: 4; min-width: var(--pc-price-w, 68px); width: var(--pc-price-w, 68px); max-width: var(--pc-price-w, 68px); }
+.pc-excel-table .sticky-direct { left: var(--pc-direct-left, 868px); z-index: 4; min-width: var(--pc-direct-w, 64px); width: var(--pc-direct-w, 64px); max-width: var(--pc-direct-w, 64px); }
 .pc-excel-table .sticky-name,
 .pc-excel-table .sticky-option-name {
   white-space: nowrap;
@@ -457,31 +506,21 @@
   text-overflow: ellipsis;
   line-height: 1.25;
 }
-.pc-excel-table-wrap.is-left-compact .sticky-name {
-  min-width: 180px;
-  width: 180px;
-  max-width: 180px;
-}
-.pc-excel-table-wrap.is-left-compact .sticky-option-code {
-  left: 320px;
-}
-.pc-excel-table-wrap.is-left-compact .sticky-option-name {
-  left: 360px;
-  min-width: 180px;
-  width: 180px;
-  max-width: 180px;
-}
-.pc-excel-table-wrap.is-left-compact .sticky-price {
-  left: 540px;
-}
-.pc-excel-table-wrap.is-left-compact .sticky-direct {
-  left: 608px;
-}
 .pc-excel-table-wrap.is-left-compact .sticky-name,
 .pc-excel-table-wrap.is-left-compact .sticky-option-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.pc-excel-table-wrap.is-name-hidden .sticky-name,
+.pc-excel-table-wrap.is-option-name-hidden .sticky-option-name,
+.pc-excel-table-wrap.is-price-hidden .sticky-price {
+  padding-right: 0;
+  padding-left: 0;
+  border-right-width: 0;
+  border-left-width: 0;
+  color: transparent;
+  pointer-events: none;
 }
 .pc-excel-table .sticky-total {
   right: 142px;

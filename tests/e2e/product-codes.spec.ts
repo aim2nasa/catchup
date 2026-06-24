@@ -251,6 +251,42 @@ test.describe('상품코드 페이지', () => {
     expect(right.lastVisibleRowNumber).toBe(initial.lastVisibleRowNumber)
     expect(right.categoryLeft).toBe(initial.categoryLeft)
   })
+
+  test('보기 모드로 좁은 화면에서 U상품 영역을 더 넓게 볼 수 있다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const detail = await readProductCodesViewModeState(page)
+    await expect(page.getByRole('button', { name: '상세' })).toHaveAttribute('aria-pressed', 'true')
+    expect(detail.nameWidth).toBeGreaterThan(300)
+    expect(detail.priceWidth).toBeGreaterThan(60)
+
+    await page.getByRole('button', { name: '넓게' }).click()
+    const wide = await readProductCodesViewModeState(page)
+    expect(wide.uStartLeft).toBeLessThan(detail.uStartLeft)
+    expect(wide.priceWidth).toBe(0)
+    expect(wide.nameWidth).toBeGreaterThan(0)
+    expect(wide.optionNameWidth).toBeGreaterThan(0)
+
+    await page.getByRole('button', { name: '초점' }).click()
+    const focus = await readProductCodesViewModeState(page)
+    expect(focus.uStartLeft).toBeLessThan(wide.uStartLeft)
+    expect(focus.nameWidth).toBe(0)
+    expect(focus.optionNameWidth).toBe(0)
+    expect(focus.priceWidth).toBe(0)
+
+    await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="A:직접판매"]').click()
+    await expect(page.locator('.selection-row-context')).toContainText('라이코젯아이브로우')
+
+    await page.reload()
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '초점' })).toHaveAttribute('aria-pressed', 'true')
+  })
 })
 
 async function setProductCodesScrollLeft(page: import('@playwright/test').Page, left: number) {
@@ -297,6 +333,29 @@ async function readProductCodesScrollState(page: import('@playwright/test').Page
       firstDataRowHeight: Math.round(firstDataRow.getBoundingClientRect().height),
       longProductRowHeight: Math.round(longProductRow.getBoundingClientRect().height),
       lastVisibleRowNumber: visibleRowNumbers.at(-1) ?? 0,
+    }
+  })
+}
+
+async function readProductCodesViewModeState(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const name = document.querySelector('tbody td.sticky-name')
+    const optionName = document.querySelector('tbody td.sticky-option-name')
+    const price = document.querySelector('tbody td.sticky-price')
+    const firstMatrix = document.querySelector('tbody tr.category-scope-row td[data-col-key]:not(.sticky)')
+    if (
+      !(name instanceof HTMLElement) ||
+      !(optionName instanceof HTMLElement) ||
+      !(price instanceof HTMLElement) ||
+      !(firstMatrix instanceof HTMLElement)
+    ) {
+      throw new Error('Missing product-codes view mode measurement cells')
+    }
+    return {
+      nameWidth: Math.round(name.getBoundingClientRect().width),
+      optionNameWidth: Math.round(optionName.getBoundingClientRect().width),
+      priceWidth: Math.round(price.getBoundingClientRect().width),
+      uStartLeft: Math.round(firstMatrix.getBoundingClientRect().left),
     }
   })
 }

@@ -1,4 +1,4 @@
-import { Fragment, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { DateFilter } from '@/features/sales-report/components/DateFilter'
 import { VersionFooter } from '@/features/sales-report/components/VersionFooter'
 import { useReport } from '@/features/sales-report/hooks/useReport'
@@ -54,6 +54,7 @@ type RevenueFormulaBuildResult = {
 
 type ReadStatus = 'loaded' | 'missing' | 'fallback' | 'partial' | 'calculated'
 type ReadSource = 'cafe24' | 'set-design' | 'local-rule' | 'calculated'
+type ProductCodesViewMode = 'detail' | 'wide' | 'focus'
 
 type ReadMeta = {
   status: ReadStatus
@@ -566,11 +567,37 @@ const PRICE_EXCEL_COLUMN = 5
 const MISSING_DISPLAY = '미'
 const MISSING_NOTE = '상품/옵션 존재 기준을 확인할 수 없어 0으로 해석하지 않음.'
 const PARTIAL_NOTE = '확인불가 항목 제외 합계'
+const PRODUCT_CODES_VIEW_MODE_KEY = 'product-codes:view-mode'
+const PRODUCT_CODES_VIEW_MODES: Array<{ value: ProductCodesViewMode; label: string; title: string }> = [
+  { value: 'detail', label: '상세', title: '상품코드부터 직접판매까지 모두 표시' },
+  { value: 'wide', label: '넓게', title: '단가를 숨기고 상품명/옵션명을 줄여 U상품 영역을 넓게 표시' },
+  { value: 'focus', label: '초점', title: '상품코드, 코드, 직접판매만 남겨 U상품 영역에 집중' },
+]
 
 const loadedMeta: ReadMeta = { status: 'loaded', source: 'cafe24' }
 const periodNoSalesMeta: ReadMeta = { status: 'loaded', source: 'set-design' }
 const missingMeta: ReadMeta = { status: 'missing', source: 'cafe24', note: MISSING_NOTE }
 const partialMeta: ReadMeta = { status: 'partial', source: 'calculated', note: PARTIAL_NOTE }
+
+function isProductCodesViewMode(value: string | null): value is ProductCodesViewMode {
+  return value === 'detail' || value === 'wide' || value === 'focus'
+}
+
+function readInitialProductCodesViewMode(): ProductCodesViewMode {
+  if (typeof window === 'undefined') return 'detail'
+  const saved = window.localStorage.getItem(PRODUCT_CODES_VIEW_MODE_KEY)
+  return isProductCodesViewMode(saved) ? saved : 'detail'
+}
+
+function leftColumnWidthsForViewMode(viewMode: ProductCodesViewMode, isCompact: boolean) {
+  if (viewMode === 'focus') return [98, 0, 40, 0, 0, 64]
+  if (viewMode === 'wide') return isCompact
+    ? [98, 150, 40, 110, 0, 64]
+    : [98, 220, 40, 160, 0, 64]
+  return isCompact
+    ? [98, 180, 40, 180, 68, 64]
+    : [98, 360, 40, 260, 68, 64]
+}
 
 function readStatusClass(meta?: ReadMeta) {
   if (!meta) return ''
@@ -1024,6 +1051,7 @@ export function ProductCodesView() {
   const scrollContentWidthRef = useRef(0)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [isLeftCompact, setIsLeftCompact] = useState(false)
+  const [viewMode, setViewMode] = useState<ProductCodesViewMode>(readInitialProductCodesViewMode)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [hoveredCell, setHoveredCell] = useState<Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null>(null)
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
@@ -1058,6 +1086,10 @@ export function ProductCodesView() {
   }
 
   const clearSelection = () => setSelectedCell(null)
+
+  useEffect(() => {
+    window.localStorage.setItem(PRODUCT_CODES_VIEW_MODE_KEY, viewMode)
+  }, [viewMode])
 
   const toggleLuCell = ({
     uProduct,
@@ -1699,9 +1731,40 @@ export function ProductCodesView() {
     ),
     [],
   )
-  const leftColumnPixelWidths = isLeftCompact
-    ? [98, 180, 40, 180, 68, 64]
-    : [98, 360, 40, 260, 68, 64]
+  const leftColumnPixelWidths = useMemo(
+    () => leftColumnWidthsForViewMode(viewMode, isLeftCompact),
+    [viewMode, isLeftCompact],
+  )
+  const leftColumnLefts = useMemo(() => {
+    let nextLeft = 42
+    return leftColumnPixelWidths.map((width) => {
+      const left = nextLeft
+      nextLeft += width
+      return left
+    })
+  }, [leftColumnPixelWidths])
+  const tableWrapStyle = useMemo(() => ({
+    '--pc-code-left': `${leftColumnLefts[0]}px`,
+    '--pc-code-w': `${leftColumnPixelWidths[0]}px`,
+    '--pc-name-left': `${leftColumnLefts[1]}px`,
+    '--pc-name-w': `${leftColumnPixelWidths[1]}px`,
+    '--pc-option-code-left': `${leftColumnLefts[2]}px`,
+    '--pc-option-code-w': `${leftColumnPixelWidths[2]}px`,
+    '--pc-option-name-left': `${leftColumnLefts[3]}px`,
+    '--pc-option-name-w': `${leftColumnPixelWidths[3]}px`,
+    '--pc-price-left': `${leftColumnLefts[4]}px`,
+    '--pc-price-w': `${leftColumnPixelWidths[4]}px`,
+    '--pc-direct-left': `${leftColumnLefts[5]}px`,
+    '--pc-direct-w': `${leftColumnPixelWidths[5]}px`,
+  }) as CSSProperties, [leftColumnLefts, leftColumnPixelWidths])
+  const tableWrapClassName = [
+    'pc-excel-table-wrap',
+    isLeftCompact ? 'is-left-compact' : '',
+    `view-mode-${viewMode}`,
+    leftColumnPixelWidths[1] === 0 ? 'is-name-hidden' : '',
+    leftColumnPixelWidths[3] === 0 ? 'is-option-name-hidden' : '',
+    leftColumnPixelWidths[4] === 0 ? 'is-price-hidden' : '',
+  ].filter(Boolean).join(' ')
   const tablePixelWidth =
     42 +
     leftColumnPixelWidths.reduce((sum, width) => sum + width, 0) +
@@ -2354,6 +2417,21 @@ export function ProductCodesView() {
             <button type="button" className="btn" onClick={handleExportExcel} disabled={!dataReady}>
               Excel 다운로드
             </button>
+            <div className="product-codes-view-mode" aria-label="상품코드 보기 모드">
+              <span className="view-mode-label">보기</span>
+              {PRODUCT_CODES_VIEW_MODES.map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  className={`view-mode-button${viewMode === mode.value ? ' is-active' : ''}`}
+                  aria-pressed={viewMode === mode.value}
+                  title={mode.title}
+                  onClick={() => setViewMode(mode.value)}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
             {dataReady ? (
               <div className="product-codes-filter-status">
                 <span className="pc-excel-period">
@@ -2419,6 +2497,11 @@ export function ProductCodesView() {
                       <span className="selection-cell-kind">값 셀</span>
                     )
                   ) : null}
+                  {selectedCell && viewMode !== 'detail' ? (
+                    <span className="selection-row-context" title={selectedCell.rowLabel}>
+                      행: {selectedCell.rowLabel}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -2465,7 +2548,8 @@ export function ProductCodesView() {
             />
           </div>
           <div
-            className={`pc-excel-table-wrap${isLeftCompact ? ' is-left-compact' : ''}`}
+            className={tableWrapClassName}
+            style={tableWrapStyle}
             ref={tableWrapRef}
             onScroll={handleBottomScroll}
             onMouseMove={handleTableMouseMove}
