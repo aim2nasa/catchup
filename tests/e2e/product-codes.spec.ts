@@ -220,6 +220,35 @@ test.describe('상품코드 페이지', () => {
     expect(worksheet?.getColumn(2).values).toContain('확인불가 항목 제외 합계')
   })
 
+  test('수식 제외 빈 교차셀은 일반 빈 교차셀과 같은 배경으로 표시한다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const excludedCell = page.locator('td.map-cell--excluded').first()
+    const unmappedCell = page.locator('td.map-cell--unmapped').first()
+    await expect(excludedCell).toBeVisible()
+    await expect(unmappedCell).toBeVisible()
+
+    const excludedBackground = await excludedCell.evaluate((cell) => getComputedStyle(cell).backgroundColor)
+    const unmappedBackground = await unmappedCell.evaluate((cell) => getComputedStyle(cell).backgroundColor)
+    expect(excludedBackground).toBe(unmappedBackground)
+
+    const optionHeaderColors = await page.locator('.pc-excel-table').evaluate((table) => {
+      const conversionOption = table.querySelector('thead th.matrix-variant.u-col-conversion')
+      const setOption = table.querySelector('thead th.matrix-variant.u-col-set')
+      return {
+        conversion: conversionOption ? getComputedStyle(conversionOption).backgroundColor : null,
+        set: setOption ? getComputedStyle(setOption).backgroundColor : null,
+      }
+    })
+    expect(optionHeaderColors.set).toBe(optionHeaderColors.conversion)
+  })
+
   test('수평 스크롤 중에도 왼쪽 컬럼 압축과 행 높이 기준이 안정적으로 유지된다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 

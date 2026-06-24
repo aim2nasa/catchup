@@ -2185,7 +2185,6 @@ export function ProductCodesView() {
     const setHeaderFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF14532D' } }
     const headerFont = { bold: true, color: { argb: 'FFF8FAFC' }, size: 9 }
     const sumFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF1F5F9' } }
-    const setFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
     const bodyFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
     const border = { style: 'thin' as const, color: { argb: 'FF94A3B8' } }
     const summaryBorder = { style: 'medium' as const, color: { argb: 'FF94A3B8' } }
@@ -2292,9 +2291,6 @@ export function ProductCodesView() {
         cell.numFmt = '"₩"#,##0'
       } else if (typeof value === 'number') {
         cell.numFmt = '#,##0'
-      }
-      if (domCell.classList.contains('u-col-set')) {
-        cell.fill = setFill
       }
       if (domCell.classList.contains('sticky-total') || domCell.classList.contains('sticky-rev')) {
         cell.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
