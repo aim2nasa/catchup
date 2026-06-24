@@ -2844,13 +2844,27 @@ export function ProductCodesView() {
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+
+      const target = event.target
+      const editableTarget = target instanceof HTMLElement
+        && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
+      if (editableTarget || editingSetProductCode || pendingLuAction) return
+
+      if (pinnedCrosses.length > 0) {
+        event.preventDefault()
+        setPinnedCrosses((prev) => prev.slice(0, -1))
+        return
+      }
+
+      if (selectedCell) {
+        event.preventDefault()
         clearSelection()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [editingSetProductCode, pendingLuAction, pinnedCrosses.length, selectedCell])
 
   useEffect(() => {
     return () => {

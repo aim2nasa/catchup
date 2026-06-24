@@ -353,12 +353,24 @@ test.describe('상품코드 페이지', () => {
     await expect(hoverCell).toHaveClass(/pc-excel-pin-1/)
     await expect(page.getByRole('button', { name: '고정선 2개 지우기' })).toBeVisible()
 
+    await page.keyboard.press('Escape')
+    await expect(hoverCell).not.toHaveClass(/pc-excel-pinned-cell/)
+    await expect(firstPinnedCell).toHaveClass(/pc-excel-pinned-cell/)
+    await expect(page.getByRole('button', { name: '고정선 1개 지우기' })).toBeVisible()
+
     await firstPinnedCell.click()
     await expect(firstPinnedCell).not.toHaveClass(/pc-excel-pinned-cell/)
+    await expect(page.getByRole('button', { name: /고정선 .* 지우기/ })).toHaveCount(0)
+
+    await firstPinnedCell.click()
+    await hoverCell.click()
+    await expect(page.getByRole('button', { name: '고정선 2개 지우기' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(hoverCell).not.toHaveClass(/pc-excel-pinned-cell/)
     await expect(page.getByRole('button', { name: '고정선 1개 지우기' })).toBeVisible()
 
     await page.getByRole('button', { name: '고정선 1개 지우기' }).click()
-    await expect(hoverCell).not.toHaveClass(/pc-excel-pinned-cell/)
+    await expect(firstPinnedCell).not.toHaveClass(/pc-excel-pinned-cell/)
     await expect(page.getByRole('button', { name: /고정선 .* 지우기/ })).toHaveCount(0)
   })
 
