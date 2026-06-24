@@ -16,12 +16,24 @@
   --grid-border: #d8e0ea;
   --grid-border-strong: #b8c4d2;
   --grid-border-soft: #e8eef6;
-  --cross-row-bg: #edf8ff;
-  --cross-row-border: #7dd3fc;
-  --cross-col-bg: #fff7d6;
-  --cross-col-border: #f6c453;
-  --cross-cell-bg: #dffbf4;
+  --cross-row-bg: #dff3ff;
+  --cross-row-border: #38bdf8;
+  --cross-col-bg: #fff4c2;
+  --cross-col-border: #f59e0b;
+  --cross-cell-bg: #d8fff7;
   --cross-cell-border: #0f766e;
+  --pin-0-bg: rgba(255, 228, 230, 0.78);
+  --pin-0-line: #f43f5e;
+  --pin-1-bg: rgba(204, 251, 241, 0.72);
+  --pin-1-line: #0d9488;
+  --pin-2-bg: rgba(237, 233, 254, 0.74);
+  --pin-2-line: #7c3aed;
+  --pin-3-bg: rgba(254, 243, 199, 0.76);
+  --pin-3-line: #d97706;
+  --pin-4-bg: rgba(219, 234, 254, 0.76);
+  --pin-4-line: #2563eb;
+  --pin-5-bg: rgba(220, 252, 231, 0.74);
+  --pin-5-line: #16a34a;
   --c-sum-bg: #f1f5f9;
   --c-sum-text: #1f2937;
   --c-sum-border: var(--grid-border-strong);
@@ -647,6 +659,24 @@
 
 .selection-copy-trigger:hover {
   color: var(--c-text);
+}
+
+.selection-pinned-clear {
+  flex: 0 0 auto;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--grid-border-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.selection-pinned-clear:hover {
+  border-color: #64748b;
+  color: #0f172a;
 }
 
 .selection-label {
@@ -1439,6 +1469,9 @@
   background: var(--cross-row-bg);
   border-top-color: var(--cross-row-border);
   border-bottom-color: var(--cross-row-border);
+  box-shadow:
+    inset 0 1px 0 var(--cross-row-border),
+    inset 0 -1px 0 var(--cross-row-border);
 }
 .pc-excel-table tbody tr td.pc-excel-col-selected,
 .pc-excel-table thead tr td.pc-excel-col-selected,
@@ -1446,6 +1479,9 @@
   background: var(--cross-col-bg);
   border-left-color: var(--cross-col-border);
   border-right-color: var(--cross-col-border);
+  box-shadow:
+    inset 1px 0 0 var(--cross-col-border),
+    inset -1px 0 0 var(--cross-col-border);
 }
 .pc-excel-table tbody tr td.pc-excel-cell-selected,
 .pc-excel-table thead tr td.pc-excel-cell-selected,
@@ -1460,6 +1496,9 @@
   background: var(--cross-row-bg) !important;
   border-top-color: var(--cross-row-border);
   border-bottom-color: var(--cross-row-border);
+  box-shadow:
+    inset 0 1px 0 var(--cross-row-border),
+    inset 0 -1px 0 var(--cross-row-border);
 }
 .pc-excel-table tbody tr td.pc-excel-hover-col,
 .pc-excel-table thead tr td.pc-excel-hover-col,
@@ -1467,6 +1506,9 @@
   background: var(--cross-col-bg) !important;
   border-left-color: var(--cross-col-border);
   border-right-color: var(--cross-col-border);
+  box-shadow:
+    inset 1px 0 0 var(--cross-col-border),
+    inset -1px 0 0 var(--cross-col-border);
 }
 .pc-excel-table tbody tr td.pc-excel-hover-row.pc-excel-hover-col,
 .pc-excel-table thead tr td.pc-excel-hover-row.pc-excel-hover-col,
@@ -1525,6 +1567,91 @@
     0 0 0 1px rgba(15, 118, 110, 0.82),
     0 3px 6px rgba(15, 23, 42, 0.24);
 }
+
+.pc-excel-table .pc-excel-pin-0 {
+  --pin-bg: var(--pin-0-bg);
+  --pin-line: var(--pin-0-line);
+}
+
+.pc-excel-table .pc-excel-pin-1 {
+  --pin-bg: var(--pin-1-bg);
+  --pin-line: var(--pin-1-line);
+}
+
+.pc-excel-table .pc-excel-pin-2 {
+  --pin-bg: var(--pin-2-bg);
+  --pin-line: var(--pin-2-line);
+}
+
+.pc-excel-table .pc-excel-pin-3 {
+  --pin-bg: var(--pin-3-bg);
+  --pin-line: var(--pin-3-line);
+}
+
+.pc-excel-table .pc-excel-pin-4 {
+  --pin-bg: var(--pin-4-bg);
+  --pin-line: var(--pin-4-line);
+}
+
+.pc-excel-table .pc-excel-pin-5 {
+  --pin-bg: var(--pin-5-bg);
+  --pin-line: var(--pin-5-line);
+}
+
+.pc-excel-table tbody tr td.pc-excel-pinned-row,
+.pc-excel-table thead tr td.pc-excel-pinned-row,
+.pc-excel-table tfoot tr td.pc-excel-pinned-row {
+  background: var(--pin-bg) !important;
+  border-top-color: var(--pin-line) !important;
+  border-bottom-color: var(--pin-line) !important;
+  box-shadow:
+    inset 0 1px 0 var(--pin-line),
+    inset 0 -1px 0 var(--pin-line);
+}
+
+.pc-excel-table tbody tr td.pc-excel-pinned-col,
+.pc-excel-table thead tr td.pc-excel-pinned-col,
+.pc-excel-table tfoot tr td.pc-excel-pinned-col {
+  background: var(--pin-bg) !important;
+  border-left-color: var(--pin-line) !important;
+  border-right-color: var(--pin-line) !important;
+  box-shadow:
+    inset 1px 0 0 var(--pin-line),
+    inset -1px 0 0 var(--pin-line);
+}
+
+.pc-excel-table tbody tr td.pc-excel-pinned-row.pc-excel-pinned-col,
+.pc-excel-table thead tr td.pc-excel-pinned-row.pc-excel-pinned-col,
+.pc-excel-table tfoot tr td.pc-excel-pinned-row.pc-excel-pinned-col {
+  box-shadow:
+    inset 0 1px 0 var(--pin-line),
+    inset 0 -1px 0 var(--pin-line),
+    inset 1px 0 0 var(--pin-line),
+    inset -1px 0 0 var(--pin-line);
+}
+
+.pc-excel-table tbody tr td.pc-excel-pinned-cell,
+.pc-excel-table thead tr td.pc-excel-pinned-cell,
+.pc-excel-table tfoot tr td.pc-excel-pinned-cell {
+  background: var(--pin-bg) !important;
+  border-color: var(--pin-line) !important;
+  box-shadow:
+    inset 0 0 0 2px var(--pin-line),
+    0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+.pc-excel-table tbody tr td.map-cell--mapped.pc-excel-pinned-row,
+.pc-excel-table tbody tr td.map-cell--mapped.pc-excel-pinned-col {
+  border-color: var(--pin-line) !important;
+}
+
+.pc-excel-table tbody tr td.map-cell--mapped.pc-excel-pinned-cell {
+  border-color: var(--pin-line) !important;
+  box-shadow:
+    inset 0 0 0 2px var(--pin-line),
+    0 2px 4px rgba(15, 23, 42, 0.22);
+}
+
 .product-merge-start .product-merge-cell {
   border-bottom-color: transparent !important;
 }

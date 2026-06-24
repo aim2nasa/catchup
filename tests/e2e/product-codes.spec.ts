@@ -325,6 +325,43 @@ test.describe('상품코드 페이지', () => {
     await expect(oldDirectSetCell).not.toHaveClass(/map-cell--mapped/)
   })
 
+  test('교차셀 클릭 기준선은 hover 하이라이트와 구분되어 남고 삭제할 수 있다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const firstPinnedCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="B:P00000YS-A"]')
+    await firstPinnedCell.click()
+    await expect(firstPinnedCell).toHaveClass(/pc-excel-pinned-cell/)
+    await expect(firstPinnedCell).toHaveClass(/pc-excel-pin-0/)
+    await expect(page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="A:직접판매"]')).toHaveClass(/pc-excel-pinned-row/)
+    await expect(page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="B:P00000YS-A"]')).toHaveClass(/pc-excel-pinned-col/)
+    await expect(page.getByRole('button', { name: '고정선 1개 지우기' })).toBeVisible()
+
+    const hoverCell = page.locator('td[data-row-key="parent:500g:P00000CB"][data-col-key="B:P00000YU-B"]')
+    await hoverCell.hover()
+    await expect(hoverCell).toHaveClass(/pc-excel-hover-cell/)
+    await expect(firstPinnedCell).toHaveClass(/pc-excel-pinned-cell/)
+    await expect(firstPinnedCell).not.toHaveClass(/pc-excel-hover-cell/)
+
+    await hoverCell.click()
+    await expect(hoverCell).toHaveClass(/pc-excel-pinned-cell/)
+    await expect(hoverCell).toHaveClass(/pc-excel-pin-1/)
+    await expect(page.getByRole('button', { name: '고정선 2개 지우기' })).toBeVisible()
+
+    await firstPinnedCell.click()
+    await expect(firstPinnedCell).not.toHaveClass(/pc-excel-pinned-cell/)
+    await expect(page.getByRole('button', { name: '고정선 1개 지우기' })).toBeVisible()
+
+    await page.getByRole('button', { name: '고정선 1개 지우기' }).click()
+    await expect(hoverCell).not.toHaveClass(/pc-excel-pinned-cell/)
+    await expect(page.getByRole('button', { name: /고정선 .* 지우기/ })).toHaveCount(0)
+  })
+
   test('수평 스크롤 중에도 왼쪽 컬럼 압축과 행 높이 기준이 안정적으로 유지된다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 

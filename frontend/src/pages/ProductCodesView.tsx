@@ -158,6 +158,15 @@ type CellSelectionMeta = {
   excelCol?: number
 }
 
+type PinnedCross = {
+  rowKey: string
+  rowLabel: string
+  colKey: string
+  colLabel: string
+  coordinate: string
+  palette: number
+}
+
 type FormulaDisplayPart = {
   text: string
   kind: 'plain' | 'price'
@@ -1386,6 +1395,7 @@ export function ProductCodesView() {
   const bottomSyncRef = useRef(false)
   const scrollContentWidthRef = useRef(0)
   const setEditorDragRef = useRef<SetEditorDragState | null>(null)
+  const pinnedCrossPaletteRef = useRef(0)
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [isLeftCompact, setIsLeftCompact] = useState(false)
   const [viewMode, setViewMode] = useState<ProductCodesViewMode>(readInitialProductCodesViewMode)
@@ -1396,6 +1406,7 @@ export function ProductCodesView() {
   const [setAddedComponents, setSetAddedComponents] = useState<Record<string, SetProductComponent[]>>({})
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [hoveredCell, setHoveredCell] = useState<Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null>(null)
+  const [pinnedCrosses, setPinnedCrosses] = useState<PinnedCross[]>([])
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
   const [pendingLuAction, setPendingLuAction] = useState<PendingLuAction | null>(null)
   const [luDialogPosition, setLuDialogPosition] = useState<{ x: number; y: number } | null>(null)
@@ -1404,10 +1415,25 @@ export function ProductCodesView() {
   const copyTimerRef = useRef<number | null>(null)
   const effectiveRuleMap = useMemo(() => makeEffectiveRuleMap(luOverrides), [luOverrides])
 
-  const handleCellSelect = (meta: CellSelectionMeta) => {
-    setSelectedCell((prev) => {
-      if (prev && prev.rowKey === meta.rowKey && prev.colKey === meta.colKey) return null
+  const isPinnableCrossCell = (meta: Pick<CellSelectionMeta, 'rowKey' | 'colKey'>) =>
+    meta.colKey.startsWith('B:') && meta.rowKey !== 'product-codes-u-direct'
 
+  const handleCellSelect = (meta: CellSelectionMeta) => {
+    const existingPinnedCross = isPinnableCrossCell(meta)
+      ? pinnedCrosses.find((pin) => pin.rowKey === meta.rowKey && pin.colKey === meta.colKey)
+      : null
+
+    if (existingPinnedCross) {
+      setPinnedCrosses((prev) => prev.filter((pin) => pin !== existingPinnedCross))
+      setHoveredCell(null)
+      setSelectedCell((prev) => {
+        if (prev?.rowKey === meta.rowKey && prev.colKey === meta.colKey) return null
+        return prev
+      })
+      return
+    }
+
+    setSelectedCell(() => {
       const rowMeta = rowMetaByKey.get(meta.rowKey)
       const colMeta = colMetaByKey.get(meta.colKey)
       const formula = rowMeta && colMeta ? rowFormulaByKey.get(`${meta.rowKey}|${meta.colKey}`) ?? '' : ''
@@ -1425,9 +1451,30 @@ export function ProductCodesView() {
         excelCol: colMeta?.excelCol ?? 0,
       }
     })
+
+    if (isPinnableCrossCell(meta)) {
+      const rowMeta = rowMetaByKey.get(meta.rowKey)
+      const colMeta = colMetaByKey.get(meta.colKey)
+      const palette = pinnedCrossPaletteRef.current % 6
+      pinnedCrossPaletteRef.current += 1
+      setPinnedCrosses((prev) => {
+        return [
+          ...prev,
+          {
+            rowKey: meta.rowKey,
+            rowLabel: meta.rowLabel,
+            colKey: meta.colKey,
+            colLabel: meta.colLabel,
+            coordinate: rowMeta && colMeta ? a1(rowMeta.excelRow, colMeta.excelCol) : '',
+            palette,
+          },
+        ]
+      })
+    }
   }
 
   const clearSelection = () => setSelectedCell(null)
+  const clearPinnedCrosses = () => setPinnedCrosses([])
 
   useEffect(() => {
     window.localStorage.setItem(PRODUCT_CODES_VIEW_MODE_KEY, viewMode)
@@ -1642,9 +1689,17 @@ export function ProductCodesView() {
 
   const getCellSelectionClass = (rowKey: string, colKey: string) => {
     const classes: string[] = []
+    if (selectedCell?.rowKey === rowKey) classes.push('pc-excel-row-selected')
+    if (selectedCell?.colKey === colKey) classes.push('pc-excel-col-selected')
     if (selectedCell?.rowKey === rowKey && selectedCell.colKey === colKey) {
       classes.push('pc-excel-cell-selected')
     }
+    const pinnedCell = pinnedCrosses.find((pin) => pin.rowKey === rowKey && pin.colKey === colKey)
+    const pinnedRow = pinnedCell ?? pinnedCrosses.find((pin) => pin.rowKey === rowKey)
+    const pinnedCol = pinnedCell ?? pinnedCrosses.find((pin) => pin.colKey === colKey)
+    if (pinnedRow) classes.push('pc-excel-pinned-row', `pc-excel-pin-${pinnedRow.palette}`)
+    if (pinnedCol) classes.push('pc-excel-pinned-col', `pc-excel-pin-${pinnedCol.palette}`)
+    if (pinnedCell) classes.push('pc-excel-pinned-cell')
     if (hoveredCell?.rowKey === rowKey) classes.push('pc-excel-hover-row')
     if (hoveredCell?.colKey === colKey) classes.push('pc-excel-hover-col')
     if (hoveredCell?.rowKey === rowKey && hoveredCell.colKey === colKey) {
@@ -2784,6 +2839,7 @@ export function ProductCodesView() {
 
   useEffect(() => {
     clearSelection()
+    clearPinnedCrosses()
   }, [state.data])
 
   useEffect(() => {
@@ -3283,6 +3339,16 @@ export function ProductCodesView() {
                         <span>선택 없음</span>
                       </span>
                     )}
+                    {pinnedCrosses.length > 0 ? (
+                      <button
+                        type="button"
+                        className="selection-pinned-clear"
+                        onClick={clearPinnedCrosses}
+                        title="클릭해서 남긴 교차 하이라이트선을 모두 삭제"
+                      >
+                        고정선 {pinnedCrosses.length}개 지우기
+                      </button>
+                    ) : null}
                   </div>
 
                   <div className="selection-detail-grid" aria-label="선택 상세">
