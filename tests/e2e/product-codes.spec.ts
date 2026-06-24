@@ -317,6 +317,7 @@ test.describe('상품코드 페이지', () => {
       const mappedCell = page.locator(`td[data-row-key="${testCase.rowKey}"][data-col-key="${testCase.colKey}"]`)
       await expect(mappedCell).toHaveText(String(directQty * testCase.componentQty))
       await expect(mappedCell).toHaveClass(/map-cell--mapped/)
+      await expect(mappedCell).toHaveCSS('text-align', 'right')
     }
 
     const oldDirectSetCell = page.locator('td[data-row-key="parent:500g:P00000ZB"][data-col-key="B:P00000YS-A"]')
