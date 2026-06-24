@@ -737,7 +737,7 @@ function columnCellClass(state: CellState) {
 }
 
 function displayOptionName(option?: string) {
-  return option ? option.replaceAll('=', ' : ') : '—'
+  return option ? option.replaceAll('=', ' : ') : '-'
 }
 
 function formatFormulaPrice(value: number) {

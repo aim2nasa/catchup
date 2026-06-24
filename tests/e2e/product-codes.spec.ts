@@ -182,6 +182,7 @@ test.describe('상품코드 페이지', () => {
     await page.getByRole('button', { name: '조회' }).click()
     await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
 
+    await expect(page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="A:옵션명"]')).toHaveText('-')
     await expect(page.locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:직접판매"]')).toHaveText('0')
     await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:직접판매"]')).toHaveText('0')
     await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000M"][data-col-key="A:직접판매"]')).toHaveText('28')
