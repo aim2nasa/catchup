@@ -564,10 +564,11 @@ const U_START_EXCEL_COL = 7
 const DIRECT_EXCEL_COLUMN = 6
 const PRICE_EXCEL_COLUMN = 5
 const MISSING_DISPLAY = '미'
-const MISSING_NOTE = 'Cafe24 조회 결과 없음. 실제 0이 아니며 계산에서 제외됨.'
-const PARTIAL_NOTE = '미조회 항목 제외 합계'
+const MISSING_NOTE = '상품/옵션 존재 기준을 확인할 수 없어 0으로 해석하지 않음.'
+const PARTIAL_NOTE = '확인불가 항목 제외 합계'
 
 const loadedMeta: ReadMeta = { status: 'loaded', source: 'cafe24' }
+const periodNoSalesMeta: ReadMeta = { status: 'loaded', source: 'set-design' }
 const missingMeta: ReadMeta = { status: 'missing', source: 'cafe24', note: MISSING_NOTE }
 const partialMeta: ReadMeta = { status: 'partial', source: 'calculated', note: PARTIAL_NOTE }
 
@@ -1368,6 +1369,10 @@ export function ProductCodesView() {
     const buildRow = (code: string): Row => {
       const normalizedCode = normalizeProductCode(code)
       const cafeGroup = byCode.get(normalizedCode)
+      const knownProductSpec = L_PRODUCT_DISPLAY_BY_CODE[normalizedCode]
+      const knownVariantSuffixes = new Set(
+        (knownProductSpec?.variants ?? []).map((variant) => normalizeVariantCode(variant.code)),
+      )
       const g = cafeGroup ?? buildFallbackGroup(normalizedCode)
       const variants = buildDisplayVariants(normalizedCode, g?.variants ?? [], g?.price ?? 0)
       const hasLVariants = g ? !!g.is_multi || variants.length > 1 : variants.length > 1
@@ -1379,12 +1384,17 @@ export function ProductCodesView() {
         ),
       )
       const variantDirectQtyMissing = variants.map((variant) => {
-        if (!cafeGroup) return true
-        return !cafeVariantsBySuffix.has(
-          normalizeVariantSuffix(normalizedCode, variant.variant_code).toUpperCase(),
-        )
+        const suffix = normalizeVariantSuffix(normalizedCode, variant.variant_code).toUpperCase()
+        if (cafeVariantsBySuffix.has(suffix)) return false
+        if (knownVariantSuffixes.has(suffix)) return false
+        return true
       })
-      const directQtyMissing = hasVariantRows ? (variantDirectQtyMissing[0] ?? !cafeGroup) : !cafeGroup
+      const variantDirectQtyMeta = variants.map((variant, idx) => {
+        if (variantDirectQtyMissing[idx]) return missingMeta
+        const suffix = normalizeVariantSuffix(normalizedCode, variant.variant_code).toUpperCase()
+        return cafeVariantsBySuffix.has(suffix) ? loadedMeta : periodNoSalesMeta
+      })
+      const directQtyMissing = hasVariantRows ? (variantDirectQtyMissing[0] ?? !knownProductSpec) : !knownProductSpec
       const directQty = hasVariantRows ? (firstVariant?.qty ?? 0) : g?.qty ?? 0
       const directUnitPrice = (hasVariantRows ? (firstVariant?.price ?? 0) : g?.price ?? 0) || 0
       const mappingQtyByColumn = Array(U_COLUMNS.length).fill(0)
@@ -1512,8 +1522,9 @@ export function ProductCodesView() {
         0,
       )
       const directQtyFallback = g ? (hasVariantRows ? directQtyForSummary : (g.qty ?? 0)) : 0
-      const firstVariantDirectMeta = directQtyMissing ? missingMeta : loadedMeta
-      const variantDirectQtyMeta = variantDirectQtyMissing.map((missing) => (missing ? missingMeta : loadedMeta))
+      const firstVariantDirectMeta = directQtyMissing
+        ? missingMeta
+        : (variantDirectQtyMeta[0] ?? (cafeGroup ? loadedMeta : periodNoSalesMeta))
       const variantTotalPartial = variants.map((_, idx) => variantDirectQtyMissing[idx] ?? false)
       const variantTotalMeta = variantTotalPartial.map((partial) => (partial ? partialMeta : loadedMeta))
       // 부모행은 부모 직접판매 + 부모 매핑/대표옵션 매핑 값만 반영한다.
@@ -2206,11 +2217,11 @@ export function ProductCodesView() {
     worksheet.getCell(legendStartRow, 1).value = '조회값 상태 범례'
     worksheet.getCell(legendStartRow, 1).font = { bold: true }
     worksheet.getCell(legendStartRow + 1, 1).value = '0'
-    worksheet.getCell(legendStartRow + 1, 2).value = 'Cafe24에서 실제 0으로 조회된 값'
+    worksheet.getCell(legendStartRow + 1, 2).value = 'Cafe24 조회값 0 또는 존재 확인된 상품/옵션의 기간 판매 없음'
     worksheet.getCell(legendStartRow + 2, 1).value = MISSING_DISPLAY
-    worksheet.getCell(legendStartRow + 2, 2).value = 'Cafe24 조회 결과 없음. 화면 표기이며 엑셀 숫자 셀은 빈값'
+    worksheet.getCell(legendStartRow + 2, 2).value = '상품/옵션 존재 기준 확인불가. 화면 표기이며 엑셀 숫자 셀은 빈값'
     worksheet.getCell(legendStartRow + 3, 1).value = '*'
-    worksheet.getCell(legendStartRow + 3, 2).value = '미조회 항목 제외 합계'
+    worksheet.getCell(legendStartRow + 3, 2).value = '확인불가 항목 제외 합계'
 
     worksheet.getRow(5).height = 14
     worksheet.getRow(6).height = 38
@@ -2348,6 +2359,20 @@ export function ProductCodesView() {
                 <span className="pc-excel-period">
                   {state.data!.start} ~ {state.data!.end}
                 </span>
+                <span
+                  className="read-state-legend"
+                  aria-label="조회값 상태 범례. 0은 Cafe24 조회값 0 또는 기준표에 존재하지만 해당 기간 판매 응답이 없는 상품/옵션입니다."
+                  title="0은 Cafe24 조회값 0 또는 기준표에 존재하지만 해당 기간 판매 응답이 없는 상품/옵션입니다."
+                >
+                  <span className="read-state-legend-item">
+                    <span className="read-state-sample read-state-sample--missing">미</span>
+                    <span>확인불가</span>
+                  </span>
+                  <span className="read-state-legend-item">
+                    <span className="read-state-sample read-state-sample--partial">*</span>
+                    <span>확인불가 제외 합계</span>
+                  </span>
+                </span>
                 <div className="pc-excel-selection-indicator">
                   {selectedCell ? (
                     <span
@@ -2408,16 +2433,6 @@ export function ProductCodesView() {
                       <span className="selection-cell-kind">값 셀</span>
                     )
                   ) : null}
-                  <span className="read-state-legend" aria-label="조회값 상태 범례">
-                    <span className="read-state-legend-item">
-                      <span className="read-state-sample read-state-sample--missing">미</span>
-                      <span>미조회</span>
-                    </span>
-                    <span className="read-state-legend-item">
-                      <span className="read-state-sample read-state-sample--partial">*</span>
-                      <span>미조회 제외 합계</span>
-                    </span>
-                  </span>
                 </div>
               </div>
             ) : null}
