@@ -389,7 +389,8 @@ test.describe('상품코드 페이지', () => {
 
     await page
       .locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:P00000YS-A"]')
-      .click()
+      .evaluate((cell) => (cell as HTMLElement).click())
+    await page.mouse.move(5, 5)
     await expect(page.getByLabel('위쪽 상품')).toContainText('세트 상품')
     await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-set/)
     const setCardColor = await page.locator('.selection-product-panel-top').evaluate((card) => ({
@@ -410,6 +411,57 @@ test.describe('상품코드 페이지', () => {
     await page.reload()
     await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
     await expect(page.getByRole('button', { name: '더 넓게' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('세트상품 헤더에서 구성 편집 모달을 열고 왼쪽상품을 교체/추가/삭제할 수 있다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    await setProductCodesScrollLeft(page, 1500)
+    await page.getByRole('button', { name: 'P00000YZ 세트상품 구성 편집' }).click()
+    const modal = page.getByRole('dialog', { name: '라이콘 컵 왁스 비즈 110g 세트' })
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText('공통 구성')
+    await expect(modal).toContainText('선택 옵션 구성')
+    await expect(modal).toContainText('구성 합계 ₩44,380')
+    await expect(page.getByLabel('세트상품 선택')).toHaveCount(0)
+
+    await expect(modal).toContainText('P00000ZA')
+    await expect(modal).toContainText('P00000VK')
+    await expect(modal).toContainText('P00000ZB')
+
+    await page.getByLabel('P00000YZ-common-P00000ZA-A 수량', { exact: true }).fill('2')
+    await expect(modal).toContainText('구성 합계 ₩49,000')
+    await expect(modal).toContainText('화면 초안')
+
+    await page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품', { exact: true }).selectOption('P00000HT')
+    await expect(modal).toContainText('라이코젯아이브로우(Lycojet Eyebrow Hot Wax) 500g')
+    await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품 옵션', { exact: true })).toHaveValue('A')
+
+    await modal.getByRole('button', { name: '왼쪽상품 추가' }).first().click()
+    await expect(modal.locator('select[aria-label$="왼쪽상품"]')).toHaveCount(5)
+
+    await modal.getByRole('button', { name: '삭제' }).first().click()
+    await expect(modal.getByRole('button', { name: '복구' })).toBeVisible()
+
+    await page.getByRole('button', { name: '초기값' }).click()
+    await expect(modal).toContainText('구성 합계 ₩44,380')
+    await expect(modal).not.toContainText('화면 초안')
+
+    await page.getByRole('button', { name: '닫기' }).click()
+    await expect(modal).toBeHidden()
+
+    await setProductCodesScrollLeft(page, 2600)
+    await page.getByRole('button', { name: 'P00000YU 세트상품 구성 편집' }).click()
+    const yuModal = page.getByRole('dialog', { name: '라이콘 바디왁싱 스타터 키트20%할인' })
+    await expect(yuModal).toContainText('P00000TX')
+    await expect(yuModal).toContainText('P00000DG')
+    await expect(yuModal).toContainText('구성 합계 ₩304,080')
   })
 })
 

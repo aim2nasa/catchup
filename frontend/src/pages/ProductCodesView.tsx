@@ -195,6 +195,38 @@ interface MappingRule {
   ratio: number
 }
 
+type SetComponentScope = 'common' | 'option'
+
+type SetProductComponent = {
+  id: string
+  scope: SetComponentScope
+  productCode: string
+  optionCode: string
+  qty: number
+  setPrice: number
+}
+
+type SetProductVariantConfig = {
+  variantCode: string
+  optionName: string
+  components: SetProductComponent[]
+}
+
+type SetProductConfig = {
+  productCode: string
+  productName: string
+  variants: SetProductVariantConfig[]
+  commonComponents?: SetProductComponent[]
+}
+
+type SetProductComponentDraft = {
+  productCode: string
+  optionCode: string
+  qty: number
+  setPrice: number
+  deleted?: boolean
+}
+
 function makeUCellKey(uProduct: string, uVariant: string) {
   return `${normalizeProductCode(uProduct)}${COLUMN_KEY_DELIM}${normalizeVariantCode(uVariant)}`
 }
@@ -370,6 +402,12 @@ const L_PRODUCT_DISPLAY_BY_CODE: Record<string, LProductDisplaySpec> = {
   },
 }
 
+const L_PRODUCT_CHOICES = Object.entries(L_PRODUCT_DISPLAY_BY_CODE).map(([productCode, spec]) => ({
+  productCode,
+  productName: spec.name,
+  variants: spec.variants,
+}))
+
 const QUERY_CODES = [
   ...new Set([
     ...L_GROUPS.flatMap((g) => g.codes),
@@ -454,6 +492,117 @@ const U_COLUMNS = U_BLOCKS.flatMap((block) =>
 )
 
 const COLUMN_KEY_DELIM = '|'
+
+const SET_PRODUCT_CONFIGS: SetProductConfig[] = [
+  {
+    productCode: 'P00000YZ',
+    productName: '라이콘 컵 왁스 비즈 110g 세트',
+    commonComponents: [
+      { id: 'P00000YZ-common-P00000ZA-A', scope: 'common', productCode: 'P00000ZA', optionCode: 'A', qty: 1, setPrice: 4620 },
+      { id: 'P00000YZ-common-P00000ZA-B', scope: 'common', productCode: 'P00000ZA', optionCode: 'B', qty: 1, setPrice: 4620 },
+      { id: 'P00000YZ-common-P00000VK-N', scope: 'common', productCode: 'P00000VK', optionCode: 'N', qty: 1, setPrice: 30800 },
+    ],
+    variants: [
+      {
+        variantCode: 'D',
+        optionName: '컵왁스 선택 : 로제트 컵 왁스 비즈 세트 110g',
+        components: [
+          { id: 'P00000YZ-D-P00000ZB-A', scope: 'option', productCode: 'P00000ZB', optionCode: 'A', qty: 1, setPrice: 4340 },
+        ],
+      },
+      {
+        variantCode: 'E',
+        optionName: '컵왁스 선택 : 라벤더 컵 왁스 비즈 세트 110g',
+        components: [
+          { id: 'P00000YZ-E-P00000ZB-B', scope: 'option', productCode: 'P00000ZB', optionCode: 'B', qty: 1, setPrice: 4340 },
+        ],
+      },
+      {
+        variantCode: 'H',
+        optionName: '컵왁스 선택 : 하이브리드 컵 왁스 비즈 세트 110g',
+        components: [
+          { id: 'P00000YZ-H-P00000ZB-C', scope: 'option', productCode: 'P00000ZB', optionCode: 'C', qty: 1, setPrice: 5580 },
+        ],
+      },
+      {
+        variantCode: 'I',
+        optionName: '컵왁스 선택 : 핑키니 컵 왁스 비즈 세트 110g',
+        components: [
+          { id: 'P00000YZ-I-P00000ZB-D', scope: 'option', productCode: 'P00000ZB', optionCode: 'D', qty: 1, setPrice: 5580 },
+        ],
+      },
+    ],
+  },
+  {
+    productCode: 'P00000YS',
+    productName: '제모미인 스타터키트20%',
+    variants: [
+      {
+        variantCode: 'A',
+        optionName: '-',
+        components: [
+          { id: 'P00000YS-A-P00000HT-A', scope: 'option', productCode: 'P00000HT', optionCode: 'A', qty: 1, setPrice: 21040 },
+          { id: 'P00000YS-A-P00000ZA-A', scope: 'option', productCode: 'P00000ZA', optionCode: 'A', qty: 1, setPrice: 5300 },
+          { id: 'P00000YS-A-P00000ZA-B', scope: 'option', productCode: 'P00000ZA', optionCode: 'B', qty: 1, setPrice: 5300 },
+          { id: 'P00000YS-A-P00000XU-A', scope: 'option', productCode: 'P00000XU', optionCode: 'A', qty: 1, setPrice: 12800 },
+          { id: 'P00000YS-A-P00000XW-B', scope: 'option', productCode: 'P00000XW', optionCode: 'B', qty: 5, setPrice: 1600 },
+          { id: 'P00000YS-A-P00000VK-N', scope: 'option', productCode: 'P00000VK', optionCode: 'N', qty: 1, setPrice: 36920 },
+          { id: 'P00000YS-A-P00000TX-D', scope: 'option', productCode: 'P00000TX', optionCode: 'D', qty: 1, setPrice: 2000 },
+        ],
+      },
+    ],
+  },
+  {
+    productCode: 'P00000YU',
+    productName: '라이콘 바디왁싱 스타터 키트20%할인',
+    variants: [
+      {
+        variantCode: 'B',
+        optionName: '선택 : 라이콘',
+        components: [
+          { id: 'P00000YU-B-P00000CH-A', scope: 'option', productCode: 'P00000CH', optionCode: 'A', qty: 1, setPrice: 30240 },
+          { id: 'P00000YU-B-P00000CM-A', scope: 'option', productCode: 'P00000CM', optionCode: 'A', qty: 1, setPrice: 27760 },
+          { id: 'P00000YU-B-P00000BU-A', scope: 'option', productCode: 'P00000BU', optionCode: 'A', qty: 1, setPrice: 37600 },
+          { id: 'P00000YU-B-P00000BJ-A', scope: 'option', productCode: 'P00000BJ', optionCode: 'A', qty: 1, setPrice: 11760 },
+          { id: 'P00000YU-B-P00000VK-M', scope: 'option', productCode: 'P00000VK', optionCode: 'M', qty: 1, setPrice: 163200 },
+          { id: 'P00000YU-B-P00000DD-A', scope: 'option', productCode: 'P00000DD', optionCode: 'A', qty: 1, setPrice: 14400 },
+          { id: 'P00000YU-B-P00000TX-H', scope: 'option', productCode: 'P00000TX', optionCode: 'H', qty: 1, setPrice: 2000 },
+          { id: 'P00000YU-B-P00000TX-F', scope: 'option', productCode: 'P00000TX', optionCode: 'F', qty: 1, setPrice: 2000 },
+          { id: 'P00000YU-B-P00000DG-H', scope: 'option', productCode: 'P00000DG', optionCode: 'H', qty: 1, setPrice: 15120 },
+        ],
+      },
+    ],
+  },
+  {
+    productCode: 'P00000VP',
+    productName: '[도매묶음20%] 미니스크럽 10종 세트',
+    variants: [
+      {
+        variantCode: 'B',
+        optionName: '선택(향) : (10종)1박스',
+        components: [
+          { id: 'P00000VP-B-P00000OG-H', scope: 'option', productCode: 'P00000OG', optionCode: 'H', qty: 4, setPrice: 6720 },
+          { id: 'P00000VP-B-P00000OG-K', scope: 'option', productCode: 'P00000OG', optionCode: 'K', qty: 4, setPrice: 6720 },
+          { id: 'P00000VP-B-P00000OG-I', scope: 'option', productCode: 'P00000OG', optionCode: 'I', qty: 2, setPrice: 6720 },
+        ],
+      },
+    ],
+  },
+  {
+    productCode: 'P00000VA',
+    productName: '화이트닝 키트 20% 할인',
+    variants: [
+      {
+        variantCode: 'A',
+        optionName: '-',
+        components: [
+          { id: 'P00000VA-A-P0000BJC-A', scope: 'option', productCode: 'P0000BJC', optionCode: 'A', qty: 10, setPrice: 9600 },
+          { id: 'P00000VA-A-P00000UK-A', scope: 'option', productCode: 'P00000UK', optionCode: 'A', qty: 50, setPrice: 1400 },
+        ],
+      },
+    ],
+  },
+]
 
 const RULES: MappingRule[] = [
   { uProduct: 'P00000QE', uVariant: 'G', lProduct: 'P00000BV', ratio: 1 },
@@ -769,6 +918,58 @@ function displayOptionName(option?: string) {
   return option ? option.replaceAll('=', ' : ') : '-'
 }
 
+function getSetConfigByProductCode(productCode: string | null) {
+  if (!productCode) return null
+  const normalizedCode = normalizeProductCode(productCode)
+  return SET_PRODUCT_CONFIGS.find((config) => normalizeProductCode(config.productCode) === normalizedCode) ?? null
+}
+
+function makeSetComponentScopeKey(productCode: string, scope: SetComponentScope, variantCode?: string) {
+  return `${normalizeProductCode(productCode)}${COLUMN_KEY_DELIM}${scope}${COLUMN_KEY_DELIM}${
+    scope === 'common' ? 'common' : normalizeVariantCode(variantCode ?? '')
+  }`
+}
+
+function getSetComponentDraft(
+  drafts: Record<string, SetProductComponentDraft>,
+  component: SetProductComponent,
+) {
+  return drafts[component.id] ?? {
+    productCode: component.productCode,
+    optionCode: component.optionCode,
+    qty: component.qty,
+    setPrice: component.setPrice,
+  }
+}
+
+function hasSetComponentDraftChange(
+  drafts: Record<string, SetProductComponentDraft>,
+  component: SetProductComponent,
+) {
+  const draft = drafts[component.id]
+  if (!draft) return false
+  return draft.deleted === true
+    || draft.productCode !== component.productCode
+    || draft.optionCode !== component.optionCode
+    || draft.qty !== component.qty
+    || draft.setPrice !== component.setPrice
+}
+
+function getLProductName(productCode: string) {
+  return L_PRODUCT_DISPLAY_BY_CODE[normalizeProductCode(productCode)]?.name ?? productCode
+}
+
+function getLVariantChoices(productCode: string) {
+  return L_PRODUCT_DISPLAY_BY_CODE[normalizeProductCode(productCode)]?.variants ?? []
+}
+
+function getLVariantPrice(productCode: string, optionCode: string) {
+  const spec = getLVariantChoices(productCode).find(
+    (variant) => normalizeVariantCode(variant.code) === normalizeVariantCode(optionCode),
+  )
+  return spec?.price ?? 0
+}
+
 function productContextTitle(productName: string, optionName?: string, meta?: ReadMeta) {
   const normalizedOption = displayOptionName(optionName)
   const lines = [`상품명: ${productName}`, `옵션명: ${normalizedOption}`]
@@ -1070,6 +1271,10 @@ export function ProductCodesView() {
   const [topScrollbarWidth, setTopScrollbarWidth] = useState(0)
   const [isLeftCompact, setIsLeftCompact] = useState(false)
   const [viewMode, setViewMode] = useState<ProductCodesViewMode>(readInitialProductCodesViewMode)
+  const [editingSetProductCode, setEditingSetProductCode] = useState<string | null>(null)
+  const [selectedSetVariantCode, setSelectedSetVariantCode] = useState('')
+  const [setComponentDrafts, setSetComponentDrafts] = useState<Record<string, SetProductComponentDraft>>({})
+  const [setAddedComponents, setSetAddedComponents] = useState<Record<string, SetProductComponent[]>>({})
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [hoveredCell, setHoveredCell] = useState<Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null>(null)
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
@@ -2079,6 +2284,155 @@ export function ProductCodesView() {
 
   const activeUColumnInfo = hoveredUColumnInfo ?? selectedUColumnInfo
 
+  const activeSetConfig = useMemo(() => getSetConfigByProductCode(editingSetProductCode), [editingSetProductCode])
+  const activeSetVariant = activeSetConfig?.variants.find(
+    (variant) => normalizeVariantCode(variant.variantCode) === normalizeVariantCode(selectedSetVariantCode),
+  ) ?? activeSetConfig?.variants[0] ?? null
+  const commonSetScopeKey = activeSetConfig
+    ? makeSetComponentScopeKey(activeSetConfig.productCode, 'common')
+    : ''
+  const optionSetScopeKey = activeSetConfig && activeSetVariant
+    ? makeSetComponentScopeKey(activeSetConfig.productCode, 'option', activeSetVariant.variantCode)
+    : ''
+  const activeSetCommonComponents = activeSetConfig
+    ? [
+      ...(activeSetConfig.commonComponents ?? []),
+      ...(setAddedComponents[commonSetScopeKey] ?? []),
+    ]
+    : []
+  const activeSetOptionComponents = activeSetVariant
+    ? [
+      ...activeSetVariant.components,
+      ...(setAddedComponents[optionSetScopeKey] ?? []),
+    ]
+    : []
+  const activeSetComponents = [...activeSetCommonComponents, ...activeSetOptionComponents]
+  const visibleSetComponents = activeSetComponents.filter((component) => !getSetComponentDraft(setComponentDrafts, component).deleted)
+  const activeSetTotal = visibleSetComponents.reduce((sum, component) => {
+    const draft = getSetComponentDraft(setComponentDrafts, component)
+    return sum + draft.qty * draft.setPrice
+  }, 0)
+  const activeSetDirty = activeSetComponents.some((component) =>
+    hasSetComponentDraftChange(setComponentDrafts, component),
+  ) || Boolean(activeSetConfig && (
+    (setAddedComponents[commonSetScopeKey]?.length ?? 0) > 0
+    || (setAddedComponents[optionSetScopeKey]?.length ?? 0) > 0
+  ))
+
+  const openSetConfigModal = (productCode: string, variantCode?: string) => {
+    const config = getSetConfigByProductCode(productCode)
+    if (!config) return
+    setEditingSetProductCode(config.productCode)
+    setSelectedSetVariantCode(variantCode && config.variants.some((variant) => normalizeVariantCode(variant.variantCode) === normalizeVariantCode(variantCode))
+      ? normalizeVariantCode(variantCode)
+      : config.variants[0]?.variantCode ?? '')
+  }
+
+  const updateSetComponentDraft = (
+    component: SetProductComponent,
+    patch: Partial<SetProductComponentDraft>,
+  ) => {
+    setSetComponentDrafts((prev) => {
+      const current = getSetComponentDraft(prev, component)
+      const next = {
+        ...current,
+        ...patch,
+      }
+      const normalizedNext = {
+        ...next,
+        productCode: normalizeProductCode(next.productCode),
+        optionCode: normalizeVariantCode(next.optionCode),
+        qty: Number.isFinite(next.qty) ? next.qty : 0,
+        setPrice: Number.isFinite(next.setPrice) ? next.setPrice : 0,
+      }
+      const resetToBase = !normalizedNext.deleted
+        && normalizedNext.productCode === component.productCode
+        && normalizedNext.optionCode === component.optionCode
+        && normalizedNext.qty === component.qty
+        && normalizedNext.setPrice === component.setPrice
+      if (resetToBase) {
+        const rest = { ...prev }
+        delete rest[component.id]
+        return rest
+      }
+      return { ...prev, [component.id]: normalizedNext }
+    })
+  }
+
+  const updateSetComponentProduct = (component: SetProductComponent, productCode: string) => {
+    const normalizedProductCode = normalizeProductCode(productCode)
+    const firstVariant = getLVariantChoices(normalizedProductCode)[0]
+    updateSetComponentDraft(component, {
+      productCode: normalizedProductCode,
+      optionCode: firstVariant?.code ?? '',
+      setPrice: firstVariant?.price ?? 0,
+    })
+  }
+
+  const updateSetComponentOption = (component: SetProductComponent, optionCode: string) => {
+    const current = getSetComponentDraft(setComponentDrafts, component)
+    const normalizedOptionCode = normalizeVariantCode(optionCode)
+    updateSetComponentDraft(component, {
+      optionCode: normalizedOptionCode,
+      setPrice: getLVariantPrice(current.productCode, normalizedOptionCode) || current.setPrice,
+    })
+  }
+
+  const addSetComponent = (scope: SetComponentScope) => {
+    if (!activeSetConfig || !activeSetVariant) return
+    const firstProduct = L_PRODUCT_CHOICES[0]
+    const firstVariant = firstProduct?.variants[0]
+    if (!firstProduct || !firstVariant) return
+    const scopeKey = scope === 'common'
+      ? commonSetScopeKey
+      : optionSetScopeKey
+    const component: SetProductComponent = {
+      id: `draft-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      scope,
+      productCode: firstProduct.productCode,
+      optionCode: firstVariant.code,
+      qty: 1,
+      setPrice: firstVariant.price ?? 0,
+    }
+    setSetAddedComponents((prev) => ({
+      ...prev,
+      [scopeKey]: [...(prev[scopeKey] ?? []), component],
+    }))
+  }
+
+  const deleteSetComponent = (component: SetProductComponent) => {
+    if (component.id.startsWith('draft-')) {
+      setSetAddedComponents((prev) => {
+        const next = { ...prev }
+        for (const [scopeKey, components] of Object.entries(next)) {
+          next[scopeKey] = components.filter((candidate) => candidate.id !== component.id)
+        }
+        return next
+      })
+      return
+    }
+    updateSetComponentDraft(component, { deleted: true })
+  }
+
+  const resetActiveSetDraft = () => {
+    setSetComponentDrafts((prev) => {
+      const next = { ...prev }
+      activeSetComponents.forEach((component) => {
+        delete next[component.id]
+      })
+      return next
+    })
+    setSetAddedComponents((prev) => {
+      if (!activeSetConfig) return prev
+      const next = { ...prev }
+      delete next[commonSetScopeKey]
+      activeSetConfig.variants.forEach((variant) => {
+        delete next[makeSetComponentScopeKey(activeSetConfig.productCode, 'option', variant.variantCode)]
+      })
+      return next
+    })
+  }
+
   const excelRowNumber = (rowKey: string) => rowMetaByKey.get(rowKey)?.excelRow ?? ''
 
   useEffect(() => {
@@ -2444,6 +2798,99 @@ export function ProductCodesView() {
     }
   }, [dataReady])
 
+  const renderSetComponentRows = (components: SetProductComponent[]) => (
+    components.map((component) => {
+      const draft = getSetComponentDraft(setComponentDrafts, component)
+      const isChanged = hasSetComponentDraftChange(setComponentDrafts, component)
+      const variantChoices = getLVariantChoices(draft.productCode)
+      const amount = draft.qty * draft.setPrice
+      return (
+        <tr
+          key={component.id}
+          className={`${isChanged ? 'is-changed' : ''}${draft.deleted ? ' is-deleted' : ''}`}
+        >
+          <td>
+            <span className={`set-editor-scope is-${component.scope}`}>
+              {component.scope === 'common' ? '공통' : '옵션'}
+            </span>
+          </td>
+          <td>
+            <select
+              value={draft.productCode}
+              title={`${draft.productCode} · ${getLProductName(draft.productCode)}`}
+              aria-label={`${component.id} 왼쪽상품`}
+              onChange={(event) => updateSetComponentProduct(component, event.target.value)}
+              disabled={draft.deleted}
+            >
+              {L_PRODUCT_CHOICES.map((choice) => (
+                <option key={choice.productCode} value={choice.productCode}>
+                  {choice.productCode} · {choice.productName}
+                </option>
+              ))}
+            </select>
+          </td>
+          <td>
+            <select
+              value={draft.optionCode}
+              title={`${draft.optionCode} · ${displayOptionName(getLVariantChoices(draft.productCode).find((variant) => variant.code === draft.optionCode)?.option)}`}
+              aria-label={`${component.id} 왼쪽상품 옵션`}
+              onChange={(event) => updateSetComponentOption(component, event.target.value)}
+              disabled={draft.deleted}
+            >
+              {variantChoices.map((variant) => (
+                <option key={variant.code} value={variant.code}>
+                  {variant.code} · {displayOptionName(variant.option)}
+                </option>
+              ))}
+            </select>
+          </td>
+          <td>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={draft.qty}
+              aria-label={`${component.id} 수량`}
+              onChange={(event) => updateSetComponentDraft(component, { qty: Number(event.target.value) })}
+              disabled={draft.deleted}
+            />
+          </td>
+          <td>
+            <input
+              type="number"
+              min="0"
+              step="10"
+              value={draft.setPrice}
+              aria-label={`${component.id} 세트가`}
+              onChange={(event) => updateSetComponentDraft(component, { setPrice: Number(event.target.value) })}
+              disabled={draft.deleted}
+            />
+          </td>
+          <td className="num set-editor-amount">{draft.deleted ? '-' : fmtCurrency(amount, currency)}</td>
+          <td>
+            {draft.deleted ? (
+              <button
+                type="button"
+                className="btn btn-secondary set-editor-row-action"
+                onClick={() => updateSetComponentDraft(component, { deleted: false })}
+              >
+                복구
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary set-editor-row-action"
+                onClick={() => deleteSetComponent(component)}
+              >
+                삭제
+              </button>
+            )}
+          </td>
+        </tr>
+      )
+    })
+  )
+
   return (
     <div className="pc-excel-container">
       <div className="pc-excel-sticky-top">
@@ -2684,9 +3131,24 @@ export function ProductCodesView() {
                     <th
                       key={block.productCode}
                       colSpan={block.variants.length}
-                      className={`u-header copyable-header ${uBlockClass(block)}`}
+                      className={`u-header copyable-header ${uBlockClass(block)}${block.group === 'set' ? ' is-set-editable' : ''}`}
                       style={{ minWidth: `${Math.max(block.variants.length * 32, 96)}px` }}
-                      title={`${block.productCode} ${block.productLabel} 더블클릭 복사`}
+                      title={block.group === 'set'
+                        ? `${block.productCode} ${block.productLabel} 구성 편집`
+                        : `${block.productCode} ${block.productLabel} 더블클릭 복사`}
+                      tabIndex={block.group === 'set' ? 0 : undefined}
+                      role={block.group === 'set' ? 'button' : undefined}
+                      aria-label={block.group === 'set' ? `${block.productCode} 세트상품 구성 편집` : undefined}
+                      onClick={() => {
+                        if (block.group === 'set') openSetConfigModal(block.productCode)
+                      }}
+                      onKeyDown={(event) => {
+                        if (block.group !== 'set') return
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          openSetConfigModal(block.productCode)
+                        }
+                      }}
                       onDoubleClick={() => handleCopyProductCode(block.productCode)}
                     >
                       <div className="u-header-group">
@@ -3696,6 +4158,165 @@ export function ProductCodesView() {
           </div>
         </div>
       )}
+
+      {activeSetConfig && editingSetProductCode ? (
+        <div className="set-editor-backdrop" role="presentation">
+          <div className="set-editor-modal" role="dialog" aria-modal="true" aria-labelledby="set-editor-title">
+            <header className="set-editor-header">
+              <div>
+                <span className="set-editor-eyebrow">세트상품 구성 편집</span>
+                <h2 id="set-editor-title">{activeSetConfig.productName}</h2>
+                <p>
+                  <span className="set-editor-code">{activeSetConfig.productCode}</span>
+                  <span>옵션 {activeSetConfig.variants.length}개</span>
+                  {activeSetDirty ? <span className="set-editor-dirty">화면 초안</span> : null}
+                </p>
+              </div>
+              <div className="set-editor-header-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={resetActiveSetDraft}
+                  disabled={!activeSetDirty}
+                >
+                  초기값
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setEditingSetProductCode(null)}
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setEditingSetProductCode(null)}
+                >
+                  적용
+                </button>
+              </div>
+            </header>
+
+            <div className="set-editor-body">
+              <aside className="set-editor-options" aria-label="세트상품 옵션">
+                <div className="set-editor-section-title">
+                  <strong>옵션</strong>
+                  <span>옵션별 구성을 선택</span>
+                </div>
+                <div className="set-editor-option-list">
+                  {activeSetConfig.variants.map((variant) => {
+                    const isSelected = activeSetVariant?.variantCode === variant.variantCode
+                    const optionComponents = [
+                      ...variant.components,
+                      ...(setAddedComponents[makeSetComponentScopeKey(activeSetConfig.productCode, 'option', variant.variantCode)] ?? []),
+                    ]
+                    const optionTotal = [
+                      ...(activeSetConfig.commonComponents ?? []),
+                      ...(setAddedComponents[commonSetScopeKey] ?? []),
+                      ...optionComponents,
+                    ].reduce((sum, component) => {
+                      const draft = getSetComponentDraft(setComponentDrafts, component)
+                      return draft.deleted ? sum : sum + draft.qty * draft.setPrice
+                    }, 0)
+                    return (
+                      <button
+                        type="button"
+                        key={variant.variantCode}
+                        className={`set-editor-option${isSelected ? ' is-selected' : ''}`}
+                        onClick={() => setSelectedSetVariantCode(variant.variantCode)}
+                      >
+                        <span className="set-editor-option-code">{variant.variantCode}</span>
+                        <span className="set-editor-option-name">{displayOptionName(variant.optionName)}</span>
+                        <span className="set-editor-option-meta">
+                          구성 {optionComponents.length}개 · {fmtCurrency(optionTotal, currency)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </aside>
+
+              <main className="set-editor-main">
+                <section className="set-editor-card">
+                  <div className="set-editor-card-head">
+                    <div>
+                      <strong>공통 구성</strong>
+                      <span>모든 옵션에 공통으로 포함</span>
+                    </div>
+                    <button type="button" className="btn btn-secondary" onClick={() => addSetComponent('common')}>
+                      왼쪽상품 추가
+                    </button>
+                  </div>
+                  <div className="set-editor-table-wrap">
+                    <table className="set-editor-table">
+                      <thead>
+                        <tr>
+                          <th>구분</th>
+                          <th>왼쪽상품 선택</th>
+                          <th>옵션 선택</th>
+                          <th>수량</th>
+                          <th>세트가</th>
+                          <th>금액</th>
+                          <th>작업</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeSetCommonComponents.length > 0 ? renderSetComponentRows(activeSetCommonComponents) : (
+                          <tr>
+                            <td colSpan={7} className="set-editor-empty">공통 구성 상품이 없습니다.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section className="set-editor-card">
+                  <div className="set-editor-card-head">
+                    <div>
+                      <strong>선택 옵션 구성</strong>
+                      <span>
+                        {activeSetVariant
+                          ? `${activeSetVariant.variantCode} · ${displayOptionName(activeSetVariant.optionName)}`
+                          : '옵션을 선택하세요'}
+                      </span>
+                    </div>
+                    <div className="set-editor-card-actions">
+                      <span className="set-editor-total">구성 합계 {fmtCurrency(activeSetTotal, currency)}</span>
+                      <button type="button" className="btn btn-secondary" onClick={() => addSetComponent('option')}>
+                        왼쪽상품 추가
+                      </button>
+                    </div>
+                  </div>
+                  <div className="set-editor-table-wrap">
+                    <table className="set-editor-table">
+                      <thead>
+                        <tr>
+                          <th>구분</th>
+                          <th>왼쪽상품 선택</th>
+                          <th>옵션 선택</th>
+                          <th>수량</th>
+                          <th>세트가</th>
+                          <th>금액</th>
+                          <th>작업</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeSetOptionComponents.length > 0 ? renderSetComponentRows(activeSetOptionComponents) : (
+                          <tr>
+                            <td colSpan={7} className="set-editor-empty">선택 옵션에만 적용되는 구성 상품이 없습니다.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </main>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pendingLuAction ? (
         <div className="lu-confirm-backdrop" role="presentation">

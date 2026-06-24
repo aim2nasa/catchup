@@ -99,6 +99,335 @@
   overflow: hidden;
 }
 
+.set-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.set-editor-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1480px, 94vw);
+  max-height: 88vh;
+  overflow: hidden;
+  border: 1px solid var(--grid-border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+}
+
+.set-editor-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--grid-border);
+  background: var(--axis-top-set-bg);
+}
+
+.set-editor-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--axis-top-set-text);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.set-editor-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.set-editor-header p {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 5px 0 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.set-editor-code,
+.set-editor-option-code {
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-weight: 900;
+}
+
+.set-editor-dirty {
+  padding: 1px 6px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.set-editor-header-actions,
+.set-editor-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.set-editor-body {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.set-editor-options {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--grid-border);
+  background: #f8fafc;
+}
+
+.set-editor-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--grid-border);
+}
+
+.set-editor-section-title strong,
+.set-editor-card-head strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.set-editor-section-title span,
+.set-editor-card-head span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.set-editor-option-list {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
+
+.set-editor-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  width: 100%;
+  border: 1px solid var(--grid-border);
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.set-editor-option.is-selected {
+  border-color: var(--axis-top-set-accent);
+  background: var(--axis-top-set-cell-bg);
+}
+
+.set-editor-option-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.set-editor-option-meta {
+  grid-column: 1 / -1;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.set-editor-main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.set-editor-card {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--grid-border);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.set-editor-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--grid-border);
+  background: var(--axis-top-set-cell-bg);
+}
+
+.set-editor-card-head > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.set-editor-total {
+  color: var(--axis-top-set-text);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.set-editor-table-wrap {
+  max-height: 240px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.set-editor-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 11px;
+}
+
+.set-editor-table th,
+.set-editor-table td {
+  border-right: 1px solid var(--grid-border);
+  border-bottom: 1px solid var(--grid-border);
+  padding: 4px 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.set-editor-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--axis-top-set-bg);
+  color: var(--axis-top-set-text);
+  font-size: 10px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.set-editor-table th:nth-child(1) { width: 52px; }
+.set-editor-table th:nth-child(2) { width: 270px; }
+.set-editor-table th:nth-child(3) { width: 280px; }
+.set-editor-table th:nth-child(4) { width: 64px; }
+.set-editor-table th:nth-child(5) { width: 86px; }
+.set-editor-table th:nth-child(6) { width: 96px; }
+.set-editor-table th:nth-child(7) { width: 60px; }
+
+.set-editor-table td:nth-child(2),
+.set-editor-table td:nth-child(3) {
+  background: var(--axis-left-bg);
+}
+
+.set-editor-table tr.is-changed td {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.set-editor-table tr.is-deleted td {
+  color: #64748b;
+  text-decoration: line-through;
+}
+
+.set-editor-table select,
+.set-editor-table input {
+  width: 100%;
+  height: 24px;
+  border: 1px solid var(--grid-border);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.set-editor-table input {
+  padding: 0 5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.set-editor-table select:focus,
+.set-editor-table input:focus {
+  outline: 2px solid rgba(22, 163, 74, 0.24);
+  border-color: var(--axis-top-set-accent);
+}
+
+.set-editor-scope {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.set-editor-scope.is-common {
+  background: var(--axis-top-set-bg);
+  color: var(--axis-top-set-text);
+}
+
+.set-editor-scope.is-option {
+  background: var(--axis-left-bg);
+  color: var(--axis-left-text);
+}
+
+.set-editor-amount {
+  color: var(--axis-top-set-text);
+  font-weight: 900;
+}
+
+.set-editor-row-action {
+  width: 100%;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.set-editor-empty {
+  height: 40px;
+  color: #64748b;
+  text-align: center;
+}
+
+.pc-excel-table .u-header-set.is-set-editable {
+  cursor: pointer;
+}
+
+.pc-excel-table .u-header-set.is-set-editable:hover {
+  box-shadow: inset 0 0 0 2px rgba(22, 163, 74, 0.28);
+}
+
 .pc-excel-horizontal-scrollbar-top {
   flex: 0 0 auto;
   max-width: 100%;
