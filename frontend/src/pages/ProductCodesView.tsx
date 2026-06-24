@@ -755,6 +755,7 @@ const PRODUCT_CODES_VIEW_MODES: Array<{ value: ProductCodesViewMode; label: stri
 const SET_EDITOR_MIN_WIDTH = 760
 const SET_EDITOR_MIN_HEIGHT = 420
 const SET_EDITOR_MARGIN = 12
+const SET_EDITOR_COMMON_SECTION_EXPAND_HEIGHT = 220
 
 const loadedMeta: ReadMeta = { status: 'loaded', source: 'cafe24' }
 const periodNoSalesMeta: ReadMeta = { status: 'loaded', source: 'set-design' }
@@ -817,6 +818,11 @@ function formatReadCurrency(value: number, currency: string, meta?: ReadMeta) {
   if (meta?.status === 'missing') return MISSING_DISPLAY
   if (meta?.status === 'partial') return `${fmtCurrency(value, currency)}*`
   return fmtCurrency(value, currency)
+}
+
+function parseCurrencyInput(value: string) {
+  const digits = value.replace(/[^\d]/g, '')
+  return digits ? Number(digits) : 0
 }
 
 function normalizeVariantCode(code: string) {
@@ -988,6 +994,15 @@ function hasSetComponentDraftChange(
     || draft.optionCode !== component.optionCode
     || draft.qty !== component.qty
     || draft.setPrice !== component.setPrice
+}
+
+function isSetComponentDraftComplete(draft: SetProductComponentDraft) {
+  return Boolean(normalizeProductCode(draft.productCode) && normalizeVariantCode(draft.optionCode))
+}
+
+function getSetComponentDraftAmount(draft: SetProductComponentDraft) {
+  if (!isSetComponentDraftComplete(draft)) return 0
+  return draft.qty * draft.setPrice
 }
 
 function getLProductName(productCode: string) {
@@ -2346,9 +2361,12 @@ export function ProductCodesView() {
     : []
   const activeSetComponents = [...activeSetCommonComponents, ...activeSetOptionComponents]
   const visibleSetComponents = activeSetComponents.filter((component) => !getSetComponentDraft(setComponentDrafts, component).deleted)
+  const activeSetHasIncomplete = visibleSetComponents.some((component) =>
+    !isSetComponentDraftComplete(getSetComponentDraft(setComponentDrafts, component)),
+  )
   const activeSetTotal = visibleSetComponents.reduce((sum, component) => {
     const draft = getSetComponentDraft(setComponentDrafts, component)
-    return sum + draft.qty * draft.setPrice
+    return sum + getSetComponentDraftAmount(draft)
   }, 0)
   const activeSetDirty = activeSetComponents.some((component) =>
     hasSetComponentDraftChange(setComponentDrafts, component),
@@ -2392,6 +2410,15 @@ export function ProductCodesView() {
       width: rect.width,
       height: rect.height,
     })
+  }
+
+  const expandSetEditorForCommonSection = () => {
+    const layout = readCurrentSetEditorLayout()
+    if (!layout) return
+    setSetEditorLayout(constrainSetEditorLayout({
+      ...layout,
+      height: layout.height + SET_EDITOR_COMMON_SECTION_EXPAND_HEIGHT,
+    }))
   }
 
   const startSetEditorMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -2559,24 +2586,34 @@ export function ProductCodesView() {
 
   const addSetComponent = (scope: SetComponentScope) => {
     if (!activeSetConfig || !activeSetVariant) return
-    const firstProduct = L_PRODUCT_CHOICES[0]
-    const firstVariant = firstProduct?.variants[0]
-    if (!firstProduct || !firstVariant) return
     const scopeKey = scope === 'common'
       ? commonSetScopeKey
       : optionSetScopeKey
+    const shouldExpandForCommon = scope === 'common' && activeSetCommonComponents.length === 0
+    const targetComponents = scope === 'common' ? activeSetCommonComponents : activeSetOptionComponents
+    const hasIncompleteDraft = targetComponents.some((component) => {
+      const draft = getSetComponentDraft(setComponentDrafts, component)
+      return !draft.deleted && !isSetComponentDraftComplete(draft)
+    })
+    if (hasIncompleteDraft) {
+      if (shouldExpandForCommon) expandSetEditorForCommonSection()
+      return
+    }
     const component: SetProductComponent = {
       id: `draft-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       scope,
-      productCode: firstProduct.productCode,
-      optionCode: firstVariant.code,
+      productCode: '',
+      optionCode: '',
       qty: 1,
-      setPrice: firstVariant.price ?? 0,
+      setPrice: 0,
     }
     setSetAddedComponents((prev) => ({
       ...prev,
       [scopeKey]: [...(prev[scopeKey] ?? []), component],
     }))
+    if (shouldExpandForCommon) {
+      expandSetEditorForCommonSection()
+    }
   }
 
   const deleteSetComponent = (component: SetProductComponent) => {
@@ -2973,11 +3010,12 @@ export function ProductCodesView() {
       const draft = getSetComponentDraft(setComponentDrafts, component)
       const isChanged = hasSetComponentDraftChange(setComponentDrafts, component)
       const variantChoices = getLVariantChoices(draft.productCode)
-      const amount = draft.qty * draft.setPrice
+      const isIncomplete = !isSetComponentDraftComplete(draft)
+      const amount = getSetComponentDraftAmount(draft)
       return (
         <tr
           key={component.id}
-          className={`${isChanged ? 'is-changed' : ''}${draft.deleted ? ' is-deleted' : ''}`}
+          className={`${isChanged ? 'is-changed' : ''}${draft.deleted ? ' is-deleted' : ''}${isIncomplete ? ' is-incomplete' : ''}`}
         >
           <td>
             <span className={`set-editor-scope is-${component.scope}`}>
@@ -2987,11 +3025,12 @@ export function ProductCodesView() {
           <td>
             <select
               value={draft.productCode}
-              title={`${draft.productCode} · ${getLProductName(draft.productCode)}`}
+              title={draft.productCode ? `${draft.productCode} · ${getLProductName(draft.productCode)}` : '왼쪽상품을 선택하세요'}
               aria-label={`${component.id} 왼쪽상품`}
               onChange={(event) => updateSetComponentProduct(component, event.target.value)}
               disabled={draft.deleted}
             >
+              <option value="">왼쪽상품 선택</option>
               {L_PRODUCT_CHOICES.map((choice) => (
                 <option key={choice.productCode} value={choice.productCode}>
                   {choice.productCode} · {choice.productName}
@@ -3002,11 +3041,14 @@ export function ProductCodesView() {
           <td>
             <select
               value={draft.optionCode}
-              title={`${draft.optionCode} · ${displayOptionName(getLVariantChoices(draft.productCode).find((variant) => variant.code === draft.optionCode)?.option)}`}
+              title={draft.optionCode
+                ? `${draft.optionCode} · ${displayOptionName(getLVariantChoices(draft.productCode).find((variant) => variant.code === draft.optionCode)?.option)}`
+                : '왼쪽상품을 먼저 선택하세요'}
               aria-label={`${component.id} 왼쪽상품 옵션`}
               onChange={(event) => updateSetComponentOption(component, event.target.value)}
-              disabled={draft.deleted}
+              disabled={draft.deleted || !draft.productCode}
             >
+              <option value="">옵션 선택</option>
               {variantChoices.map((variant) => (
                 <option key={variant.code} value={variant.code}>
                   {variant.code} · {displayOptionName(variant.option)}
@@ -3026,17 +3068,19 @@ export function ProductCodesView() {
             />
           </td>
           <td>
-            <input
-              type="number"
-              min="0"
-              step="10"
-              value={draft.setPrice}
-              aria-label={`${component.id} 세트가`}
-              onChange={(event) => updateSetComponentDraft(component, { setPrice: Number(event.target.value) })}
-              disabled={draft.deleted}
-            />
+            <label className="set-editor-price-input" title={fmtCurrency(draft.setPrice, currency)}>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtCurrency(draft.setPrice, currency)}
+                aria-label={`${component.id} 세트가`}
+                onChange={(event) => updateSetComponentDraft(component, { setPrice: parseCurrencyInput(event.target.value) })}
+                onFocus={(event) => event.currentTarget.select()}
+                disabled={draft.deleted}
+              />
+            </label>
           </td>
-          <td className="num set-editor-amount">{draft.deleted ? '-' : fmtCurrency(amount, currency)}</td>
+          <td className="num set-editor-amount">{draft.deleted || isIncomplete ? '-' : fmtCurrency(amount, currency)}</td>
           <td>
             {draft.deleted ? (
               <button
@@ -4375,6 +4419,8 @@ export function ProductCodesView() {
                 <button
                   type="button"
                   className="btn btn-primary"
+                  disabled={activeSetHasIncomplete}
+                  title={activeSetHasIncomplete ? '왼쪽상품과 옵션을 선택해야 적용할 수 있습니다.' : undefined}
                   onClick={() => setEditingSetProductCode(null)}
                 >
                   적용
@@ -4401,7 +4447,7 @@ export function ProductCodesView() {
                       ...optionComponents,
                     ].reduce((sum, component) => {
                       const draft = getSetComponentDraft(setComponentDrafts, component)
-                      return draft.deleted ? sum : sum + draft.qty * draft.setPrice
+                      return draft.deleted ? sum : sum + getSetComponentDraftAmount(draft)
                     }, 0)
                     return (
                       <button
@@ -4409,6 +4455,7 @@ export function ProductCodesView() {
                         key={variant.variantCode}
                         className={`set-editor-option${isSelected ? ' is-selected' : ''}`}
                         onClick={() => setSelectedSetVariantCode(variant.variantCode)}
+                        title={`${variant.variantCode} · ${displayOptionName(variant.optionName)}\n구성 ${optionComponents.length}개 · ${fmtCurrency(optionTotal, currency)}`}
                       >
                         <span className="set-editor-option-code">{variant.variantCode}</span>
                         <span className="set-editor-option-name">{displayOptionName(variant.optionName)}</span>

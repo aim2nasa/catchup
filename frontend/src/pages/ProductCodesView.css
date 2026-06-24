@@ -114,7 +114,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(1480px, 94vw);
+  width: min(1700px, 96vw);
   height: auto;
   max-height: 88vh;
   overflow: hidden;
@@ -199,7 +199,7 @@
 
 .set-editor-body {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 360px minmax(0, 1fr);
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
@@ -277,7 +277,7 @@
 
 .set-editor-main {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: max-content minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
   overflow: hidden;
@@ -360,10 +360,10 @@
 }
 
 .set-editor-table th:nth-child(1) { width: 52px; }
-.set-editor-table th:nth-child(2) { width: 270px; }
-.set-editor-table th:nth-child(3) { width: 280px; }
+.set-editor-table th:nth-child(2) { width: 360px; }
+.set-editor-table th:nth-child(3) { width: 380px; }
 .set-editor-table th:nth-child(4) { width: 64px; }
-.set-editor-table th:nth-child(5) { width: 86px; }
+.set-editor-table th:nth-child(5) { width: 112px; }
 .set-editor-table th:nth-child(6) { width: 96px; }
 .set-editor-table th:nth-child(7) { width: 60px; }
 
@@ -374,6 +374,10 @@
 
 .set-editor-table tr.is-changed td {
   box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.set-editor-table tr.is-incomplete td {
+  background: #fffbeb;
 }
 
 .set-editor-table tr.is-deleted td {
@@ -398,8 +402,35 @@
   text-align: right;
 }
 
+.set-editor-price-input {
+  display: block;
+  width: 100%;
+  height: 24px;
+  overflow: hidden;
+  border: 1px solid var(--grid-border);
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.set-editor-table .set-editor-price-input input {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  color: #14532d;
+  font-weight: 900;
+}
+
+.set-editor-table .set-editor-price-input input:focus {
+  outline: 0;
+}
+
 .set-editor-table select:focus,
 .set-editor-table input:focus {
+  outline: 2px solid rgba(22, 163, 74, 0.24);
+  border-color: var(--axis-top-set-accent);
+}
+
+.set-editor-price-input:focus-within {
   outline: 2px solid rgba(22, 163, 74, 0.24);
   border-color: var(--axis-top-set-accent);
 }
