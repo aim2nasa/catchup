@@ -264,6 +264,44 @@
   padding: 0 2px;
 }
 
+.read-state-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-left: 8px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.read-state-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.read-state-sample {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border: 1px solid #f59e0b;
+  border-radius: 3px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.read-state-sample--partial {
+  background: #fffbeb;
+}
+
 .selection-cell-kind {
   display: inline-flex;
   align-items: center;
@@ -614,6 +652,41 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
   word-break: keep-all;
+}
+.pc-excel-table td.read-cell--missing {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.78);
+}
+.pc-excel-table td.read-cell--partial {
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.52);
+}
+.pc-excel-table tbody tr:hover td.read-cell--missing {
+  background: #fde68a;
+}
+.pc-excel-table tbody tr:hover td.read-cell--partial {
+  background: #fef3c7;
+}
+.pc-excel-table tbody tr td.read-cell--missing.pc-excel-row-selected,
+.pc-excel-table tbody tr td.read-cell--missing.pc-excel-col-selected,
+.pc-excel-table tbody tr td.read-cell--missing.pc-excel-hover-row,
+.pc-excel-table tbody tr td.read-cell--missing.pc-excel-hover-col {
+  background: #fde68a;
+  color: #78350f;
+  box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.9);
+}
+.pc-excel-table tbody tr td.read-cell--partial.pc-excel-row-selected,
+.pc-excel-table tbody tr td.read-cell--partial.pc-excel-col-selected,
+.pc-excel-table tbody tr td.read-cell--partial.pc-excel-hover-row,
+.pc-excel-table tbody tr td.read-cell--partial.pc-excel-hover-col {
+  background: #fef3c7;
+  color: #78350f;
+  box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.7);
 }
 .pc-excel-table .u-direct-label {
   text-align: left;

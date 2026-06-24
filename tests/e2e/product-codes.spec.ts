@@ -122,7 +122,7 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('td[data-row-key="variant:P00000OG:P00000OG000J"][data-col-key="A:코드"]')).toHaveCount(0)
   })
 
-  test('조회 데이터가 비어도 L상품 기준 상품명 옵션 단가 직접판매를 표시한다', async ({ page }) => {
+  test('조회 데이터가 비어도 L상품 기준 정보와 미조회 상태를 구분한다', async ({ page }) => {
     await page.route('**/api/products-report?**', async (route) => {
       const payloads = [
         { type: 'progress', msg: 'mock empty result' },
@@ -155,7 +155,11 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:코드"]')).toHaveText('A')
     await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:옵션명"]')).toHaveText('-')
     await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:단가"]')).toHaveText('₩34,700')
-    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:직접판매"]')).toHaveText('0')
+    const missingDirect = page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="A:직접판매"]')
+    await expect(missingDirect).toHaveText('미')
+    await expect(missingDirect).toHaveAttribute('data-read-status', 'missing')
+    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="C:총판매"]')).toHaveText('0*')
+    await expect(page.locator('td[data-row-key="parent:스트립왁스:P00000CM"][data-col-key="C:매출"]')).toHaveText('미')
 
     await expect(page.locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:상품명"]')).toHaveText(
       '라이콘워머기 2구 / 자디니 베이비 히터기 220g',
@@ -164,8 +168,57 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:옵션명"]')).toHaveText(
       '자디니 베이비 히터(220g)',
     )
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:직접판매"]')).toHaveText('미')
     await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:코드"]')).toHaveText('B')
-    await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:직접판매"]')).toHaveText('0')
+    await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:직접판매"]')).toHaveText('미')
+  })
+
+  test('Cafe24 조회 0과 조회 실패를 화면과 엑셀에서 구분한다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    await expect(page.locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:직접판매"]')).toHaveText('미')
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:직접판매"]')).toHaveText('미')
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000M"][data-col-key="A:직접판매"]')).toHaveText('28')
+    await expect(page.locator('td[data-row-key="variant:P00000VK:P00000VK000N"][data-col-key="A:직접판매"]')).toHaveText('9')
+
+    await expect(page.locator('td[data-row-key="parent:소모품:P00000TX"][data-col-key="A:직접판매"]')).toHaveText('미')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000C"][data-col-key="A:직접판매"]')).toHaveText('미')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000D"][data-col-key="A:직접판매"]')).toHaveText('미')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000F"][data-col-key="A:직접판매"]')).toHaveText('0')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000G"][data-col-key="A:직접판매"]')).toHaveText('0')
+    await expect(page.locator('td[data-row-key="variant:P00000TX:P00000TX000H"][data-col-key="A:직접판매"]')).toHaveText('0')
+    await expect(page.locator('.read-state-legend')).toContainText('미조회')
+    await expect(page.locator('.read-state-legend')).toContainText('미조회 제외 합계')
+
+    const missingDirectA1 = await page
+      .locator('td[data-row-key="parent:워머기&컵:P00000VK"][data-col-key="A:직접판매"]')
+      .getAttribute('data-a1')
+    const loadedZeroA1 = await page
+      .locator('td[data-row-key="variant:P00000TX:P00000TX000F"][data-col-key="A:직접판매"]')
+      .getAttribute('data-a1')
+    expect(missingDirectA1).toBeTruthy()
+    expect(loadedZeroA1).toBeTruthy()
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Excel 다운로드' }).click()
+    const download = await downloadPromise
+    const filePath = await download.path()
+    expect(filePath).toBeTruthy()
+
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.readFile(filePath!)
+    const worksheet = workbook.getWorksheet('상품코드')
+    expect(worksheet?.getCell(missingDirectA1!).value).toBeNull()
+    expect(String(worksheet?.getCell(missingDirectA1!).note ?? '')).toContain('Cafe24 조회 결과 없음')
+    expect(worksheet?.getCell(loadedZeroA1!).value).toBe(0)
+    expect(worksheet?.getColumn(1).values).toContain('조회값 상태 범례')
+    expect(worksheet?.getColumn(2).values).toContain('미조회 항목 제외 합계')
   })
 
   test('수평 스크롤 중에도 매출 컬럼 폭이 유지된다', async ({ page }) => {

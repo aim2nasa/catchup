@@ -52,6 +52,15 @@ type RevenueFormulaBuildResult = {
   warnings: string[]
 }
 
+type ReadStatus = 'loaded' | 'missing' | 'fallback' | 'partial' | 'calculated'
+type ReadSource = 'cafe24' | 'set-design' | 'local-rule' | 'calculated'
+
+type ReadMeta = {
+  status: ReadStatus
+  source: ReadSource
+  note?: string
+}
+
 interface Row {
   product_code: string
   product_name: string
@@ -65,6 +74,18 @@ interface Row {
   subtotalRevForSummary: number
   missing: boolean
   directQty: number
+  directQtyMissing: boolean
+  directQtyMeta: ReadMeta
+  revenueMissing: boolean
+  revenueMeta: ReadMeta
+  totalPartial: boolean
+  totalMeta: ReadMeta
+  variantDirectQtyMissing: boolean[]
+  variantRevenueMissing: boolean[]
+  variantTotalPartial: boolean[]
+  variantDirectQtyMeta: ReadMeta[]
+  variantRevenueMeta: ReadMeta[]
+  variantTotalMeta: ReadMeta[]
   mappingQtyByColumn: number[]
   mappingRevByColumn: number[]
   mappingPriceByColumn: number[]
@@ -88,6 +109,9 @@ interface GroupRows {
   subtotalQty: number
   subtotalRev: number
   subtotalDirectQty: number
+  subtotalHasMissing: boolean
+  subtotalRevHasMissing: boolean
+  subtotalMappingHasMissingByColumn: boolean[]
   subtotalMappingQtyByColumn: number[]
   subtotalMappingRevByColumn: number[]
 }
@@ -120,8 +144,10 @@ type RowFormulaMeta = {
   screenRow: number
   excelRow: number
   revenueDirectQty?: number
+  revenueMissing?: boolean
   revenueMappedTerms?: RevenueFormulaTerm[]
   revenueMappedPriceWarnings?: string[]
+  totalPartial?: boolean
   contributorRowKeys?: string[]
 }
 
@@ -537,6 +563,47 @@ const SCREEN_COL_OFFSET = 8
 const U_START_EXCEL_COL = 7
 const DIRECT_EXCEL_COLUMN = 6
 const PRICE_EXCEL_COLUMN = 5
+const MISSING_DISPLAY = '미'
+const MISSING_NOTE = 'Cafe24 조회 결과 없음. 실제 0이 아니며 계산에서 제외됨.'
+const PARTIAL_NOTE = '미조회 항목 제외 합계'
+
+const loadedMeta: ReadMeta = { status: 'loaded', source: 'cafe24' }
+const missingMeta: ReadMeta = { status: 'missing', source: 'cafe24', note: MISSING_NOTE }
+const partialMeta: ReadMeta = { status: 'partial', source: 'calculated', note: PARTIAL_NOTE }
+
+function readStatusClass(meta?: ReadMeta) {
+  if (!meta) return ''
+  if (meta.status === 'missing') return 'read-cell read-cell--missing'
+  if (meta.status === 'partial') return 'read-cell read-cell--partial'
+  if (meta.status === 'fallback') return 'read-cell read-cell--fallback'
+  return ''
+}
+
+function readStatusAttrs(meta?: ReadMeta, exportValue?: string | number) {
+  const attrs: Record<string, string | number> = {}
+  if (meta?.status && meta.status !== 'loaded' && meta.status !== 'calculated') {
+    attrs['data-read-status'] = meta.status
+    attrs['data-read-source'] = meta.source
+    attrs['data-read-note'] = meta.note ?? ''
+    attrs.title = meta.note ?? ''
+  }
+  if (exportValue != null) {
+    attrs['data-export-value'] = exportValue
+  }
+  return attrs
+}
+
+function formatReadNumber(value: number, meta?: ReadMeta) {
+  if (meta?.status === 'missing') return MISSING_DISPLAY
+  if (meta?.status === 'partial') return `${fmtNumber(value)}*`
+  return fmtNumber(value)
+}
+
+function formatReadCurrency(value: number, currency: string, meta?: ReadMeta) {
+  if (meta?.status === 'missing') return MISSING_DISPLAY
+  if (meta?.status === 'partial') return `${fmtCurrency(value, currency)}*`
+  return fmtCurrency(value, currency)
+}
 
 function normalizeVariantCode(code: string) {
   return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -931,9 +998,10 @@ function buildCellFormula(
         }
         return `${col}${rowMeta.excelRow}*${formatFormulaPrice(term.unitPrice)}`
       })
-      const directPart = `=${directQtyRef}*${directPriceRef}`
-      if (mappedTerms.length === 0) return directPart
-      return `${directPart}+${mappedTerms.join('+')}`
+      const directPart = rowMeta.revenueMissing ? '' : `${directQtyRef}*${directPriceRef}`
+      const formulaTerms = [directPart, ...mappedTerms].filter(Boolean)
+      if (formulaTerms.length === 0) return ''
+      return `=${formulaTerms.join('+')}`
     }
 
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
@@ -1299,11 +1367,24 @@ export function ProductCodesView() {
     const byCode = new Map(allGroups.map((g) => [normalizeProductCode(g.product_code), g]))
     const buildRow = (code: string): Row => {
       const normalizedCode = normalizeProductCode(code)
-      const g = byCode.get(normalizedCode) ?? buildFallbackGroup(normalizedCode)
+      const cafeGroup = byCode.get(normalizedCode)
+      const g = cafeGroup ?? buildFallbackGroup(normalizedCode)
       const variants = buildDisplayVariants(normalizedCode, g?.variants ?? [], g?.price ?? 0)
       const hasLVariants = g ? !!g.is_multi || variants.length > 1 : variants.length > 1
       const hasVariantRows = variants.length > 0
       const firstVariant = hasVariantRows ? variants[0] : null
+      const cafeVariantsBySuffix = new Set(
+        (cafeGroup?.variants ?? []).map((variant) =>
+          normalizeVariantSuffix(normalizedCode, variant.variant_code).toUpperCase(),
+        ),
+      )
+      const variantDirectQtyMissing = variants.map((variant) => {
+        if (!cafeGroup) return true
+        return !cafeVariantsBySuffix.has(
+          normalizeVariantSuffix(normalizedCode, variant.variant_code).toUpperCase(),
+        )
+      })
+      const directQtyMissing = hasVariantRows ? (variantDirectQtyMissing[0] ?? !cafeGroup) : !cafeGroup
       const directQty = hasVariantRows ? (firstVariant?.qty ?? 0) : g?.qty ?? 0
       const directUnitPrice = (hasVariantRows ? (firstVariant?.price ?? 0) : g?.price ?? 0) || 0
       const mappingQtyByColumn = Array(U_COLUMNS.length).fill(0)
@@ -1426,14 +1507,31 @@ export function ProductCodesView() {
         const mappedRev = variantMappingRevByColumn[variantIdx]?.reduce((s, q) => s + q, 0) ?? 0
         return variantSum + directRev + mappedRev
       }, 0)
-      const directQtyForSummary = variants.reduce((sum, variant) => sum + (variant.qty ?? 0), 0)
+      const directQtyForSummary = variants.reduce(
+        (sum, variant, idx) => sum + (variantDirectQtyMissing[idx] ? 0 : (variant.qty ?? 0)),
+        0,
+      )
       const directQtyFallback = g ? (hasVariantRows ? directQtyForSummary : (g.qty ?? 0)) : 0
+      const firstVariantDirectMeta = directQtyMissing ? missingMeta : loadedMeta
+      const variantDirectQtyMeta = variantDirectQtyMissing.map((missing) => (missing ? missingMeta : loadedMeta))
+      const variantTotalPartial = variants.map((_, idx) => variantDirectQtyMissing[idx] ?? false)
+      const variantTotalMeta = variantTotalPartial.map((partial) => (partial ? partialMeta : loadedMeta))
       // 부모행은 부모 직접판매 + 부모 매핑/대표옵션 매핑 값만 반영한다.
       const subtotalQty = directQty + mappingQtyByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedQty
       const subtotalRev =
         directQty * directUnitPrice + mappingRevByColumn.reduce((s, v) => s + v, 0) + firstVariantMappedRev
       const summaryQty = subtotalQty + remainingVariantQty
       const summaryRev = subtotalRev + remainingVariantRev
+      const totalPartial = directQtyMissing
+      const totalMeta = totalPartial ? partialMeta : loadedMeta
+      const firstVariantRevenueMeta = directQtyMissing
+        ? (subtotalRev > 0 ? partialMeta : missingMeta)
+        : loadedMeta
+      const variantRevenueMeta = variantDirectQtyMissing.map((missing, idx) => {
+        if (!missing) return loadedMeta
+        const mappedRev = variantMappingRevByColumn[idx]?.reduce((s, q) => s + q, 0) ?? 0
+        return mappedRev > 0 ? partialMeta : missingMeta
+      })
 
       if (g) {
         return {
@@ -1448,6 +1546,18 @@ export function ProductCodesView() {
           subtotalRevForSummary: summaryRev,
           missing: false,
           directQty,
+          directQtyMissing,
+          directQtyMeta: firstVariantDirectMeta,
+          revenueMissing: firstVariantRevenueMeta.status === 'missing',
+          revenueMeta: firstVariantRevenueMeta,
+          totalPartial,
+          totalMeta,
+          variantDirectQtyMissing,
+          variantRevenueMissing: variantRevenueMeta.map((meta) => meta.status === 'missing'),
+          variantTotalPartial,
+          variantDirectQtyMeta,
+          variantRevenueMeta,
+          variantTotalMeta,
           directUnitPrice,
           mappingPriceByColumn,
           mappingPriceIsFoundByColumn,
@@ -1477,6 +1587,18 @@ export function ProductCodesView() {
         subtotalRevForSummary: summaryRev,
         missing: true,
         directQty,
+        directQtyMissing: true,
+        directQtyMeta: missingMeta,
+        revenueMissing: true,
+        revenueMeta: missingMeta,
+        totalPartial: true,
+        totalMeta: partialMeta,
+        variantDirectQtyMissing: [],
+        variantRevenueMissing: [],
+        variantTotalPartial: [],
+        variantDirectQtyMeta: [],
+        variantRevenueMeta: [],
+        variantTotalMeta: [],
         directUnitPrice,
         mappingPriceByColumn,
         mappingPriceIsFoundByColumn,
@@ -1501,6 +1623,9 @@ export function ProductCodesView() {
     return L_GROUPS.map((group) => {
       const rows: Row[] = group.codes.map((code) => lRowsByCode.get(code) ?? buildRow(code))
       const subtotalSourceRows = rows
+      const subtotalHasMissing = subtotalSourceRows.some((row) =>
+        row.directQtyMissing || row.variantDirectQtyMissing.some(Boolean),
+      )
 
       return {
         label: group.label,
@@ -1510,6 +1635,9 @@ export function ProductCodesView() {
         subtotalQty: subtotalSourceRows.reduce((s, r) => s + r.subtotalQtyForSummary, 0),
         subtotalRev: subtotalSourceRows.reduce((s, r) => s + r.subtotalRevForSummary, 0),
         subtotalDirectQty: subtotalSourceRows.reduce((s, r) => s + r.directQtyForSummary, 0),
+        subtotalHasMissing,
+        subtotalRevHasMissing: subtotalHasMissing,
+        subtotalMappingHasMissingByColumn: Array.from({ length: U_COLUMNS.length }, () => false),
         subtotalMappingQtyByColumn: Array.from({ length: U_COLUMNS.length }, (_, idx) =>
           subtotalSourceRows.reduce((s, r) => {
             const parentQty = r.mappingQtyByColumn[idx] ?? 0
@@ -1545,6 +1673,11 @@ export function ProductCodesView() {
   const totalDirectQty = groupRows.reduce(
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalDirectQty),
     0,
+  )
+  const totalHasMissing = groupRows.some((g) => g.withSubtotal !== false && g.subtotalHasMissing)
+  const totalRevHasMissing = groupRows.some((g) => g.withSubtotal !== false && g.subtotalRevHasMissing)
+  const totalMappingHasMissingByColumn = Array.from({ length: U_COLUMNS.length }, (_, idx) =>
+    groupRows.some((g) => g.withSubtotal !== false && (g.subtotalMappingHasMissingByColumn[idx] ?? false)),
   )
   const totalColumnCount = 1 + 6 + U_COLUMNS.length + 2
   const uColumnPixelWidths = useMemo(
@@ -1671,8 +1804,10 @@ export function ProductCodesView() {
           groupLabel: grp.label,
           product_code: row.product_code,
           revenueDirectQty: row.directQty,
+          revenueMissing: row.revenueMissing,
           revenueMappedTerms: parentMapped.terms,
           revenueMappedPriceWarnings: parentMapped.warnings,
+          totalPartial: row.totalPartial,
         })
         sourceRowKeys.push(parentKey)
 
@@ -1698,8 +1833,10 @@ export function ProductCodesView() {
               product_code: row.product_code,
               variant_code: variant.variant_code,
               revenueDirectQty: variant.qty,
+              revenueMissing: row.variantRevenueMissing[variantIdx] ?? false,
               revenueMappedTerms: variantMapped.terms,
               revenueMappedPriceWarnings: variantMapped.warnings,
+              totalPartial: row.variantTotalPartial[variantIdx] ?? false,
             })
             sourceRowKeys.push(variantKey)
           })
@@ -1899,8 +2036,8 @@ export function ProductCodesView() {
 
   const parseExportValue = (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed || trimmed === '—') return ''
-    const numeric = trimmed.replace(/[₩,\s]/g, '')
+    if (!trimmed || trimmed === '—' || trimmed === MISSING_DISPLAY) return ''
+    const numeric = trimmed.replace(/[₩,\s*]/g, '')
     if (/^-?\d+(?:\.\d+)?$/.test(numeric)) return Number(numeric)
     return trimmed
   }
@@ -2018,6 +2155,8 @@ export function ProductCodesView() {
       if (!address) return
       const cell = worksheet.getCell(address)
       const formula = domCell.dataset.formula
+      const readStatus = domCell.dataset.readStatus
+      const readNote = domCell.dataset.readNote
       const value = parseExportValue(domCell.dataset.exportValue ?? domCell.textContent ?? '')
       if (formula?.startsWith('=') && !formula.includes('단가미확인')) {
         cell.value = { formula: formula.slice(1), result: typeof value === 'number' ? value : undefined }
@@ -2040,6 +2179,17 @@ export function ProductCodesView() {
         cell.fill = sumFill
         cell.font = { bold: true }
       }
+      if (readStatus === 'missing') {
+        cell.value = null
+        cell.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFEF3C7' } }
+        cell.font = { bold: true, color: { argb: 'FF92400E' } }
+      } else if (readStatus === 'partial') {
+        cell.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFFFFBEB' } }
+        cell.font = { ...(cell.font as object), bold: true, color: { argb: 'FF92400E' } }
+      }
+      if (readNote) {
+        ;(cell as { note?: string }).note = readNote
+      }
       applyBorder(cell)
       if (domCell.classList.contains('u-group-start')) {
         cell.border = { ...cell.border, left: { style: 'medium' as const, color: { argb: 'FF15803D' } } }
@@ -2051,6 +2201,16 @@ export function ProductCodesView() {
         cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
       }
     })
+
+    const legendStartRow = worksheet.rowCount + 2
+    worksheet.getCell(legendStartRow, 1).value = '조회값 상태 범례'
+    worksheet.getCell(legendStartRow, 1).font = { bold: true }
+    worksheet.getCell(legendStartRow + 1, 1).value = '0'
+    worksheet.getCell(legendStartRow + 1, 2).value = 'Cafe24에서 실제 0으로 조회된 값'
+    worksheet.getCell(legendStartRow + 2, 1).value = MISSING_DISPLAY
+    worksheet.getCell(legendStartRow + 2, 2).value = 'Cafe24 조회 결과 없음. 화면 표기이며 엑셀 숫자 셀은 빈값'
+    worksheet.getCell(legendStartRow + 3, 1).value = '*'
+    worksheet.getCell(legendStartRow + 3, 2).value = '미조회 항목 제외 합계'
 
     worksheet.getRow(5).height = 14
     worksheet.getRow(6).height = 38
@@ -2248,6 +2408,16 @@ export function ProductCodesView() {
                       <span className="selection-cell-kind">값 셀</span>
                     )
                   ) : null}
+                  <span className="read-state-legend" aria-label="조회값 상태 범례">
+                    <span className="read-state-legend-item">
+                      <span className="read-state-sample read-state-sample--missing">미</span>
+                      <span>미조회</span>
+                    </span>
+                    <span className="read-state-legend-item">
+                      <span className="read-state-sample read-state-sample--partial">*</span>
+                      <span>미조회 제외 합계</span>
+                    </span>
+                  </span>
                 </div>
               </div>
             ) : null}
@@ -2698,7 +2868,7 @@ export function ProductCodesView() {
                              {g.missing ? '—' : firstVariantDisplayPrice}
                            </td>
                            <td
-                             className={`num sticky sticky-direct ${getCellSelectionClass(rowKey, 'A:직접판매')}`}
+                             className={`num sticky sticky-direct ${readStatusClass(g.directQtyMeta)} ${getCellSelectionClass(rowKey, 'A:직접판매')}`}
                              onClick={() =>
                                handleCellSelect({
                                  rowKey,
@@ -2711,8 +2881,9 @@ export function ProductCodesView() {
                              data-col-key="A:직접판매"
                              data-row-label={rowLabel}
                              data-col-label="직접판매"
+                             {...readStatusAttrs(g.directQtyMeta, g.directQtyMissing ? '' : firstVariantDirectQty)}
                            >
-                             {g.missing ? '—' : fmtNumber(firstVariantDirectQty)}
+                             {g.missing ? '—' : formatReadNumber(firstVariantDirectQty, g.directQtyMeta)}
                            </td>
                            {parentQtyByColumn.map((q, idx) => {
                                const state = parentStateByColumn[idx]
@@ -2767,7 +2938,7 @@ export function ProductCodesView() {
                             )
                             })}
                             <td
-                              className={`num sticky sticky-total ${getCellSelectionClass(rowKey, 'C:총판매')}`}
+                              className={`num sticky sticky-total ${readStatusClass(g.totalMeta)} ${getCellSelectionClass(rowKey, 'C:총판매')}`}
                               onClick={() =>
                                 handleCellSelect({
                                   rowKey,
@@ -2780,11 +2951,12 @@ export function ProductCodesView() {
                               data-col-key="C:총판매"
                               data-row-label={rowLabel}
                               data-col-label="총판매"
+                              {...readStatusAttrs(g.totalMeta, g.qty)}
                             >
-                              {fmtNumber(g.qty)}
+                              {formatReadNumber(g.qty, g.totalMeta)}
                             </td>
                             <td
-                              className={`num sticky sticky-rev ${getCellSelectionClass(rowKey, 'C:매출')}`}
+                              className={`num sticky sticky-rev ${readStatusClass(g.revenueMeta)} ${getCellSelectionClass(rowKey, 'C:매출')}`}
                               onClick={() =>
                                 handleCellSelect({
                                   rowKey,
@@ -2797,8 +2969,9 @@ export function ProductCodesView() {
                               data-col-key="C:매출"
                               data-row-label={rowLabel}
                               data-col-label="매출"
+                              {...readStatusAttrs(g.revenueMeta, g.revenueMissing ? '' : g.rev)}
                             >
-                              {fmtCurrency(g.rev, currency)}
+                              {formatReadCurrency(g.rev, currency, g.revenueMeta)}
                             </td>
                           </tr>
                           {hasVariantRows ? remainingVariants.map((v, vIdx) => {
@@ -2809,6 +2982,9 @@ export function ProductCodesView() {
                             const totalQty = v.qty + variantMapQty.reduce((s, q) => s + q, 0)
                             const directRev = (v.qty ?? 0) * (v.price || g.price || 0)
                             const totalRev = directRev + variantMapRev.reduce((s, q) => s + q, 0)
+                            const variantDirectMeta = g.variantDirectQtyMeta[idx] ?? loadedMeta
+                            const variantTotalMeta = g.variantTotalMeta[idx] ?? loadedMeta
+                            const variantRevenueMeta = g.variantRevenueMeta[idx] ?? loadedMeta
                             const variantRowKey = `variant:${g.product_code}:${v.variant_code}`
                             const variantRowLabel = `${rowHeaderLabelByCode(g.product_code, g.product_name)} / ${displayOptionName(v.option || v.variant_code)}`
                             return (
@@ -2904,7 +3080,7 @@ export function ProductCodesView() {
                                   {g.missing ? '—' : fmtVariantPrice(v.price, g.price, currency)}
                                 </td>
                                 <td
-                                  className={`num sticky sticky-direct ${getCellSelectionClass(variantRowKey, 'A:직접판매')}`}
+                                  className={`num sticky sticky-direct ${readStatusClass(variantDirectMeta)} ${getCellSelectionClass(variantRowKey, 'A:직접판매')}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey: variantRowKey,
@@ -2917,8 +3093,9 @@ export function ProductCodesView() {
                                   data-col-key="A:직접판매"
                                   data-row-label={variantRowLabel}
                                   data-col-label="직접판매"
+                                  {...readStatusAttrs(variantDirectMeta, g.variantDirectQtyMissing[idx] ? '' : v.qty)}
                                 >
-                                  {g.missing ? '—' : fmtNumber(v.qty)}
+                                  {g.missing ? '—' : formatReadNumber(v.qty, variantDirectMeta)}
                                 </td>
                                 {g.variantMappingQtyByColumn[idx].map((q, cellIdx) => {
                                   const state = g.variantMappingStateByColumn[idx]?.[cellIdx] ?? 'unmapped'
@@ -2970,7 +3147,7 @@ export function ProductCodesView() {
                                   )
                                 })}
                                 <td
-                                  className={`num sticky sticky-total ${getCellSelectionClass(variantRowKey, 'C:총판매')}`}
+                                  className={`num sticky sticky-total ${readStatusClass(variantTotalMeta)} ${getCellSelectionClass(variantRowKey, 'C:총판매')}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey: variantRowKey,
@@ -2983,11 +3160,12 @@ export function ProductCodesView() {
                                   data-col-key="C:총판매"
                                   data-row-label={variantRowLabel}
                                   data-col-label="총판매"
+                                  {...readStatusAttrs(variantTotalMeta, totalQty)}
                                 >
-                                  {g.missing ? '—' : fmtNumber(totalQty)}
+                                  {g.missing ? '—' : formatReadNumber(totalQty, variantTotalMeta)}
                                 </td>
                                 <td
-                                  className={`num sticky sticky-rev ${getCellSelectionClass(variantRowKey, 'C:매출')}`}
+                                  className={`num sticky sticky-rev ${readStatusClass(variantRevenueMeta)} ${getCellSelectionClass(variantRowKey, 'C:매출')}`}
                                   onClick={() =>
                                     handleCellSelect({
                                       rowKey: variantRowKey,
@@ -3000,8 +3178,9 @@ export function ProductCodesView() {
                                   data-col-key="C:매출"
                                   data-row-label={variantRowLabel}
                                   data-col-label="매출"
+                                  {...readStatusAttrs(variantRevenueMeta, g.variantRevenueMissing[idx] ? '' : totalRev)}
                                 >
-                                  {g.missing ? '—' : fmtCurrency(totalRev, currency)}
+                                  {g.missing ? '—' : formatReadCurrency(totalRev, currency, variantRevenueMeta)}
                                 </td>
                               </tr>
                             )
@@ -3090,7 +3269,7 @@ export function ProductCodesView() {
                           data-col-label="단가"
                         />
                         <td
-                          className={`num sticky sticky-direct ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:직접판매')}`}
+                          className={`num sticky sticky-direct ${readStatusClass(grp.subtotalHasMissing ? partialMeta : loadedMeta)} ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:직접판매')}`}
                           onClick={() =>
                             handleCellSelect({
                               rowKey: `subtotal:${grp.label}`,
@@ -3103,13 +3282,14 @@ export function ProductCodesView() {
                           data-col-key="A:직접판매"
                           data-row-label={grp.label}
                           data-col-label="직접판매"
+                          {...readStatusAttrs(grp.subtotalHasMissing ? partialMeta : loadedMeta, grp.subtotalDirectQty)}
                         >
-                          {fmtNumber(grp.subtotalDirectQty)}
+                          {formatReadNumber(grp.subtotalDirectQty, grp.subtotalHasMissing ? partialMeta : loadedMeta)}
                         </td>
                         {grp.subtotalMappingQtyByColumn.map((q, idx) => (
                           <td
                             key={`subtotal-${grp.label}-${idx}`}
-                            className={`num ${uColumnClass(idx)} ${getCellSelectionClass(`subtotal:${grp.label}`, `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
+                            className={`num ${uColumnClass(idx)} ${readStatusClass(grp.subtotalMappingHasMissingByColumn[idx] ? partialMeta : loadedMeta)} ${getCellSelectionClass(`subtotal:${grp.label}`, `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
                             onClick={() =>
                               handleCellSelect({
                                 rowKey: `subtotal:${grp.label}`,
@@ -3122,12 +3302,13 @@ export function ProductCodesView() {
                             data-col-key={`B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`}
                             data-row-label={grp.label}
                             data-col-label={`U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()}
+                            {...readStatusAttrs(grp.subtotalMappingHasMissingByColumn[idx] ? partialMeta : loadedMeta, q)}
                           >
-                            {fmtNumber(q)}
+                            {formatReadNumber(q, grp.subtotalMappingHasMissingByColumn[idx] ? partialMeta : loadedMeta)}
                           </td>
                         ))}
                         <td
-                          className={`num sticky sticky-total ${getCellSelectionClass(`subtotal:${grp.label}`, 'C:총판매')}`}
+                          className={`num sticky sticky-total ${readStatusClass(grp.subtotalHasMissing ? partialMeta : loadedMeta)} ${getCellSelectionClass(`subtotal:${grp.label}`, 'C:총판매')}`}
                           onClick={() =>
                             handleCellSelect({
                               rowKey: `subtotal:${grp.label}`,
@@ -3140,11 +3321,12 @@ export function ProductCodesView() {
                           data-col-key="C:총판매"
                           data-row-label={grp.label}
                           data-col-label="총판매"
+                          {...readStatusAttrs(grp.subtotalHasMissing ? partialMeta : loadedMeta, grp.subtotalQty)}
                         >
-                          {fmtNumber(grp.subtotalQty)}
+                          {formatReadNumber(grp.subtotalQty, grp.subtotalHasMissing ? partialMeta : loadedMeta)}
                         </td>
                         <td
-                          className={`num sticky sticky-rev ${getCellSelectionClass(`subtotal:${grp.label}`, 'C:매출')}`}
+                          className={`num sticky sticky-rev ${readStatusClass(grp.subtotalRevHasMissing ? partialMeta : loadedMeta)} ${getCellSelectionClass(`subtotal:${grp.label}`, 'C:매출')}`}
                           onClick={() =>
                             handleCellSelect({
                               rowKey: `subtotal:${grp.label}`,
@@ -3157,8 +3339,9 @@ export function ProductCodesView() {
                           data-col-key="C:매출"
                           data-row-label={grp.label}
                           data-col-label="매출"
+                          {...readStatusAttrs(grp.subtotalRevHasMissing ? partialMeta : loadedMeta, grp.subtotalRev)}
                         >
-                          {fmtCurrency(grp.subtotalRev, currency)}
+                          {formatReadCurrency(grp.subtotalRev, currency, grp.subtotalRevHasMissing ? partialMeta : loadedMeta)}
                         </td>
                       </tr>
                     )}
@@ -3246,7 +3429,7 @@ export function ProductCodesView() {
                         data-col-label="단가"
                       />
                       <td
-                        className={`num sticky sticky-direct ${getCellSelectionClass('total:grand', 'A:직접판매')}`}
+                        className={`num sticky sticky-direct ${readStatusClass(totalHasMissing ? partialMeta : loadedMeta)} ${getCellSelectionClass('total:grand', 'A:직접판매')}`}
                         onClick={() =>
                           handleCellSelect({
                             rowKey: 'total:grand',
@@ -3259,13 +3442,14 @@ export function ProductCodesView() {
                         data-col-key="A:직접판매"
                         data-row-label="합계"
                         data-col-label="직접판매"
+                        {...readStatusAttrs(totalHasMissing ? partialMeta : loadedMeta, totalDirectQty)}
                       >
-                        {fmtNumber(totalDirectQty)}
+                        {formatReadNumber(totalDirectQty, totalHasMissing ? partialMeta : loadedMeta)}
                       </td>
                       {totalMappingQtyByColumn.map((q, idx) => (
                         <td
                           key={`total-${idx}`}
-                          className={`num ${uColumnClass(idx)} ${getCellSelectionClass('total:grand', `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
+                          className={`num ${uColumnClass(idx)} ${readStatusClass(totalMappingHasMissingByColumn[idx] ? partialMeta : loadedMeta)} ${getCellSelectionClass('total:grand', `B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`)}`}
                           onClick={() =>
                             handleCellSelect({
                               rowKey: 'total:grand',
@@ -3278,12 +3462,13 @@ export function ProductCodesView() {
                           data-col-key={`B:${U_COLUMNS[idx]?.uProduct ?? ''}-${U_COLUMNS[idx]?.uVariant ?? idx}`}
                           data-row-label="합계"
                           data-col-label={`U상품 ${U_COLUMNS[idx]?.uProduct ?? ''} ${U_COLUMNS[idx]?.uVariant ?? ''}`.trim()}
+                          {...readStatusAttrs(totalMappingHasMissingByColumn[idx] ? partialMeta : loadedMeta, q)}
                         >
-                          {fmtNumber(q)}
+                          {formatReadNumber(q, totalMappingHasMissingByColumn[idx] ? partialMeta : loadedMeta)}
                         </td>
                       ))}
                       <td
-                        className={`num sticky sticky-total ${getCellSelectionClass('total:grand', 'C:총판매')}`}
+                        className={`num sticky sticky-total ${readStatusClass(totalHasMissing ? partialMeta : loadedMeta)} ${getCellSelectionClass('total:grand', 'C:총판매')}`}
                         onClick={() =>
                           handleCellSelect({
                             rowKey: 'total:grand',
@@ -3296,11 +3481,12 @@ export function ProductCodesView() {
                         data-col-key="C:총판매"
                         data-row-label="합계"
                         data-col-label="총판매"
+                        {...readStatusAttrs(totalHasMissing ? partialMeta : loadedMeta, totalQty)}
                       >
-                        {fmtNumber(totalQty)}
+                        {formatReadNumber(totalQty, totalHasMissing ? partialMeta : loadedMeta)}
                       </td>
                       <td
-                        className={`num sticky sticky-rev ${getCellSelectionClass('total:grand', 'C:매출')}`}
+                        className={`num sticky sticky-rev ${readStatusClass(totalRevHasMissing ? partialMeta : loadedMeta)} ${getCellSelectionClass('total:grand', 'C:매출')}`}
                         onClick={() =>
                           handleCellSelect({
                             rowKey: 'total:grand',
@@ -3313,8 +3499,9 @@ export function ProductCodesView() {
                         data-col-key="C:매출"
                         data-row-label="합계"
                         data-col-label="매출"
+                        {...readStatusAttrs(totalRevHasMissing ? partialMeta : loadedMeta, totalRev)}
                       >
-                        {fmtCurrency(totalRev, currency)}
+                        {formatReadCurrency(totalRev, currency, totalRevHasMissing ? partialMeta : loadedMeta)}
                       </td>
                     </tr>
                   </tfoot>
