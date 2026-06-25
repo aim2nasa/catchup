@@ -1165,7 +1165,7 @@ function makeSetComponentPriceRef(
     `구성옵션: ${componentOptionCode} / ${componentOptionName}`,
     `구성수량: ${fmtNumber(component.qty)}`,
     `단가: ${fmtCurrency(component.setPrice, 'KRW')}`,
-    `구성금액: ${fmtCurrency(getSetComponentDraftAmount(component), 'KRW')}`,
+    `1세트 구성금액: ${fmtCurrency(getSetComponentDraftAmount(component), 'KRW')}`,
     'Excel 다운로드에서는 매출단가참조 시트의 이 참조명을 사용합니다.',
   ].join('\n')
 
@@ -1221,6 +1221,19 @@ type ExcelColumnWidthRule = {
   includeMerged?: boolean
 }
 
+type ExcelAutoFitCell = {
+  value: unknown
+  isMerged?: boolean
+}
+
+type ExcelAutoFitColumn = {
+  width?: number
+}
+
+type ExcelAutoFitRow = {
+  getCell: (colNumber: number) => ExcelAutoFitCell
+}
+
 function excelCellWidthText(value: unknown): string {
   if (value == null) return ''
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
@@ -1247,29 +1260,36 @@ function excelTextDisplayWidth(text: string): number {
 
 function autoFitWorksheetColumns(
   worksheet: {
-    columns?: Array<{
-      width?: number
-      eachCell: (
-        options: { includeEmpty: boolean },
-        cb: (cell: { value: unknown; isMerged?: boolean }) => void,
-      ) => void
-    }>
+    columns?: ExcelAutoFitColumn[]
+    actualColumnCount?: number
+    columnCount?: number
+    eachRow?: (options: { includeEmpty: boolean }, cb: (row: ExcelAutoFitRow) => void) => void
+    getColumn?: (colNumber: number) => ExcelAutoFitColumn
   },
   rules: Record<number, ExcelColumnWidthRule> = {},
 ) {
-  worksheet.columns?.forEach((column, idx) => {
-    const colNumber = idx + 1
+  const columnCount = Math.max(
+    worksheet.columns?.length ?? 0,
+    worksheet.actualColumnCount ?? 0,
+    worksheet.columnCount ?? 0,
+  )
+
+  for (let colNumber = 1; colNumber <= columnCount; colNumber += 1) {
+    const column = worksheet.getColumn?.(colNumber) ?? worksheet.columns?.[colNumber - 1]
     const rule = rules[colNumber] ?? {}
     let maxLength = rule.min ?? 8
-    column.eachCell({ includeEmpty: false }, (cell) => {
+    worksheet.eachRow?.({ includeEmpty: false }, (row) => {
+      const cell = row.getCell(colNumber)
       if (cell.isMerged && !rule.includeMerged) return
       excelCellWidthText(cell.value).split(/\r?\n/).forEach((line) => {
         maxLength = Math.max(maxLength, excelTextDisplayWidth(line))
       })
     })
     const padded = maxLength + 2
-    column.width = Math.min(rule.max ?? 60, Math.max(rule.min ?? 8, padded))
-  })
+    if (column) {
+      column.width = Math.min(rule.max ?? 60, Math.max(rule.min ?? 8, padded))
+    }
+  }
 }
 
 function makeSetComponentScopeKey(productCode: string, scope: SetComponentScope, variantCode?: string) {
@@ -3693,7 +3713,7 @@ export function ProductCodesView() {
       { header: '왼쪽옵션명', key: 'targetOptionName', width: 36 },
       { header: '수량', key: 'componentQty', width: 8 },
       { header: '구성 단가', key: 'unitPrice', width: 14 },
-      { header: '구성금액', key: 'amount', width: 14 },
+      { header: '1세트 구성금액', key: 'amount', width: 16 },
     ]
     priceReferenceSheet.getRow(1).font = { bold: true, color: { argb: 'FF064E3B' } }
     priceReferenceSheet.getRow(1).fill = {
@@ -3715,11 +3735,18 @@ export function ProductCodesView() {
         targetOptionName: row.ref.targetOptionName,
         componentQty: row.quantity ?? '',
         unitPrice: row.ref.unitPrice,
-        amount: row.amount,
+        amount: row.ref.kind === 'set-component' ? row.amount : null,
       })
       const priceCell = nextRow.getCell(12)
       priceCell.numFmt = '"₩"#,##0'
-      nextRow.getCell(13).numFmt = '"₩"#,##0'
+      const amountCell = nextRow.getCell(13)
+      if (row.ref.kind === 'set-component') {
+        amountCell.value = {
+          formula: `K${nextRow.number}*L${nextRow.number}`,
+          result: row.amount,
+        }
+      }
+      amountCell.numFmt = '"₩"#,##0'
       workbook.definedNames.add(`'매출단가참조'!$L$${nextRow.number}`, row.ref.refName)
     })
     priceReferenceSheet.eachRow((row) => {
@@ -3741,7 +3768,7 @@ export function ProductCodesView() {
       10: { min: 24, max: 60 },
       11: { min: 8, max: 10 },
       12: { min: 14, max: 16 },
-      13: { min: 14, max: 16 },
+      13: { min: 16, max: 20 },
     })
 
     const fixedHeaders: Array<[number, string]> = [
@@ -3886,16 +3913,19 @@ export function ProductCodesView() {
     ]
     const productSheetWidthRules: Record<number, ExcelColumnWidthRule> = {
       1: { min: 14, max: 18 },
-      2: { min: 52, max: 90 },
+      2: { min: 52, max: 110 },
       3: { min: 6, max: 8 },
-      4: { min: 42, max: 82 },
+      4: { min: 42, max: 110 },
       5: { min: 10, max: 14 },
       6: { min: 9, max: 12 },
       [totalExcelColumn]: { min: 11, max: 13 },
       [revenueExcelColumn]: { min: 16, max: 20 },
     }
     U_COLUMNS.forEach((_, idx) => {
-      productSheetWidthRules[U_START_EXCEL_COL + idx] = { min: 4.8, max: 7 }
+      const column = U_COLUMNS[idx]
+      productSheetWidthRules[U_START_EXCEL_COL + idx] = column.group === 'set'
+        ? { min: 12, max: 18 }
+        : { min: 5.2, max: 9.5 }
     })
     autoFitWorksheetColumns(worksheet, productSheetWidthRules)
 

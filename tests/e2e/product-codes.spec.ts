@@ -449,6 +449,9 @@ test.describe('상품코드 페이지', () => {
     expect(supportSheet!.getCell(refRow, 9).value).toBe('A')
     expect(supportSheet!.getCell(refRow, 11).value).toBe(1)
     expect(supportSheet!.getCell(refRow, 12).value).toBe(21040)
+    expect(supportSheet!.getCell(1, 13).value).toBe('1세트 구성금액')
+    expect(productCodesExcelCellFormula(supportSheet!.getCell(refRow, 13))).toBe(`K${refRow}*L${refRow}`)
+    expect(productCodesExcelCellResult(supportSheet!.getCell(refRow, 13))).toBe(21040)
     const exportedRevenueFormula = productCodesExcelCellFormula(worksheet!.getCell(revenueA1!))
     expect(exportedRevenueFormula).toBeTruthy()
     expect(evaluateProductCodesExcelFormula(exportedRevenueFormula!, workbook, worksheet!)).toBe(2014580)
@@ -457,6 +460,20 @@ test.describe('상품코드 페이지', () => {
     worksheet!.getCell('BG11').value = 2
     supportSheet!.getCell(refRow, 12).value = 10000
     expect(evaluateProductCodesExcelFormula(exportedRevenueFormula!, workbook, worksheet!)).toBe(1992500)
+    supportSheet!.getCell(refRow, 13).value = 999999
+    expect(evaluateProductCodesExcelFormula(exportedRevenueFormula!, workbook, worksheet!)).toBe(1992500)
+
+    const qtyFiveRefRow = supportSheet!.getColumn(1).values.findIndex(
+      (value) => value === 'SET_P00000YS_A_P00000XW_B_PRICE',
+    )
+    expect(qtyFiveRefRow).toBeGreaterThan(1)
+    expect(supportSheet!.getCell(qtyFiveRefRow, 11).value).toBe(5)
+    expect(supportSheet!.getCell(qtyFiveRefRow, 12).value).toBe(1600)
+    expect(productCodesExcelCellFormula(supportSheet!.getCell(qtyFiveRefRow, 13))).toBe(`K${qtyFiveRefRow}*L${qtyFiveRefRow}`)
+    expect(productCodesExcelCellResult(supportSheet!.getCell(qtyFiveRefRow, 13))).toBe(8000)
+    const qtyFiveDefinedRanges = workbook.definedNames.getRanges('SET_P00000YS_A_P00000XW_B_PRICE').ranges
+    expect(qtyFiveDefinedRanges).toHaveLength(1)
+    expect(qtyFiveDefinedRanges[0]).toMatch(new RegExp(`'매출단가참조'!\\$L\\$${qtyFiveRefRow}`))
 
     const mappedDefinedRanges = workbook.definedNames.getRanges('CONVERSION_P00000QE_G_P00000BV_A_PRICE').ranges
     expect(mappedDefinedRanges).toHaveLength(1)
@@ -667,6 +684,7 @@ test.describe('상품코드 페이지', () => {
     const missingRefRows: unknown[] = []
     const missingDefinedNames: unknown[] = []
     const wrongRefTypes: unknown[] = []
+    const wrongSetAmountFormulas: unknown[] = []
     for (const refName of referencedNames) {
       const supportRow = supportRows.get(refName)
       if (!supportRow) {
@@ -681,19 +699,48 @@ test.describe('상품코드 페이지', () => {
       if (supportRow.type !== expectedType) {
         wrongRefTypes.push({ refName, expectedType, actualType: supportRow.type })
       }
+      if (refName.startsWith('SET_')) {
+        const row = supportSheet!.getRow(supportRow.row)
+        const qty = productCodesExcelCellResult(row.getCell(11))
+        const unitPrice = productCodesExcelCellResult(row.getCell(12))
+        const amountCell = row.getCell(13)
+        const amountFormula = productCodesExcelCellFormula(amountCell)
+        const amountResult = productCodesExcelCellResult(amountCell)
+        if (
+          typeof qty !== 'number'
+          || typeof unitPrice !== 'number'
+          || amountFormula !== `K${supportRow.row}*L${supportRow.row}`
+          || amountResult !== qty * unitPrice
+        ) {
+          wrongSetAmountFormulas.push({
+            refName,
+            row: supportRow.row,
+            qty,
+            unitPrice,
+            amountFormula,
+            amountResult,
+            expectedAmount: typeof qty === 'number' && typeof unitPrice === 'number' ? qty * unitPrice : null,
+          })
+        }
+      }
     }
     expect(missingRefRows, JSON.stringify(missingRefRows, null, 2)).toHaveLength(0)
     expect(missingDefinedNames, JSON.stringify(missingDefinedNames, null, 2)).toHaveLength(0)
     expect(wrongRefTypes, JSON.stringify(wrongRefTypes, null, 2)).toHaveLength(0)
+    expect(wrongSetAmountFormulas, JSON.stringify(wrongSetAmountFormulas, null, 2)).toHaveLength(0)
 
-    expect(worksheet!.getColumn(1).width).toBeGreaterThanOrEqual(14)
-    expect(worksheet!.getColumn(2).width).toBeGreaterThanOrEqual(52)
-    expect(worksheet!.getColumn(4).width).toBeGreaterThanOrEqual(42)
-    expect(worksheet!.getColumn(6).width).toBeGreaterThanOrEqual(9)
+    expectProductCodesExcelColumnFitsText(worksheet!, 1, { max: 18, startRow: 9 })
+    expectProductCodesExcelColumnFitsText(worksheet!, 2, { max: 110, startRow: 9 })
+    expectProductCodesExcelColumnFitsText(worksheet!, 4, { max: 110, startRow: 9 })
+    expectProductCodesExcelColumnFitsText(worksheet!, 6, { max: 12, startRow: 9 })
+    const starterSetColumn = productCodesExcelFindColumnByText(worksheet!, 6, /제모미인\s+스타터키트20%/)
+    expect(starterSetColumn).toBeGreaterThan(0)
+    expect(worksheet!.getColumn(starterSetColumn).width).toBeGreaterThanOrEqual(12)
     expect(worksheet!.getColumn('BL').width).toBeGreaterThanOrEqual(16)
-    expect(supportSheet!.getColumn(1).width).toBeGreaterThanOrEqual(44)
-    expect(supportSheet!.getColumn(4).width).toBeGreaterThanOrEqual(28)
-    expect(supportSheet!.getColumn(8).width).toBeGreaterThanOrEqual(28)
+    expectProductCodesExcelColumnFitsText(supportSheet!, 1, { max: 64 })
+    expectProductCodesExcelColumnFitsText(supportSheet!, 4, { max: 60 })
+    expectProductCodesExcelColumnFitsText(supportSheet!, 8, { max: 64 })
+    expectProductCodesExcelColumnFitsText(supportSheet!, 13, { max: 20 })
   })
 
   test('교차셀 클릭 기준선은 hover 하이라이트와 구분되어 남고 삭제할 수 있다', async ({ page }) => {
@@ -1197,6 +1244,66 @@ function productCodesExcelCellResult(cell: ExcelJS.Cell): string | number | null
     return productCodesExcelPrimitiveValue((value as { result?: ExcelJS.CellValue }).result ?? null)
   }
   return productCodesExcelPrimitiveValue(value)
+}
+
+function productCodesExcelCellWidthText(value: ExcelJS.CellValue | undefined): string {
+  if (value == null) return ''
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === 'object') {
+    if ('richText' in value) {
+      return (value as { richText?: Array<{ text?: string }> }).richText
+        ?.map((part) => part.text ?? '')
+        .join('') ?? ''
+    }
+    if ('result' in value) return productCodesExcelCellWidthText((value as { result?: ExcelJS.CellValue }).result)
+    if ('formula' in value) return productCodesExcelCellWidthText((value as { formula?: ExcelJS.CellValue }).formula)
+  }
+  return String(value)
+}
+
+function productCodesExcelDisplayWidth(text: string): number {
+  return Array.from(text).reduce(
+    (sum, char) => sum + (/[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF\u3000-\u9FFF\uFF01-\uFF60]/.test(char) ? 2 : 1),
+    0,
+  )
+}
+
+function productCodesExcelMaxColumnTextWidth(
+  worksheet: ExcelJS.Worksheet,
+  columnNumber: number,
+  options: { startRow?: number; endRow?: number; includeMerged?: boolean } = {},
+): number {
+  let maxWidth = 0
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (options.startRow && rowNumber < options.startRow) return
+    if (options.endRow && rowNumber > options.endRow) return
+    const cell = row.getCell(columnNumber)
+    if (cell.isMerged && !options.includeMerged) return
+    productCodesExcelCellWidthText(cell.value).split(/\r?\n/).forEach((line) => {
+      maxWidth = Math.max(maxWidth, productCodesExcelDisplayWidth(line))
+    })
+  })
+  return maxWidth
+}
+
+function expectProductCodesExcelColumnFitsText(
+  worksheet: ExcelJS.Worksheet,
+  columnNumber: number,
+  options: { max: number; startRow?: number; endRow?: number; includeMerged?: boolean },
+) {
+  const maxTextWidth = productCodesExcelMaxColumnTextWidth(worksheet, columnNumber, options)
+  const expectedWidth = Math.min(options.max, maxTextWidth + 2)
+  expect(worksheet.getColumn(columnNumber).width).toBeGreaterThanOrEqual(expectedWidth)
+}
+
+function productCodesExcelFindColumnByText(worksheet: ExcelJS.Worksheet, rowNumber: number, pattern: RegExp): number {
+  const row = worksheet.getRow(rowNumber)
+  for (let columnNumber = 1; columnNumber <= worksheet.columnCount; columnNumber += 1) {
+    const text = productCodesExcelCellWidthText(row.getCell(columnNumber).value)
+    if (pattern.test(text)) return columnNumber
+  }
+  return -1
 }
 
 function productCodesExcelPrimitiveValue(value: ExcelJS.CellValue): string | number | null {
