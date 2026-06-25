@@ -3647,6 +3647,8 @@ export function ProductCodesView() {
     const headerFont = { bold: true, color: { argb: 'FFF8FAFC' }, size: 9 }
     const sumFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF1F5F9' } }
     const bodyFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
+    const conversionMappedFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFDBEAFE' } }
+    const setMappedFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFDCFCE7' } }
     const border = { style: 'thin' as const, color: { argb: 'FF94A3B8' } }
     const summaryBorder = { style: 'medium' as const, color: { argb: 'FF94A3B8' } }
     const applyBorder = (cell: { border: unknown; alignment: unknown }) => {
@@ -3821,6 +3823,10 @@ export function ProductCodesView() {
       }
       if (domCell.classList.contains('sticky-total') || domCell.classList.contains('sticky-rev')) {
         cell.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFF8FAFC' } }
+      }
+      if (domCell.classList.contains('map-cell--mapped')) {
+        cell.fill = domCell.classList.contains('u-col-set') ? setMappedFill : conversionMappedFill
+        cell.font = { ...(cell.font as object), bold: true }
       }
       if (domCell.closest('.subtotal-row') || domCell.closest('tfoot')) {
         cell.fill = sumFill

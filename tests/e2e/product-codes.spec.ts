@@ -577,6 +577,7 @@ test.describe('상품코드 페이지', () => {
           exportValue: el.dataset.exportValue ?? '',
           formula: el.dataset.formula ?? '',
           excelFormula: el.dataset.excelFormula ?? '',
+          className: el.className,
         }
       }),
     )
@@ -595,6 +596,18 @@ test.describe('상품코드 페이지', () => {
     const supportSheet = workbook.getWorksheet('매출단가참조')
     expect(worksheet).toBeTruthy()
     expect(supportSheet).toBeTruthy()
+
+    const findScreenCell = (rowKey: string, colKey: string) =>
+      screenCells.find((cell) => cell.rowKey === rowKey && cell.colKey === colKey)
+    const conversionMappedCell = findScreenCell('parent:500g:P00000BV', 'B:P00000QE-G')
+    const setMappedCell = findScreenCell('parent:500g:P00000HT', 'B:P00000YS-A')
+    const emptySetCell = findScreenCell('parent:500g:P00000BV', 'B:P00000YS-A')
+    expect(conversionMappedCell?.className).toContain('map-cell--mapped')
+    expect(setMappedCell?.className).toContain('map-cell--mapped')
+    expect(emptySetCell?.className).toContain('map-cell--unmapped')
+    expect(productCodesExcelFillArgb(worksheet!.getCell(conversionMappedCell!.a1))).toBe('FFDBEAFE')
+    expect(productCodesExcelFillArgb(worksheet!.getCell(setMappedCell!.a1))).toBe('FFDCFCE7')
+    expect(productCodesExcelFillArgb(worksheet!.getCell(emptySetCell!.a1))).not.toBe('FFDCFCE7')
 
     const valueMismatches: unknown[] = []
     const formulaMismatches: unknown[] = []
@@ -1201,6 +1214,11 @@ function productCodesExcelValuesEqual(actual: string | number | null, expected: 
     return Math.abs(actual - expected) < 0.0001
   }
   return actual === expected
+}
+
+function productCodesExcelFillArgb(cell: ExcelJS.Cell) {
+  const fill = cell.fill as { type?: string; fgColor?: { argb?: string } } | undefined
+  return fill?.type === 'pattern' ? fill.fgColor?.argb : undefined
 }
 
 function evaluateProductCodesExcelFormula(
