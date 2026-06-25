@@ -1695,7 +1695,7 @@ function buildCellFormula(
         const mappedQty = (rowMeta.revenueMappedTerms ?? []).reduce((sum, term) => sum + term.quantity, 0)
         const totalQty = (rowMeta.revenueDirectQty ?? 0) + mappedQty
         return makeFormulaResult(formula, formula, {
-          title: `${targetLabel} 총판매`,
+          title: `${targetLabel} 매출 계산 내역`,
           summary: `직접판매 ${quantityResultLabel(rowMeta.revenueDirectQty)} + 위쪽상품 환산 ${quantityResultLabel(mappedQty)} = ${quantityResultLabel(totalQty)}`,
           terms: [
             {
@@ -1716,7 +1716,7 @@ function buildCellFormula(
         })
       }
       return makeFormulaResult(directPart, directPart, {
-        title: `${targetLabel} 총판매`,
+        title: `${targetLabel} 매출 계산 내역`,
         summary: `직접판매 수량 ${quantityResultLabel(rowMeta.revenueDirectQty)}을 그대로 사용합니다.`,
         terms: [{
           kind: 'direct-sales',
@@ -1805,8 +1805,8 @@ function buildCellFormula(
       const resultAmount = directAmount + mappedAmount
       return {
         ...makeFormulaResult(`=${displayTerms.join('+')}`, `=${excelTerms.join('+')}`, {
-          title: `${targetLabel} 매출`,
-          summary: `${explanationTerms.map((term) => `${term.label} ${formulaResultLabel(term.amount)}`).join(' + ')} = ${formulaResultLabel(resultAmount)}`,
+          title: `${targetLabel} 매출 계산 내역`,
+          summary: formulaResultLabel(resultAmount),
           terms: explanationTerms,
         }),
       }
@@ -4047,11 +4047,13 @@ export function ProductCodesView() {
                       <section className="formula-explanation" aria-label="계산 해설">
                         <div className="formula-explanation-header">
                           <span className="formula-explanation-title">{selectedFormulaExplanation.title}</span>
-                          <span className="formula-explanation-summary">{selectedFormulaExplanation.summary}</span>
                         </div>
                         <div className="formula-explanation-terms">
                           {selectedFormulaExplanation.terms.map((term, idx) => (
                             <div className="formula-explanation-term" key={`${term.kind}-${idx}`}>
+                              <span className="formula-term-index" aria-label={`내역 ${idx + 1}`}>
+                                {idx + 1}
+                              </span>
                               <span className={`formula-term-kind formula-term-kind--${term.kind}`}>
                                 {term.label}
                               </span>
@@ -4073,6 +4075,10 @@ export function ProductCodesView() {
                               ) : null}
                             </div>
                           ))}
+                          <div className="formula-explanation-total">
+                            <span className="formula-total-label">합계</span>
+                            <span className="formula-total-value">{selectedFormulaExplanation.summary}</span>
+                          </div>
                         </div>
                         {selectedFormulaText ? (
                           <details className="formula-source">
