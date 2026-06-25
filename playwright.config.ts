@@ -29,7 +29,7 @@ export default defineConfig({
     },
     {
       command: 'npm --prefix frontend run dev',
-      url: 'http://127.0.0.1:5173/catchup/',
+      url: 'http://127.0.0.1:5173/catchup/api/version',
       reuseExistingServer: true,
       timeout: 30_000,
       stdout: 'pipe',

@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `frontend/` — Vite + React 19 + TypeScript 신규 프론트엔드 (마이그레이션 진행 중)
   - `src/api/client.ts` (fetch 헬퍼 + 타입), `src/App.tsx` 등
   - 빌드: `npm run build` → `frontend/dist/`
-  - dev: `npm run dev` (port 5173, /api → backend 8000 proxy)
+  - dev: 루트 `npm run dev`가 backend(8000)와 frontend(5173)를 함께 실행
 - `web/` — 레거시 운영 UI 위치 (점진 폐기 예정)
   - `static/index.html` 단일 파일 SPA — 현재 운영 화면
   - `server.py` / `aggregation.py` — 모두 `backend.*` 재export shim (구진입점 호환용)
@@ -41,17 +41,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 빌드 / 실행 / 테스트 명령
 
-### 백엔드 실행 (개발)
+### 통합 개발 서버 실행 (권장)
+```
+npm run dev
+# backend: 127.0.0.1:8000
+# frontend: 127.0.0.1:5173/catchup/
+```
+
+### 백엔드 실행 (수동 조사)
 ```
 py backend/main.py
 # 127.0.0.1:8000
 ```
 
-### 프론트엔드 dev (별도 터미널)
+### 프론트엔드 dev (내부 전용)
 ```
 cd frontend
 npm install      # 최초 1회
-npm run dev      # 127.0.0.1:5173, /api → 8000 proxy
+npm run dev      # 루트 통합 실행기로 위임. backend 없이 frontend만 띄우지 않음.
 ```
 
 ### 프론트엔드 build (운영)
@@ -65,7 +72,10 @@ npm run build    # frontend/dist/ 산출
 - **dist 없음**: `/` → 옛 정적 UI fallback
 
 ⇒ 운영 모드는 `npm run build` 후 `py backend/main.py` 만 띄우면 됨.
-⇒ 개발 모드는 backend(8000) + `npm run dev`(5173)를 양쪽에서 띄우고
+⇒ 개발 모드는 루트 `npm run dev`로 backend(8000)와 frontend(5173)를 함께 띄운다.
+  `frontend/npm run dev`도 같은 통합 실행기로 위임한다.
+  backend 없는 frontend 단독 실행은 502 재발 원인이므로 내부 스크립트와 Vite config에서 차단한다.
+  5173이 이미 점유된 경우에도 `/catchup/api/version` 프록시 health가 통과해야만 재사용한다.
   /api는 vite proxy로 8000으로 포워딩. dist를 매번 빌드할 필요 없음.
 
 ### 회귀 테스트 (Python, 40건)
