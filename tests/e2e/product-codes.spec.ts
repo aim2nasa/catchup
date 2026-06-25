@@ -393,6 +393,28 @@ test.describe('상품코드 페이지', () => {
     await expect(oldDirectSetCell).not.toHaveClass(/map-cell--mapped/)
   })
 
+  test('교차셀 매핑 변경 더블클릭은 전환상품에서만 동작한다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const setProductCrossCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="B:P00000YS-A"]')
+    await expect(setProductCrossCell).toHaveClass(/u-col-set/)
+    await expect(setProductCrossCell).toHaveClass(/map-cell--mapped/)
+    await setProductCrossCell.dblclick()
+    await expect(page.locator('.lu-confirm-dialog')).toHaveCount(0)
+
+    const conversionCrossCell = page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="B:P00000QE-G"]')
+    await expect(conversionCrossCell).toHaveClass(/u-col-conversion/)
+    await conversionCrossCell.dblclick()
+    await expect(page.locator('.lu-confirm-dialog')).toBeVisible()
+    await expect(page.locator('.lu-confirm-dialog')).toContainText(/매핑셀|매핑 대상/)
+  })
+
   test('매출 수식은 세트 구성 단가와 전환 단가를 추적 가능한 참조로 표시하고 엑셀에 내보낸다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 

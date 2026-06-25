@@ -2277,6 +2277,10 @@ export function ProductCodesView() {
     },
   ) => {
     if (EXCLUDED_U_PRODUCTS.has(target.uProduct)) return
+    const targetUColumn = U_COLUMNS.find(
+      (col) => col.uProduct === target.uProduct && col.uVariant === target.uVariant,
+    )
+    if (targetUColumn?.group !== 'conversion') return
 
     const targetRule = makeOverrideRule({
       action: 'add',
