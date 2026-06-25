@@ -1569,16 +1569,6 @@ function revenuePriceRefSourceEntity(priceRef: RevenueUnitPriceRef): FormulaTerm
   }
 }
 
-function revenuePriceRefTargetEntity(priceRef: RevenueUnitPriceRef): FormulaTermEntity {
-  return {
-    role: '왼쪽상품',
-    productCode: priceRef.targetProductCode,
-    productName: priceRef.targetProductName,
-    optionCode: priceRef.targetOptionCode,
-    optionName: priceRef.targetOptionName,
-  }
-}
-
 function formulaEntityText(entity: FormulaTermEntity) {
   const option = entity.optionCode
     ? `${entity.optionCode} · ${displayOptionName(entity.optionName)}`
@@ -1961,7 +1951,6 @@ function buildCellFormula(
           kind: 'direct-sales',
           label: '직접판매 매출',
           detail: `직접판매 ${quantityResultLabel(rowMeta.revenueDirectQty)} × 단가 ${formulaResultLabel(rowMeta.unit_price)}`,
-          targetEntity,
           refs: `${directQtyRef} × ${directPriceRef}`,
           quantity: rowMeta.revenueDirectQty ?? 0,
           unitPrice: rowMeta.unit_price ?? 0,
@@ -1983,15 +1972,11 @@ function buildCellFormula(
         const source = priceRef
           ? `${priceRef.sourceProductCode} / ${priceRef.sourceProductName} / ${priceRef.sourceOptionCode} · ${priceRef.sourceOptionName}`
           : `${col}${rowMeta.excelRow}`
-        const target = priceRef
-          ? `${priceRef.targetProductCode} / ${priceRef.targetProductName} / ${priceRef.targetOptionCode} · ${priceRef.targetOptionName}`
-          : targetLabel
         explanationTerms.push({
           kind: isSet ? 'set-component' : 'conversion',
           label,
-          detail: `${source} 판매 ${quantityResultLabel(term.quantity)} × ${target} 단가 ${term.priceMissing ? '확인불가' : formulaResultLabel(term.unitPrice)}`,
+          detail: `${source} 판매 ${quantityResultLabel(term.quantity)} × ${isSet ? '세트 구성 단가' : '전환 단가'} ${term.priceMissing ? '확인불가' : formulaResultLabel(term.unitPrice)}`,
           sourceEntity: priceRef ? revenuePriceRefSourceEntity(priceRef) : undefined,
-          targetEntity: priceRef ? revenuePriceRefTargetEntity(priceRef) : targetEntity,
           refs: `${col}${rowMeta.excelRow}${priceRef ? ` × ${priceRef.refName}` : ''}`,
           quantity: term.quantity,
           unitPrice: term.priceMissing ? undefined : term.unitPrice,
