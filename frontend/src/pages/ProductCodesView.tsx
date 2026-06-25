@@ -62,16 +62,26 @@ type FormulaExplanationTerm = {
   kind: 'direct-sales' | 'conversion' | 'set-component' | 'sum' | 'total-quantity'
   label: string
   detail: string
+  sourceEntity?: FormulaTermEntity
+  targetEntity?: FormulaTermEntity
   refs?: string
   quantity?: number
   unitPrice?: number
   amount?: number
+}
+type FormulaTermEntity = {
+  role: string
+  productCode: string
+  productName: string
+  optionCode?: string
+  optionName: string
 }
 type FormulaExplanation = {
   title: string
   summary: string
   terms: FormulaExplanationTerm[]
   sourceFormula: string
+  targetEntity?: FormulaTermEntity
 }
 type RevenueUnitPriceRef = {
   kind: 'mapped' | 'set-component'
@@ -1534,6 +1544,109 @@ function rowFormulaTargetLabel(rowMeta: RowFormulaMeta) {
   return `${product} / ${option}`
 }
 
+function rowFormulaTargetEntity(rowMeta: RowFormulaMeta): FormulaTermEntity | undefined {
+  if (rowMeta.rowType !== 'product' && rowMeta.rowType !== 'variant') return undefined
+  if (!rowMeta.product_code || !rowMeta.product_name) return undefined
+  const optionCode = rowMeta.variant_code
+    ? normalizeVariantSuffix(rowMeta.product_code, rowMeta.variant_code).toUpperCase()
+    : undefined
+  return {
+    role: '왼쪽상품',
+    productCode: rowMeta.product_code,
+    productName: rowMeta.product_name,
+    optionCode,
+    optionName: displayOptionName(rowMeta.option_name),
+  }
+}
+
+function revenuePriceRefSourceEntity(priceRef: RevenueUnitPriceRef): FormulaTermEntity {
+  return {
+    role: priceRef.kind === 'set-component' ? '세트상품' : '전환상품',
+    productCode: priceRef.sourceProductCode,
+    productName: priceRef.sourceProductName,
+    optionCode: priceRef.sourceOptionCode,
+    optionName: priceRef.sourceOptionName,
+  }
+}
+
+function revenuePriceRefTargetEntity(priceRef: RevenueUnitPriceRef): FormulaTermEntity {
+  return {
+    role: '왼쪽상품',
+    productCode: priceRef.targetProductCode,
+    productName: priceRef.targetProductName,
+    optionCode: priceRef.targetOptionCode,
+    optionName: priceRef.targetOptionName,
+  }
+}
+
+function formulaEntityText(entity: FormulaTermEntity) {
+  const option = entity.optionCode
+    ? `${entity.optionCode} · ${displayOptionName(entity.optionName)}`
+    : displayOptionName(entity.optionName)
+  return `${entity.productCode} / ${entity.productName} / ${option}`
+}
+
+function FormulaEntitySummary({ entity }: { entity: FormulaTermEntity }) {
+  const product = `${entity.productCode} / ${entity.productName}`
+  const option = entity.optionCode
+    ? `${entity.optionCode} · ${displayOptionName(entity.optionName)}`
+    : displayOptionName(entity.optionName)
+  const roleClass = entity.role === '왼쪽상품'
+    ? 'left'
+    : entity.role === '세트상품'
+      ? 'set'
+      : entity.role === '전환상품'
+        ? 'conversion'
+        : 'default'
+
+  return (
+    <span className={`formula-entity-card formula-entity-card--${roleClass}`} title={formulaEntityText(entity)}>
+      <span className={`formula-entity-role formula-entity-role--${roleClass}`}>{entity.role}</span>
+      <span className="formula-entity-field formula-entity-field--product">
+        <span className="formula-entity-label">상품</span>
+        <span className="formula-entity-value" title={product}>{product}</span>
+      </span>
+      <span className="formula-entity-field formula-entity-field--option">
+        <span className="formula-entity-label">옵션</span>
+        <span className="formula-entity-value" title={option}>{option}</span>
+      </span>
+    </span>
+  )
+}
+
+function FormulaExplanationTitleView({
+  explanation,
+  fallback,
+}: {
+  explanation?: FormulaExplanation | null
+  fallback: string
+}) {
+  if (!explanation?.targetEntity) {
+    return <span className="formula-explanation-title">{explanation?.title ?? fallback}</span>
+  }
+
+  return (
+    <span className="formula-explanation-title formula-explanation-title--structured">
+      <FormulaEntitySummary entity={explanation.targetEntity} />
+      <span className="formula-title-suffix">매출 계산 내역</span>
+    </span>
+  )
+}
+
+function FormulaTermDetailView({ term }: { term: FormulaExplanationTerm }) {
+  if (!term.sourceEntity && !term.targetEntity) {
+    return <span className="formula-term-detail" title={term.detail}>{term.detail}</span>
+  }
+
+  return (
+    <span className="formula-term-detail formula-term-detail--structured" title={term.detail}>
+      {term.sourceEntity ? <FormulaEntitySummary entity={term.sourceEntity} /> : null}
+      {term.sourceEntity && term.targetEntity ? <span className="formula-term-flow" aria-hidden="true">→</span> : null}
+      {term.targetEntity ? <FormulaEntitySummary entity={term.targetEntity} /> : null}
+    </span>
+  )
+}
+
 function formulaColumnLabel(colMeta: ColFormulaMeta, fixed: { directCol: number; totalCol: number; revenueCol: number }) {
   if (colMeta.excelCol === fixed.directCol) return '직접판매'
   if (colMeta.excelCol === fixed.totalCol) return '총판매'
@@ -1696,6 +1809,7 @@ function buildCellFormula(
     .filter((row): row is number => row != null)
     .sort((a, b) => a - b)
   const targetLabel = rowFormulaTargetLabel(rowMeta)
+  const targetEntity = rowFormulaTargetEntity(rowMeta)
   const columnLabel = formulaColumnLabel(colMeta, { directCol, totalCol, revenueCol })
 
   const makeSumExplanation = (formula: string, col: number, label = columnLabel) => makeFormulaResult(
@@ -1774,6 +1888,7 @@ function buildCellFormula(
         return makeFormulaResult(formula, formula, {
           title: `${targetLabel} 매출 계산 내역`,
           summary: `직접판매 ${quantityResultLabel(rowMeta.revenueDirectQty)} + 위쪽상품 환산 ${quantityResultLabel(mappedQty)} = ${quantityResultLabel(totalQty)}`,
+          targetEntity,
           terms: [
             {
               kind: 'direct-sales',
@@ -1795,6 +1910,7 @@ function buildCellFormula(
       return makeFormulaResult(directPart, directPart, {
         title: `${targetLabel} 매출 계산 내역`,
         summary: `직접판매 수량 ${quantityResultLabel(rowMeta.revenueDirectQty)}을 그대로 사용합니다.`,
+        targetEntity,
         terms: [{
           kind: 'direct-sales',
           label: '직접판매',
@@ -1845,6 +1961,7 @@ function buildCellFormula(
           kind: 'direct-sales',
           label: '직접판매 매출',
           detail: `직접판매 ${quantityResultLabel(rowMeta.revenueDirectQty)} × 단가 ${formulaResultLabel(rowMeta.unit_price)}`,
+          targetEntity,
           refs: `${directQtyRef} × ${directPriceRef}`,
           quantity: rowMeta.revenueDirectQty ?? 0,
           unitPrice: rowMeta.unit_price ?? 0,
@@ -1873,6 +1990,8 @@ function buildCellFormula(
           kind: isSet ? 'set-component' : 'conversion',
           label,
           detail: `${source} 판매 ${quantityResultLabel(term.quantity)} × ${target} 단가 ${term.priceMissing ? '확인불가' : formulaResultLabel(term.unitPrice)}`,
+          sourceEntity: priceRef ? revenuePriceRefSourceEntity(priceRef) : undefined,
+          targetEntity: priceRef ? revenuePriceRefTargetEntity(priceRef) : targetEntity,
           refs: `${col}${rowMeta.excelRow}${priceRef ? ` × ${priceRef.refName}` : ''}`,
           quantity: term.quantity,
           unitPrice: term.priceMissing ? undefined : term.unitPrice,
@@ -1884,6 +2003,7 @@ function buildCellFormula(
         ...makeFormulaResult(`=${displayTerms.join('+')}`, `=${excelTerms.join('+')}`, {
           title: `${targetLabel} 매출 계산 내역`,
           summary: formulaResultLabel(resultAmount),
+          targetEntity,
           terms: explanationTerms,
         }),
       }
@@ -4263,9 +4383,10 @@ export function ProductCodesView() {
                     {selectedFormulaText ? (
                       <section className="formula-explanation" aria-label="수식 정보">
                         <div className="formula-explanation-header">
-                          <span className="formula-explanation-title">
-                            {selectedFormulaExplanation?.title ?? `${selectedCoordinateText ?? ''} 수식`}
-                          </span>
+                          <FormulaExplanationTitleView
+                            explanation={selectedFormulaExplanation}
+                            fallback={`${selectedCoordinateText ?? ''} 수식`}
+                          />
                           <div className="formula-explanation-actions" aria-label="계산 내역 표시 방식">
                             {formulaDetailsOpen && selectedFormulaExplanation ? (
                               <button
@@ -4296,7 +4417,7 @@ export function ProductCodesView() {
                                 <span className={`formula-term-kind formula-term-kind--${term.kind}`}>
                                   {term.label}
                                 </span>
-                                <span className="formula-term-detail" title={term.detail}>{term.detail}</span>
+                                <FormulaTermDetailView term={term} />
                                 {term.quantity != null ? (
                                   <span className="formula-term-number" title="수량">
                                     {quantityResultLabel(term.quantity)}
