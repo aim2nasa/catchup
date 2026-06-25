@@ -1215,6 +1215,63 @@ function buildRevenueUnitPriceReferenceRows(rowMetaByKey: Map<string, RowFormula
   return Array.from(rowByRefName.values())
 }
 
+type ExcelColumnWidthRule = {
+  min?: number
+  max?: number
+  includeMerged?: boolean
+}
+
+function excelCellWidthText(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === 'object') {
+    if ('richText' in value) {
+      return ((value as { richText?: Array<{ text?: string }> }).richText ?? [])
+        .map((part) => part.text ?? '')
+        .join('')
+    }
+    if ('result' in value) return excelCellWidthText((value as { result?: unknown }).result)
+    if ('formula' in value) return excelCellWidthText((value as { formula?: unknown }).formula)
+  }
+  return String(value)
+}
+
+function excelTextDisplayWidth(text: string): number {
+  return Array.from(text).reduce((sum, char) => {
+    // Excel column width is closer to visual glyph width than JS string length.
+    // Korean/CJK glyphs need roughly double the Latin width to avoid clipped exports.
+    return sum + (/[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF\u3000-\u9FFF\uFF01-\uFF60]/.test(char) ? 2 : 1)
+  }, 0)
+}
+
+function autoFitWorksheetColumns(
+  worksheet: {
+    columns?: Array<{
+      width?: number
+      eachCell: (
+        options: { includeEmpty: boolean },
+        cb: (cell: { value: unknown; isMerged?: boolean }) => void,
+      ) => void
+    }>
+  },
+  rules: Record<number, ExcelColumnWidthRule> = {},
+) {
+  worksheet.columns?.forEach((column, idx) => {
+    const colNumber = idx + 1
+    const rule = rules[colNumber] ?? {}
+    let maxLength = rule.min ?? 8
+    column.eachCell({ includeEmpty: false }, (cell) => {
+      if (cell.isMerged && !rule.includeMerged) return
+      excelCellWidthText(cell.value).split(/\r?\n/).forEach((line) => {
+        maxLength = Math.max(maxLength, excelTextDisplayWidth(line))
+      })
+    })
+    const padded = maxLength + 2
+    column.width = Math.min(rule.max ?? 60, Math.max(rule.min ?? 8, padded))
+  })
+}
+
 function makeSetComponentScopeKey(productCode: string, scope: SetComponentScope, variantCode?: string) {
   return `${normalizeProductCode(productCode)}${COLUMN_KEY_DELIM}${scope}${COLUMN_KEY_DELIM}${
     scope === 'common' ? 'common' : normalizeVariantCode(variantCode ?? '')
@@ -3576,8 +3633,10 @@ export function ProductCodesView() {
     workbook.created = new Date()
     Object.assign(workbook.calcProperties, {
       calcMode: 'auto',
+      calcOnSave: true,
       forceFullCalc: true,
       fullCalcOnLoad: true,
+      fullPrecision: true,
     })
     const worksheet = workbook.addWorksheet('상품코드', {
       views: [{ state: 'frozen', xSplit: 6, ySplit: 9 }],
@@ -3659,13 +3718,28 @@ export function ProductCodesView() {
       const priceCell = nextRow.getCell(12)
       priceCell.numFmt = '"₩"#,##0'
       nextRow.getCell(13).numFmt = '"₩"#,##0'
-      workbook.definedNames.add(`매출단가참조!$L$${nextRow.number}`, row.ref.refName)
+      workbook.definedNames.add(`'매출단가참조'!$L$${nextRow.number}`, row.ref.refName)
     })
     priceReferenceSheet.eachRow((row) => {
       row.eachCell((cell) => {
         cell.border = { top: border, right: border, bottom: border, left: border }
         cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
       })
+    })
+    autoFitWorksheetColumns(priceReferenceSheet, {
+      1: { min: 44, max: 64 },
+      2: { min: 14, max: 18 },
+      3: { min: 14, max: 18 },
+      4: { min: 28, max: 60 },
+      5: { min: 10, max: 14 },
+      6: { min: 24, max: 60 },
+      7: { min: 14, max: 18 },
+      8: { min: 28, max: 64 },
+      9: { min: 10, max: 14 },
+      10: { min: 24, max: 60 },
+      11: { min: 8, max: 10 },
+      12: { min: 14, max: 16 },
+      13: { min: 14, max: 16 },
     })
 
     const fixedHeaders: Array<[number, string]> = [
@@ -3804,6 +3878,20 @@ export function ProductCodesView() {
       { width: 11 },
       { width: 20 },
     ]
+    const productSheetWidthRules: Record<number, ExcelColumnWidthRule> = {
+      1: { min: 14, max: 18 },
+      2: { min: 52, max: 90 },
+      3: { min: 6, max: 8 },
+      4: { min: 42, max: 82 },
+      5: { min: 10, max: 14 },
+      6: { min: 9, max: 12 },
+      [totalExcelColumn]: { min: 11, max: 13 },
+      [revenueExcelColumn]: { min: 16, max: 20 },
+    }
+    U_COLUMNS.forEach((_, idx) => {
+      productSheetWidthRules[U_START_EXCEL_COL + idx] = { min: 4.8, max: 7 }
+    })
+    autoFitWorksheetColumns(worksheet, productSheetWidthRules)
 
     worksheet.views = [{ state: 'frozen', xSplit: 6, ySplit: 8 }]
 

@@ -449,6 +449,14 @@ test.describe('상품코드 페이지', () => {
     expect(supportSheet!.getCell(refRow, 9).value).toBe('A')
     expect(supportSheet!.getCell(refRow, 11).value).toBe(1)
     expect(supportSheet!.getCell(refRow, 12).value).toBe(21040)
+    const exportedRevenueFormula = productCodesExcelCellFormula(worksheet!.getCell(revenueA1!))
+    expect(exportedRevenueFormula).toBeTruthy()
+    expect(evaluateProductCodesExcelFormula(exportedRevenueFormula!, workbook, worksheet!)).toBe(2014580)
+    worksheet!.getCell('BG11').value = 3
+    expect(evaluateProductCodesExcelFormula(exportedRevenueFormula!, workbook, worksheet!)).toBe(2035620)
+    worksheet!.getCell('BG11').value = 2
+    supportSheet!.getCell(refRow, 12).value = 10000
+    expect(evaluateProductCodesExcelFormula(exportedRevenueFormula!, workbook, worksheet!)).toBe(1992500)
 
     const mappedDefinedRanges = workbook.definedNames.getRanges('CONVERSION_P00000QE_G_P00000BV_A_PRICE').ranges
     expect(mappedDefinedRanges).toHaveLength(1)
@@ -463,6 +471,11 @@ test.describe('상품코드 페이지', () => {
     expect(supportSheet!.getCell(mappedRefRow, 7).value).toBe('P00000BV')
     expect(supportSheet!.getCell(mappedRefRow, 9).value).toBe('A')
     expect(supportSheet!.getCell(mappedRefRow, 12).value).toBe(19200)
+    const exportedMappedRevenueFormula = productCodesExcelCellFormula(worksheet!.getCell(mappedRevenueA1!))
+    expect(exportedMappedRevenueFormula).toBeTruthy()
+    expect(evaluateProductCodesExcelFormula(exportedMappedRevenueFormula!, workbook, worksheet!)).toBe(131500)
+    worksheet!.getCell('G12').value = 2
+    expect(evaluateProductCodesExcelFormula(exportedMappedRevenueFormula!, workbook, worksheet!)).toBe(169900)
   })
 
   test('계산식 셀은 기본 원문 수식만 보이고 자세히/더블클릭 때 계산 내역을 펼친다', async ({ page }) => {
@@ -659,6 +672,15 @@ test.describe('상품코드 페이지', () => {
     expect(missingRefRows, JSON.stringify(missingRefRows, null, 2)).toHaveLength(0)
     expect(missingDefinedNames, JSON.stringify(missingDefinedNames, null, 2)).toHaveLength(0)
     expect(wrongRefTypes, JSON.stringify(wrongRefTypes, null, 2)).toHaveLength(0)
+
+    expect(worksheet!.getColumn(1).width).toBeGreaterThanOrEqual(14)
+    expect(worksheet!.getColumn(2).width).toBeGreaterThanOrEqual(52)
+    expect(worksheet!.getColumn(4).width).toBeGreaterThanOrEqual(42)
+    expect(worksheet!.getColumn(6).width).toBeGreaterThanOrEqual(9)
+    expect(worksheet!.getColumn('BL').width).toBeGreaterThanOrEqual(16)
+    expect(supportSheet!.getColumn(1).width).toBeGreaterThanOrEqual(44)
+    expect(supportSheet!.getColumn(4).width).toBeGreaterThanOrEqual(28)
+    expect(supportSheet!.getColumn(8).width).toBeGreaterThanOrEqual(28)
   })
 
   test('교차셀 클릭 기준선은 hover 하이라이트와 구분되어 남고 삭제할 수 있다', async ({ page }) => {
@@ -1080,6 +1102,61 @@ test.describe('상품코드 페이지', () => {
     await expect(reopenedModal).not.toContainText('화면 초안')
     await expect(reopenedModal.locator('input[aria-label$="수량"]').first()).toHaveValue('1')
   })
+
+  test('세트상품 구성 변경은 화면 매출과 엑셀 단가참조에 즉시 반영된다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const revenueCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="C:매출"]')
+    await expect(revenueCell).toHaveText('₩2,014,580')
+
+    await setProductCodesScrollLeft(page, 2200)
+    await page.getByRole('button', { name: 'P00000YS 세트상품 구성 편집' }).click()
+
+    const modal = page.locator('.set-editor-modal')
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText('제모미인 스타터키트20%')
+
+    const setPriceInput = modal.getByLabel('P00000YS-A-P00000HT-A 세트가', { exact: true })
+    await setPriceInput.fill('10000')
+    await expect(modal).toContainText('화면 초안')
+    await expect(revenueCell).toHaveText('₩1,992,500')
+    await expect(revenueCell).toHaveAttribute(
+      'data-excel-formula',
+      /BG11\*SET_P00000YS_A_P00000HT_A_PRICE/,
+    )
+
+    await page.getByRole('button', { name: '적용' }).click()
+    await expect(modal).toBeHidden()
+    await expect(revenueCell).toHaveText('₩1,992,500')
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Excel 다운로드' }).click()
+    const download = await downloadPromise
+    const filePath = await download.path()
+    expect(filePath).toBeTruthy()
+
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.readFile(filePath!)
+    const worksheet = workbook.getWorksheet('상품코드')
+    const supportSheet = workbook.getWorksheet('매출단가참조')
+    expect(worksheet).toBeTruthy()
+    expect(supportSheet).toBeTruthy()
+
+    const formula = productCodesExcelCellFormula(worksheet!.getCell('BL11'))
+    expect(formula).toContain('SET_P00000YS_A_P00000HT_A_PRICE')
+    const definedRanges = workbook.definedNames.getRanges('SET_P00000YS_A_P00000HT_A_PRICE').ranges
+    expect(definedRanges).toHaveLength(1)
+    const refAddress = parseProductCodesDefinedNameRange(definedRanges[0])
+    expect(refAddress).not.toBeNull()
+    expect(workbook.getWorksheet(refAddress!.sheetName)!.getCell(refAddress!.cellAddress).value).toBe(10000)
+    expect(evaluateProductCodesExcelFormula(formula!, workbook, worksheet!)).toBe(1992500)
+  })
 })
 
 function parseProductCodesExportValue(value: string): string | number | null {
@@ -1124,6 +1201,57 @@ function productCodesExcelValuesEqual(actual: string | number | null, expected: 
     return Math.abs(actual - expected) < 0.0001
   }
   return actual === expected
+}
+
+function evaluateProductCodesExcelFormula(
+  formula: string,
+  workbook: ExcelJS.Workbook,
+  worksheet: ExcelJS.Worksheet,
+) {
+  return formula
+    .replace(/^=/, '')
+    .split('+')
+    .map((term) =>
+      term
+        .split('*')
+        .map((factor) => resolveProductCodesFormulaFactor(factor, workbook, worksheet))
+        .reduce((product, value) => product * value, 1),
+    )
+    .reduce((sum, value) => sum + value, 0)
+}
+
+function resolveProductCodesFormulaFactor(
+  factor: string,
+  workbook: ExcelJS.Workbook,
+  worksheet: ExcelJS.Worksheet,
+) {
+  const token = factor.trim()
+  if (/^-?\d+(?:\.\d+)?$/.test(token)) return Number(token)
+  if (/^[A-Z]+[1-9]\d*$/.test(token)) return productCodesExcelNumericCell(worksheet.getCell(token))
+
+  const ranges = workbook.definedNames.getRanges(token).ranges
+  if (ranges.length !== 1) throw new Error(`Unknown or ambiguous defined name: ${token}`)
+  const parsed = parseProductCodesDefinedNameRange(ranges[0])
+  if (!parsed) throw new Error(`Unsupported defined name range: ${ranges[0]}`)
+  const targetSheet = workbook.getWorksheet(parsed.sheetName)
+  if (!targetSheet) throw new Error(`Missing worksheet for defined name: ${parsed.sheetName}`)
+  return productCodesExcelNumericCell(targetSheet.getCell(parsed.cellAddress))
+}
+
+function parseProductCodesDefinedNameRange(range: string) {
+  const normalized = range.replace(/'/g, '')
+  const match = normalized.match(/^(.+)!\$?([A-Z]+)\$?([1-9]\d*)$/)
+  if (!match) return null
+  return {
+    sheetName: match[1],
+    cellAddress: `${match[2]}${match[3]}`,
+  }
+}
+
+function productCodesExcelNumericCell(cell: ExcelJS.Cell) {
+  const value = productCodesExcelCellResult(cell)
+  if (typeof value !== 'number') throw new Error(`Expected numeric Excel cell at ${cell.address}`)
+  return value
 }
 
 async function setProductCodesScrollLeft(page: import('@playwright/test').Page, left: number) {
