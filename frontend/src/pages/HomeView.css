@@ -52,6 +52,15 @@
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
   transform: translateY(-1px);
 }
+.home-menu-item:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+.home-menu-item:disabled:hover {
+  border-color: var(--c-border);
+  box-shadow: none;
+}
 .home-menu-content { flex: 1; min-width: 0; }
 .home-menu-title {
   font-size: 15px;

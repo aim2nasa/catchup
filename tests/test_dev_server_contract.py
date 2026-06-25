@@ -77,6 +77,11 @@ class TestDevServerContract(unittest.TestCase):
         self.assertIn("backendMonitorFailureLimit", launcher)
         self.assertIn("cleanupReusedFrontend", launcher)
         self.assertIn("CATCHUP_INTERNAL_FRONTEND_DEV", launcher)
+        self.assertIn("restartRequestFile", launcher)
+        self.assertIn("CATCHUP_DEV_RESTART_FILE: restartRequestFile", launcher)
+        self.assertIn("startRestartRequestWatcher", launcher)
+        self.assertIn("restartBackendFromRequest", launcher)
+        self.assertIn("supervised restart completed", launcher)
 
     def test_frontend_dev_also_runs_combined_server_launcher(self):
         package_json = json.loads((ROOT / "frontend" / "package.json").read_text(encoding="utf-8"))
@@ -101,7 +106,9 @@ class TestDevServerContract(unittest.TestCase):
 
     def test_playwright_frontend_reuse_requires_backend_proxy_health(self):
         playwright_config = (ROOT / "playwright.config.ts").read_text(encoding="utf-8")
-        self.assertIn("command: 'npm --prefix frontend run dev'", playwright_config)
+        self.assertIn("command: 'npm run dev'", playwright_config)
+        self.assertNotIn("command: 'py backend/main.py'", playwright_config)
+        self.assertNotIn("command: 'npm --prefix frontend run dev'", playwright_config)
         self.assertIn("url: 'http://127.0.0.1:5173/catchup/api/version'", playwright_config)
 
     def test_frontend_internal_dev_command_is_blocked_without_launcher(self):

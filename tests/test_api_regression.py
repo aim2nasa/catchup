@@ -11,7 +11,9 @@ cafe24 외부 API는 tests/fixtures/*.json 으로 mock하여, 향후 리팩토�
 """
 import io
 import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -97,6 +99,41 @@ class TestVersionEndpoint(_Patched):
         self.assertIn("version", d)
         self.assertIn("started_at", d)
         self.assertIsInstance(d["version"], str)
+
+
+class TestAdminRestartEndpoint(_Patched):
+    def test_rejects_backend_standalone_restart_without_supervisor(self):
+        with patch("backend.domains.catalog.routes.shutil.which", return_value=None), patch.dict(
+            os.environ,
+            {"CATCHUP_DEV_RESTART_FILE": ""},
+        ):
+            r = self.client.post("/api/admin/restart")
+
+        self.assertEqual(r.status_code, 409)
+        data = r.json()
+        self.assertFalse(data["ok"])
+        self.assertIn("안전한 서버 재시작", data["error"])
+        self.assertIn("npm run dev", data["error"])
+
+    def test_dev_supervisor_restart_writes_request_file_without_exiting_backend(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            restart_file = Path(temp_dir) / "restart-request.json"
+            with patch("backend.domains.catalog.routes.shutil.which", return_value=None), patch.dict(
+                os.environ,
+                {"CATCHUP_DEV_RESTART_FILE": str(restart_file)},
+            ):
+                r = self.client.post("/api/admin/restart")
+
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            self.assertTrue(data["ok"])
+            self.assertEqual(data["mode"], "dev-supervisor")
+            self.assertTrue(restart_file.exists())
+
+            payload = json.loads(restart_file.read_text(encoding="utf-8"))
+            self.assertEqual(payload["mode"], "dev-supervisor")
+            self.assertIn("requested_at", payload)
+            self.assertIn("version", payload)
 
 
 class TestCategoriesEndpoint(_Patched):

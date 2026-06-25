@@ -20,15 +20,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'py backend/main.py',
-      url: 'http://127.0.0.1:8000',
-      reuseExistingServer: true,
-      timeout: 30_000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-    {
-      command: 'npm --prefix frontend run dev',
+      command: 'npm run dev',
       url: 'http://127.0.0.1:5173/catchup/api/version',
       reuseExistingServer: true,
       timeout: 30_000,
