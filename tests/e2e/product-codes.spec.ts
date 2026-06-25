@@ -338,6 +338,29 @@ test.describe('상품코드 페이지', () => {
     expect(optionHeaderColors.left).not.toBe(optionHeaderColors.set)
   })
 
+  test('값이 있는 교차셀은 전환상품과 세트상품 영역색으로 구분한다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const mappedCellColors = await page.locator('.pc-excel-table').evaluate((table) => {
+      const conversionCell = table.querySelector('td.map-cell--mapped.u-col-conversion')
+      const setCell = table.querySelector('td.map-cell--mapped.u-col-set')
+      return {
+        conversion: conversionCell ? getComputedStyle(conversionCell).backgroundColor : null,
+        set: setCell ? getComputedStyle(setCell).backgroundColor : null,
+      }
+    })
+
+    expect(mappedCellColors.conversion).toBe('rgb(191, 219, 254)')
+    expect(mappedCellColors.set).toBe('rgb(187, 247, 208)')
+    expect(mappedCellColors.conversion).not.toBe(mappedCellColors.set)
+  })
+
   test('세트상품 구성 교차셀은 세트 판매량에 구성 수량을 곱해 표시한다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
