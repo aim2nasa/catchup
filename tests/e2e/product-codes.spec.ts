@@ -353,11 +353,28 @@ test.describe('상품코드 페이지', () => {
     await expect(hoverCell).toHaveClass(/pc-excel-pin-1/)
     await expect(page.getByRole('button', { name: '고정선 2개 지우기' })).toBeVisible()
 
+    const secondPinnedRowProbe = page.locator('td[data-row-key="parent:500g:P00000CB"][data-col-key="A:직접판매"]')
+    const secondPinnedColProbe = page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="B:P00000YU-B"]')
     await page.keyboard.press('Escape')
     await expect(hoverCell).not.toHaveClass(/pc-excel-pinned-cell/)
+    await expect(hoverCell).not.toHaveClass(/pc-excel-cell-selected/)
+    await expect(hoverCell).not.toHaveClass(/pc-excel-hover-cell/)
+    await expect(secondPinnedRowProbe).not.toHaveClass(/pc-excel-pinned-row/)
+    await expect(secondPinnedRowProbe).not.toHaveClass(/pc-excel-row-selected/)
+    await expect(secondPinnedColProbe).not.toHaveClass(/pc-excel-pinned-col/)
+    await expect(secondPinnedColProbe).not.toHaveClass(/pc-excel-col-selected/)
     await expect(firstPinnedCell).toHaveClass(/pc-excel-pinned-cell/)
     await expect(page.getByRole('button', { name: '고정선 1개 지우기' })).toBeVisible()
 
+    await page.keyboard.press('Escape')
+    await expect(firstPinnedCell).not.toHaveClass(/pc-excel-pinned-cell/)
+    await expect(page.getByRole('button', { name: /고정선 .* 지우기/ })).toHaveCount(0)
+    await expect(page.locator('.pc-excel-pinned-row, .pc-excel-pinned-col, .pc-excel-pinned-cell')).toHaveCount(0)
+    await expect(page.locator('.pc-excel-row-selected, .pc-excel-col-selected, .pc-excel-cell-selected')).toHaveCount(0)
+    await expect(page.locator('.pc-excel-hover-row, .pc-excel-hover-col, .pc-excel-hover-cell')).toHaveCount(0)
+
+    await firstPinnedCell.click()
+    await expect(page.getByRole('button', { name: '고정선 1개 지우기' })).toBeVisible()
     await firstPinnedCell.click()
     await expect(firstPinnedCell).not.toHaveClass(/pc-excel-pinned-cell/)
     await expect(page.getByRole('button', { name: /고정선 .* 지우기/ })).toHaveCount(0)
@@ -372,6 +389,9 @@ test.describe('상품코드 페이지', () => {
     await page.getByRole('button', { name: '고정선 1개 지우기' }).click()
     await expect(firstPinnedCell).not.toHaveClass(/pc-excel-pinned-cell/)
     await expect(page.getByRole('button', { name: /고정선 .* 지우기/ })).toHaveCount(0)
+    await expect(page.locator('.pc-excel-pinned-row, .pc-excel-pinned-col, .pc-excel-pinned-cell')).toHaveCount(0)
+    await expect(page.locator('.pc-excel-row-selected, .pc-excel-col-selected, .pc-excel-cell-selected')).toHaveCount(0)
+    await expect(page.locator('.pc-excel-hover-row, .pc-excel-hover-col, .pc-excel-hover-cell')).toHaveCount(0)
   })
 
   test('수평 스크롤 중에도 왼쪽 컬럼 압축과 행 높이 기준이 안정적으로 유지된다', async ({ page }) => {

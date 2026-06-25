@@ -1474,7 +1474,25 @@ export function ProductCodesView() {
   }
 
   const clearSelection = () => setSelectedCell(null)
-  const clearPinnedCrosses = () => setPinnedCrosses([])
+  const clearInteractionForPinnedCrosses = (pins: PinnedCross[]) => {
+    if (pins.length === 0) return
+    const overlapsPinnedLine = (cell: Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null) =>
+      !!cell && pins.some((pin) => pin.rowKey === cell.rowKey || pin.colKey === cell.colKey)
+
+    setSelectedCell((prev) => (overlapsPinnedLine(prev) ? null : prev))
+    setHoveredCell((prev) => (overlapsPinnedLine(prev) ? null : prev))
+  }
+  const clearPinnedCrosses = () => {
+    clearInteractionForPinnedCrosses(pinnedCrosses)
+    setPinnedCrosses([])
+  }
+  const removeLatestPinnedCross = () => {
+    const latestPinnedCross = pinnedCrosses[pinnedCrosses.length - 1]
+    if (!latestPinnedCross) return false
+    clearInteractionForPinnedCrosses([latestPinnedCross])
+    setPinnedCrosses((prev) => prev.slice(0, -1))
+    return true
+  }
 
   useEffect(() => {
     window.localStorage.setItem(PRODUCT_CODES_VIEW_MODE_KEY, viewMode)
@@ -2851,9 +2869,8 @@ export function ProductCodesView() {
         && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
       if (editableTarget || editingSetProductCode || pendingLuAction) return
 
-      if (pinnedCrosses.length > 0) {
+      if (removeLatestPinnedCross()) {
         event.preventDefault()
-        setPinnedCrosses((prev) => prev.slice(0, -1))
         return
       }
 
@@ -2864,7 +2881,7 @@ export function ProductCodesView() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [editingSetProductCode, pendingLuAction, pinnedCrosses.length, selectedCell])
+  }, [editingSetProductCode, pendingLuAction, pinnedCrosses, selectedCell])
 
   useEffect(() => {
     return () => {
