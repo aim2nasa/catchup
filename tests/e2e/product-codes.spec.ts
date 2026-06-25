@@ -606,6 +606,52 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('.pc-excel-hover-row, .pc-excel-hover-col, .pc-excel-hover-cell')).toHaveCount(0)
   })
 
+  test('Excel 행/열 머리글 클릭은 해당 행과 열 하이라이트를 토글한다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const rowKey = 'parent:500g:P00000HT'
+    const colKey = 'B:P00000YS-A'
+    const rowHeader = page.locator(`th.pc-excel-row-head[data-row-key="${rowKey}"]`)
+    const colHeader = page.locator(`th.pc-excel-column-letter[data-col-key="${colKey}"]`)
+    const rowProbe = page.locator(`td[data-row-key="${rowKey}"][data-col-key="A:직접판매"]`)
+    const colProbe = page.locator(`td[data-row-key="parent:500g:P00000BV"][data-col-key="${colKey}"]`)
+    const intersection = page.locator(`td[data-row-key="${rowKey}"][data-col-key="${colKey}"]`)
+
+    await rowHeader.click()
+    await expect(rowHeader).toHaveClass(/pc-excel-row-head--manual/)
+    await expect(rowProbe).toHaveClass(/pc-excel-manual-row/)
+    await expect(intersection).toHaveClass(/pc-excel-manual-row/)
+    await expect(intersection).not.toHaveClass(/pc-excel-pinned-cell/)
+
+    await colHeader.click()
+    await expect(colHeader).toHaveClass(/pc-excel-column-letter--manual/)
+    await expect(colProbe).toHaveClass(/pc-excel-manual-col/)
+    await expect(intersection).toHaveClass(/pc-excel-manual-cell/)
+    await expect(intersection).not.toHaveClass(/pc-excel-pinned-cell/)
+
+    await colHeader.click()
+    await expect(colHeader).not.toHaveClass(/pc-excel-column-letter--manual/)
+    await expect(colProbe).not.toHaveClass(/pc-excel-manual-col/)
+    await expect(intersection).toHaveClass(/pc-excel-manual-row/)
+    await expect(intersection).not.toHaveClass(/pc-excel-manual-col/)
+
+    await rowHeader.click()
+    await expect(rowHeader).not.toHaveClass(/pc-excel-row-head--manual/)
+    await expect(rowProbe).not.toHaveClass(/pc-excel-manual-row/)
+    await expect(intersection).not.toHaveClass(/pc-excel-manual-row/)
+
+    await intersection.click()
+    await expect(intersection).toHaveClass(/pc-excel-pinned-cell/)
+    await expect(rowHeader).not.toHaveClass(/pc-excel-row-head--manual/)
+    await expect(colHeader).not.toHaveClass(/pc-excel-column-letter--manual/)
+  })
+
   test('수평 스크롤 중에도 왼쪽 컬럼 압축과 행 높이 기준이 안정적으로 유지된다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 

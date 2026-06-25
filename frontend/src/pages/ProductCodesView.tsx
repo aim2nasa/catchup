@@ -1674,6 +1674,8 @@ export function ProductCodesView() {
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [hoveredCell, setHoveredCell] = useState<Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null>(null)
   const [pinnedCrosses, setPinnedCrosses] = useState<PinnedCross[]>([])
+  const [manualHighlightedRows, setManualHighlightedRows] = useState<Set<string>>(() => new Set())
+  const [manualHighlightedCols, setManualHighlightedCols] = useState<Set<string>>(() => new Set())
   const [luOverrides, setLuOverrides] = useState<LuRuleOverride[]>([])
   const [pendingLuAction, setPendingLuAction] = useState<PendingLuAction | null>(null)
   const [luDialogPosition, setLuDialogPosition] = useState<{ x: number; y: number } | null>(null)
@@ -1975,6 +1977,11 @@ export function ProductCodesView() {
 
   const getCellSelectionClass = (rowKey: string, colKey: string) => {
     const classes: string[] = []
+    if (manualHighlightedRows.has(rowKey)) classes.push('pc-excel-manual-row')
+    if (manualHighlightedCols.has(colKey)) classes.push('pc-excel-manual-col')
+    if (manualHighlightedRows.has(rowKey) && manualHighlightedCols.has(colKey)) {
+      classes.push('pc-excel-manual-cell')
+    }
     if (selectedCell?.rowKey === rowKey) classes.push('pc-excel-row-selected')
     if (selectedCell?.colKey === colKey) classes.push('pc-excel-col-selected')
     if (selectedCell?.rowKey === rowKey && selectedCell.colKey === colKey) {
@@ -1992,6 +1999,64 @@ export function ProductCodesView() {
       classes.push('pc-excel-hover-cell')
     }
     return classes.join(' ')
+  }
+
+  const toggleManualRowHighlight = (rowKey: string) => {
+    setManualHighlightedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(rowKey)) next.delete(rowKey)
+      else next.add(rowKey)
+      return next
+    })
+  }
+
+  const toggleManualColHighlight = (colKey: string) => {
+    setManualHighlightedCols((prev) => {
+      const next = new Set(prev)
+      if (next.has(colKey)) next.delete(colKey)
+      else next.add(colKey)
+      return next
+    })
+  }
+
+  const getRowHeaderClass = (rowKey: string) => [
+    'pc-excel-row-head',
+    manualHighlightedRows.has(rowKey) ? 'pc-excel-row-head--manual' : '',
+    selectedCell?.rowKey === rowKey ? 'pc-excel-row-head--selected' : '',
+    hoveredCell?.rowKey === rowKey ? 'pc-excel-row-head--hovered' : '',
+    pinnedCrosses.some((pin) => pin.rowKey === rowKey) ? 'pc-excel-row-head--pinned' : '',
+  ].filter(Boolean).join(' ')
+
+  const getColumnHeaderClass = (colKey: string, baseClassName: string) => [
+    'pc-excel-column-letter',
+    baseClassName,
+    manualHighlightedCols.has(colKey) ? 'pc-excel-column-letter--manual' : '',
+    selectedCell?.colKey === colKey ? 'pc-excel-column-letter--selected' : '',
+    hoveredCell?.colKey === colKey ? 'pc-excel-column-letter--hovered' : '',
+    pinnedCrosses.some((pin) => pin.colKey === colKey) ? 'pc-excel-column-letter--pinned' : '',
+  ].filter(Boolean).join(' ')
+
+  const renderRowHeader = (rowKey: string) => {
+    const rowNumber = excelRowNumber(rowKey)
+    return (
+      <th
+        className={getRowHeaderClass(rowKey)}
+        data-row-key={rowKey}
+        title={`${rowNumber}행 하이라이트`}
+        role="button"
+        tabIndex={0}
+        aria-pressed={manualHighlightedRows.has(rowKey)}
+        onClick={() => toggleManualRowHighlight(rowKey)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            toggleManualRowHighlight(rowKey)
+          }
+        }}
+      >
+        {rowNumber}
+      </th>
+    )
   }
 
   const handleTableMouseMove = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -3901,8 +3966,19 @@ export function ProductCodesView() {
                   {excelColumnLabels.map((col) => (
                     <th
                       key={`pc-excel-col-${col.key}`}
-                      className={`pc-excel-column-letter ${col.className}`}
+                      className={getColumnHeaderClass(col.key, col.className)}
+                      data-col-key={col.key}
                       title={`${col.label}열`}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={manualHighlightedCols.has(col.key)}
+                      onClick={() => toggleManualColHighlight(col.key)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          toggleManualColHighlight(col.key)
+                        }
+                      }}
                     >
                       {col.label}
                     </th>
@@ -3991,7 +4067,7 @@ export function ProductCodesView() {
                   })}
                 </tr>
                 <tr className="u-direct-row">
-                  <th className="pc-excel-row-head">{excelRowNumber('product-codes-u-direct')}</th>
+                  {renderRowHeader('product-codes-u-direct')}
                   <td
                     className={`num sticky sticky-code u-direct-label ${getCellSelectionClass('product-codes-u-direct', 'A:상품코드')}`}
                     onClick={() =>
@@ -4148,7 +4224,7 @@ export function ProductCodesView() {
                   <Fragment key={grp.label}>
                     {groupRows.findIndex((candidate) => candidate.category === grp.category) === groupRows.indexOf(grp) ? (
                       <tr className="product-category-row">
-                        <th className="pc-excel-row-head">{excelRowNumber(categoryRowKey(grp.category))}</th>
+                        {renderRowHeader(categoryRowKey(grp.category))}
                         <td
                           className="product-group-band-cell product-group-band-sticky"
                           colSpan={6}
@@ -4212,7 +4288,7 @@ export function ProductCodesView() {
                           <tr
                             className={`${g.missing ? 'row-missing' : ''} ${hasVariantRows ? 'row-parent product-merge-start' : 'row-single'} category-scope-row ${gi === 0 ? 'group-start-row' : ''}`.trim()}
                            >
-                           <th className="pc-excel-row-head">{excelRowNumber(rowKey)}</th>
+                           {renderRowHeader(rowKey)}
                            <td
                              className={`code-cell sticky sticky-code product-merge-cell ${getCellSelectionClass(rowKey, 'A:상품코드')}`}
                              onClick={() =>
@@ -4437,7 +4513,7 @@ export function ProductCodesView() {
                                 key={`${g.product_code}-${v.variant_code}`}
                                 className="row-child variant-row product-merge-child category-scope-row"
                               >
-                                <th className="pc-excel-row-head">{excelRowNumber(variantRowKey)}</th>
+                                {renderRowHeader(variantRowKey)}
                                 <td
                                   className={`code-cell sticky sticky-code variant-code-cell product-merge-cell ${getCellSelectionClass(variantRowKey, 'A:상품코드')}`}
                                   onClick={() =>
@@ -4640,7 +4716,7 @@ export function ProductCodesView() {
                     })}
                  {grp.withSubtotal === false ? null : (
                        <tr className={`subtotal-row category-scope-row ${groupRows[groupRows.indexOf(grp) + 1]?.category !== grp.category ? 'category-end-row' : ''}`.trim()}>
-                        <th className="pc-excel-row-head">{excelRowNumber(`subtotal:${grp.label}`)}</th>
+                        {renderRowHeader(`subtotal:${grp.label}`)}
                         <td
                           className={`subtotal-label sticky sticky-code ${getCellSelectionClass(`subtotal:${grp.label}`, 'A:상품코드')}`}
                           onClick={() =>
@@ -4800,7 +4876,7 @@ export function ProductCodesView() {
               </tbody>
               <tfoot>
                     <tr>
-                      <th className="pc-excel-row-head">{excelRowNumber('total:grand')}</th>
+                      {renderRowHeader('total:grand')}
                       <td
                         className={`subtotal-label sticky sticky-code ${getCellSelectionClass('total:grand', 'A:상품코드')}`}
                         onClick={() =>
