@@ -508,6 +508,7 @@ test.describe('상품코드 페이지', () => {
     expect(supportSheet!.getCell(mappedRefRow, 2).value).toBe('전환 단가')
     expect(supportSheet!.getCell(mappedRefRow, 3).value).toBe('P00000QE')
     expect(supportSheet!.getCell(mappedRefRow, 5).value).toBe('G')
+    expect(supportSheet!.getCell(mappedRefRow, 6).value).toBe('마스터(24EA) : 하이브리드하드')
     expect(supportSheet!.getCell(mappedRefRow, 7).value).toBe('P00000BV')
     expect(supportSheet!.getCell(mappedRefRow, 9).value).toBe('A')
     expect(supportSheet!.getCell(mappedRefRow, 12).value).toBe(19200)
@@ -549,6 +550,17 @@ test.describe('상품코드 페이지', () => {
     await expect(terms.filter({ hasText: '세트 구성 매출' })).toContainText('₩21,040')
     await expect(explanation.locator('.formula-explanation-title .formula-entity-label')).toContainText(['상품', '옵션'])
     await expect(explanation.locator('.formula-explanation-title .formula-entity-role')).toContainText('왼쪽상품')
+    const titleEntityCard = explanation.locator('.formula-explanation-title .formula-entity-card').first()
+    await expect(titleEntityCard).toHaveAttribute('title', /라이코젯아이브로우/)
+    await expect(titleEntityCard.locator('.formula-entity-field--product .formula-entity-value')).toHaveAttribute('title', /라이코젯아이브로우/)
+    await expect(titleEntityCard.locator('.formula-entity-field--option .formula-entity-value')).toHaveAttribute('title', /A · -/)
+    const titleEntitySizing = await titleEntityCard.evaluate((el) => {
+      const style = getComputedStyle(el)
+      return {
+        maxWidth: style.maxWidth,
+      }
+    })
+    expect(titleEntitySizing.maxWidth).toBe('100%')
     const directRevenueTerm = terms.filter({ hasText: '직접판매 매출' }).first()
     await expect(directRevenueTerm.locator('.formula-entity-card')).toHaveCount(0)
     await expect(directRevenueTerm.locator('.formula-term-detail')).toContainText('직접판매 75 × 단가 ₩26,300')
@@ -558,6 +570,9 @@ test.describe('상품코드 페이지', () => {
     await expect(setRevenueTerm.locator('.formula-entity-role')).toContainText('세트상품')
     await expect(setRevenueTerm.locator('.formula-entity-card--set')).toContainText('P00000YS')
     await expect(setRevenueTerm.locator('.formula-entity-card--set')).toContainText('A ·')
+    await expect(setRevenueTerm.locator('.formula-entity-card--set')).toHaveAttribute('title', /제모미인 스타터키트20%/)
+    await expect(setRevenueTerm.locator('.formula-entity-card--set .formula-entity-field--product .formula-entity-value')).toHaveAttribute('title', /제모미인 스타터키트20%/)
+    await expect(setRevenueTerm.locator('.formula-entity-card--set .formula-entity-field--option .formula-entity-value')).toHaveAttribute('title', /A · -/)
     await expect(setRevenueTerm.locator('.formula-entity-card--left')).toHaveCount(0)
     await expect(setRevenueTerm.locator('.formula-entity-label').filter({ hasText: '상품' })).toHaveCount(1)
     await expect(setRevenueTerm.locator('.formula-entity-label').filter({ hasText: '옵션' })).toHaveCount(1)
@@ -580,9 +595,19 @@ test.describe('상품코드 페이지', () => {
     const conversionRevenueTerm = terms.filter({ hasText: '전환상품 매출' }).first()
     await expect(conversionRevenueTerm.locator('.formula-entity-card--conversion')).toContainText('P00000QE')
     await expect(conversionRevenueTerm.locator('.formula-entity-card--conversion')).toContainText('G ·')
+    await expect(conversionRevenueTerm.locator('.formula-entity-card--conversion')).toContainText('마스터(24EA) : 하이브리드하드')
+    await expect(conversionRevenueTerm.locator('.formula-entity-card--conversion')).not.toContainText('G · G')
     await expect(conversionRevenueTerm.locator('.formula-entity-card--left')).toHaveCount(0)
     await expect(conversionRevenueTerm.locator('.formula-entity-label').filter({ hasText: '상품' })).toHaveCount(1)
     await expect(conversionRevenueTerm.locator('.formula-entity-label').filter({ hasText: '옵션' })).toHaveCount(1)
+
+    await page.locator('td[data-row-key="parent:500g:P00000CB"][data-col-key="C:매출"]').click()
+    await expect(terms).toHaveCount(0)
+    await page.locator('td[data-row-key="parent:500g:P00000CB"][data-col-key="C:매출"]').dblclick()
+    const whiteHardConversionTerm = terms.filter({ hasText: '전환상품 매출' }).first()
+    await expect(whiteHardConversionTerm.locator('.formula-entity-card--conversion')).toContainText('P00000QE')
+    await expect(whiteHardConversionTerm.locator('.formula-entity-card--conversion')).toContainText('I · 마스터(24EA) : 화이트하드')
+    await expect(whiteHardConversionTerm.locator('.formula-entity-card--conversion')).not.toContainText('I · I')
 
     const bl20RevenueCellRegression = page.locator('td[data-row-key="variant:P0000BIF:P0000BIF00CM"][data-col-key="C:매출"]')
     await bl20RevenueCellRegression.dblclick()
@@ -723,6 +748,10 @@ test.describe('상품코드 페이지', () => {
     })
     const supportTypes = new Set([...supportRows.values()].map((row) => row.type))
     expect([...supportTypes].sort()).toEqual(['세트 구성 단가', '전환 단가'])
+    const whiteHardConversionRefRow = supportRows.get('CONVERSION_P00000QE_I_P00000CB_A_PRICE')?.row
+    expect(whiteHardConversionRefRow).toBeTruthy()
+    expect(supportSheet!.getCell(whiteHardConversionRefRow!, 5).value).toBe('I')
+    expect(supportSheet!.getCell(whiteHardConversionRefRow!, 6).value).toBe('마스터(24EA) : 화이트하드')
 
     const missingRefRows: unknown[] = []
     const missingDefinedNames: unknown[] = []

@@ -1095,12 +1095,14 @@ function makeMappedUnitPriceRef(
   sourceProductCode: string,
   sourceOptionCode: string,
   sourceProductName: string,
+  sourceOptionName: string | undefined,
   targetProductCode: string,
   targetOptionCode: string,
   unitPrice: number,
 ): RevenueUnitPriceRef {
   const normalizedSourceProductCode = normalizeProductCode(sourceProductCode)
   const normalizedSourceOptionCode = normalizeVariantCode(sourceOptionCode)
+  const normalizedSourceOptionName = displayOptionName(sourceOptionName || normalizedSourceOptionCode)
   const normalizedTargetProductCode = normalizeProductCode(targetProductCode)
   const normalizedTargetOptionCode = normalizeVariantCode(targetOptionCode)
   const targetProductName = getLProductName(normalizedTargetProductCode)
@@ -1121,7 +1123,7 @@ function makeMappedUnitPriceRef(
     '전환 단가',
     `참조명: ${refName}`,
     `위쪽상품: ${normalizedSourceProductCode} / ${sourceProductName}`,
-    `위쪽옵션: ${normalizedSourceOptionCode}`,
+    `위쪽옵션: ${normalizedSourceOptionCode} / ${normalizedSourceOptionName}`,
     `왼쪽상품: ${normalizedTargetProductCode} / ${targetProductName}`,
     `왼쪽옵션: ${normalizedTargetOptionCode} / ${targetOptionName}`,
     `단가: ${fmtCurrency(unitPrice, 'KRW')}`,
@@ -1136,7 +1138,7 @@ function makeMappedUnitPriceRef(
     sourceProductCode: normalizedSourceProductCode,
     sourceOptionCode: normalizedSourceOptionCode,
     sourceProductName,
-    sourceOptionName: normalizedSourceOptionCode,
+    sourceOptionName: normalizedSourceOptionName,
     targetProductCode: normalizedTargetProductCode,
     targetOptionCode: normalizedTargetOptionCode,
     targetProductName,
@@ -2631,11 +2633,11 @@ export function ProductCodesView() {
         const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(key) ?? null
 
         const uGroup = byCode.get(normalizeProductCode(col.uProduct))
+        const targetVariant = findUVariantData(uGroup, col.uProduct, col.uVariant)
         let uQty = 0
         let uPrice = 0
         let uPriceFound = false
         if (uGroup && (isSetColumn || !EXCLUDED_U_PRODUCTS.has(col.uProduct))) {
-          const targetVariant = findUVariantData(uGroup, col.uProduct, col.uVariant)
           uQty = targetVariant?.qty ?? 0
           const rawVariantPrice = targetVariant?.price ?? Number.NaN
           const rawGroupPrice = uGroup.price
@@ -2649,6 +2651,7 @@ export function ProductCodesView() {
             uPriceFound = false
           }
         }
+        const sourceOptionName = targetVariant?.option || targetVariant?.variant_code || col.uVariant
         mappingPriceByColumn[idx] = uPrice
         mappingPriceIsFoundByColumn[idx] = uPriceFound
 
@@ -2694,6 +2697,7 @@ export function ProductCodesView() {
             col.uProduct,
             col.uVariant,
             col.blockLabel,
+            sourceOptionName,
             normalizedCode,
             parentOptionCode,
             uPrice,
@@ -2754,6 +2758,7 @@ export function ProductCodesView() {
                   col.uProduct,
                   col.uVariant,
                   col.blockLabel,
+                  sourceOptionName,
                   normalizedCode,
                   targetLVariant,
                   uPrice,
