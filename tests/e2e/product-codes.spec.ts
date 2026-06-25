@@ -1013,13 +1013,15 @@ test.describe('상품코드 페이지', () => {
     expect(focus.priceWidth).toBe(0)
 
     await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="A:직접판매"]').click()
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('P00000HT')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('라이코젯아이브로우')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('옵션')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('-')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('가격')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('₩26,300')
-    const leftCardColor = await page.getByLabel('왼쪽 상품').evaluate((card) => ({
+    await expect(page.locator('.selection-product-panel-left .selection-panel-title')).toHaveText('L상품(왼쪽 상품)')
+    await expect(page.locator('.selection-product-panel-top .selection-panel-title')).toContainText('U상품(위쪽 상품)')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('P00000HT')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('라이코젯아이브로우')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('옵션')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('-')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('가격')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('₩26,300')
+    const leftCardColor = await page.getByLabel('L상품(왼쪽 상품)').evaluate((card) => ({
       background: getComputedStyle(card).backgroundColor,
       borderLeft: getComputedStyle(card).borderLeftColor,
     }))
@@ -1031,17 +1033,17 @@ test.describe('상품코드 페이지', () => {
     expect(hiddenContextTitle).toContain('상품명: 라이콘워머기 2구 / 자디니 베이비 히터기 220g')
     expect(hiddenContextTitle).toContain('옵션명: 자디니 베이비 히터(220g)')
     await page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:직접판매"]').click()
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('D')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('자디니 베이비 히터(220g)')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('₩44,000')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('D')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('자디니 베이비 히터(220g)')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('₩44,000')
     await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key^="B:"]').first().click()
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('라이코젯아이브로우')
-    await expect(page.getByLabel('위쪽 상품')).not.toContainText('-')
-    await expect(page.getByLabel('위쪽 상품')).toContainText('전환상품')
-    await expect(page.getByLabel('위쪽 상품')).toContainText('상품')
-    await expect(page.getByLabel('위쪽 상품')).toContainText('옵션')
-    await expect(page.getByLabel('위쪽 상품')).toContainText('가격')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('라이코젯아이브로우')
+    await expect(page.getByLabel('U상품(위쪽 상품)')).not.toContainText('-')
+    await expect(page.getByLabel('U상품(위쪽 상품)')).toContainText('전환상품')
+    await expect(page.getByLabel('U상품(위쪽 상품)')).toContainText('상품')
+    await expect(page.getByLabel('U상품(위쪽 상품)')).toContainText('옵션')
+    await expect(page.getByLabel('U상품(위쪽 상품)')).toContainText('가격')
     await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-conversion/)
     const conversionCardColor = await page.locator('.selection-product-panel-top').evaluate((card) => ({
       borderTop: getComputedStyle(card).borderTopColor,
@@ -1067,7 +1069,7 @@ test.describe('상품코드 페이지', () => {
     expect(setMaskComponentA1).toBeTruthy()
     await setProductCrossCell.evaluate((cell) => (cell as HTMLElement).click())
     await page.mouse.move(5, 5)
-    await expect(page.getByLabel('위쪽 상품')).toContainText('세트 상품')
+    await expect(page.getByLabel('U상품(위쪽 상품)')).toContainText('세트 상품')
     await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-set/)
     const setCardColor = await page.locator('.selection-product-panel-top').evaluate((card) => ({
       borderTop: getComputedStyle(card).borderTopColor,
@@ -1089,10 +1091,10 @@ test.describe('상품코드 페이지', () => {
     expect(worksheet?.getCell(setMaskComponentA1!).value).toBe(setColumnDirectQty * 5)
 
     await page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key^="B:"]').first().hover()
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('D')
-    await expect(page.getByLabel('왼쪽 상품')).toContainText('자디니 베이비 히터(220g)')
-    await expect(page.getByLabel('위쪽 상품')).not.toContainText('-')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('D')
+    await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('자디니 베이비 히터(220g)')
+    await expect(page.getByLabel('U상품(위쪽 상품)')).not.toContainText('-')
 
     await page.reload()
     await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()

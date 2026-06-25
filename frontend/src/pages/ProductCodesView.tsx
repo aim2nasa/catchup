@@ -2325,7 +2325,7 @@ export function ProductCodesView() {
 
     if (isBaseMapped) {
       title = '기본 매핑셀을 해제할까요?'
-      description = '기본 규칙을 삭제하지 않고 사용자 변경사항으로만 비활성화합니다. 해제하면 이 U항은 총판매/매출/수식에서 제외됩니다.'
+      description = '기본 규칙을 삭제하지 않고 사용자 변경사항으로만 비활성화합니다. 해제하면 이 U상품 항목은 총판매/매출/수식에서 제외됩니다.'
       confirmLabel = '매핑셀 해제'
       actionTone = 'danger'
     } else if (isManualMapped) {
@@ -4314,8 +4314,8 @@ export function ProductCodesView() {
                   </div>
 
                   <div className="selection-detail-grid" aria-label="선택 상세">
-                    <section className="selection-product-panel selection-product-panel-left" aria-label="왼쪽 상품">
-                      <div className="selection-panel-title">왼쪽 상품</div>
+                    <section className="selection-product-panel selection-product-panel-left" aria-label="L상품(왼쪽 상품)">
+                      <div className="selection-panel-title">L상품(왼쪽 상품)</div>
                       <div className="selection-detail-field">
                         <span className="selection-label">상품</span>
                         <span className="selection-detail-value">{activeRowContext?.product ?? '-'}</span>
@@ -4339,10 +4339,10 @@ export function ProductCodesView() {
                             : 'is-conversion'
                           : 'is-empty'
                       }`}
-                      aria-label="위쪽 상품"
+                      aria-label="U상품(위쪽 상품)"
                     >
                       <div className="selection-panel-title">
-                        <span>위쪽 상품</span>
+                        <span>U상품(위쪽 상품)</span>
                         {activeUColumnInfo ? (
                           <span className="selection-panel-type">
                             {U_GROUP_LABEL_BY_GROUP[activeUColumnInfo.group]}

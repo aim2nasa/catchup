@@ -919,7 +919,7 @@ export function ExcelOrderView() {
 
     if (isBaseMapped) {
       title = '기본 매핑셀을 해제할까요?'
-      description = '기본 규칙을 삭제하지 않고 사용자 변경사항으로만 비활성화합니다. 해제하면 이 U항은 총판매/매출/수식에서 제외됩니다.'
+      description = '기본 규칙을 삭제하지 않고 사용자 변경사항으로만 비활성화합니다. 해제하면 이 U상품 항목은 총판매/매출/수식에서 제외됩니다.'
       confirmLabel = '매핑셀 해제'
       actionTone = 'danger'
     } else if (isManualMapped) {
