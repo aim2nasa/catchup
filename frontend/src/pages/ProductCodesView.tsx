@@ -44,6 +44,7 @@ type PendingLuAction = LuToggleTarget & {
 
 type RevenueFormulaTerm = {
   uColOffset: number
+  quantity: number
   unitPrice: number
   priceMissing?: boolean
   priceRef?: RevenueUnitPriceRef
@@ -55,6 +56,22 @@ type RevenueFormulaBuildResult = {
 type FormulaBuildResult = {
   display: string
   excel: string
+  explanation: FormulaExplanation
+}
+type FormulaExplanationTerm = {
+  kind: 'direct-sales' | 'conversion' | 'set-component' | 'sum' | 'total-quantity'
+  label: string
+  detail: string
+  refs?: string
+  quantity?: number
+  unitPrice?: number
+  amount?: number
+}
+type FormulaExplanation = {
+  title: string
+  summary: string
+  terms: FormulaExplanationTerm[]
+  sourceFormula: string
 }
 type RevenueUnitPriceRef = {
   kind: 'mapped' | 'set-component'
@@ -1409,12 +1426,57 @@ function buildRevenueMappedTerms(
     const uColOffset = uStartCol + idx
     terms.push({
       uColOffset,
+      quantity: qty,
       unitPrice: price,
       priceMissing: !priceIsFoundByColumn?.[idx],
       priceRef: priceRefByColumn?.[idx] ?? undefined,
     })
   })
   return { terms, warnings }
+}
+
+function formulaResultLabel(value: number | undefined, currency = 'KRW') {
+  if (!Number.isFinite(value)) return ''
+  return fmtCurrency(value ?? 0, currency)
+}
+
+function quantityResultLabel(value: number | undefined) {
+  if (!Number.isFinite(value)) return ''
+  return fmtNumber(value ?? 0)
+}
+
+function rowFormulaTargetLabel(rowMeta: RowFormulaMeta) {
+  if (rowMeta.rowType === 'subtotal') return `${rowMeta.groupLabel} 합계`
+  if (rowMeta.rowType === 'total') return rowMeta.groupLabel
+  const product = rowMeta.product_code && rowMeta.product_name
+    ? `${rowMeta.product_code} / ${rowMeta.product_name}`
+    : rowMeta.groupLabel
+  const option = rowMeta.variant_code
+    ? `${normalizeVariantSuffix(rowMeta.product_code ?? '', rowMeta.variant_code).toUpperCase()} · ${displayOptionName(rowMeta.option_name)}`
+    : displayOptionName(rowMeta.option_name)
+  return `${product} / ${option}`
+}
+
+function formulaColumnLabel(colMeta: ColFormulaMeta, fixed: { directCol: number; totalCol: number; revenueCol: number }) {
+  if (colMeta.excelCol === fixed.directCol) return '직접판매'
+  if (colMeta.excelCol === fixed.totalCol) return '총판매'
+  if (colMeta.excelCol === fixed.revenueCol) return '매출'
+  return `${toExcelCol(colMeta.excelCol)}열`
+}
+
+function makeFormulaResult(
+  display: string,
+  excel: string,
+  explanation: Omit<FormulaExplanation, 'sourceFormula'>,
+): FormulaBuildResult {
+  return {
+    display,
+    excel,
+    explanation: {
+      ...explanation,
+      sourceFormula: display,
+    },
+  }
 }
 
 function hasRuleMatch(
@@ -1556,27 +1618,57 @@ function buildCellFormula(
     .map((key) => rowMetaByKey.get(key)?.excelRow)
     .filter((row): row is number => row != null)
     .sort((a, b) => a - b)
+  const targetLabel = rowFormulaTargetLabel(rowMeta)
+  const columnLabel = formulaColumnLabel(colMeta, { directCol, totalCol, revenueCol })
+
+  const makeSumExplanation = (formula: string, col: number, label = columnLabel) => makeFormulaResult(
+    formula,
+    formula,
+    {
+      title: `${targetLabel} ${label}`,
+      summary: `하위 ${fmtNumber(rowNums.length)}개 행의 ${label}을 합산합니다.`,
+      terms: [{
+        kind: 'sum',
+        label: `${label} 합계`,
+        detail: rowNums.length === 1
+          ? `${resolveColValue(col)}${rowNums[0]} 값을 그대로 사용합니다.`
+          : `${rowNums.map((r) => `${resolveColValue(col)}${r}`).join(', ')} 값을 합산합니다.`,
+        refs: rowNums.length === 1
+          ? `${resolveColValue(col)}${rowNums[0]}`
+          : rowNums.map((r) => `${resolveColValue(col)}${r}`).join(', '),
+      }],
+    },
+  )
 
   const sumByRows = (col: number) => {
     if (rowNums.length === 0) return null
     if (rowNums.length === 1) {
       const formula = `=${resolveColValue(col)}${rowNums[0]}`
-      return { display: formula, excel: formula }
+      return makeSumExplanation(formula, col)
     }
     const formula = `=SUM(${rowNums.map((r) => `${resolveColValue(col)}${r}`).join(',')})`
-    return { display: formula, excel: formula }
+    return makeSumExplanation(formula, col)
   }
 
   const sumByRowsOrContiguousRange = (col: number) => {
     if (rowNums.length === 0) return null
     if (rowNums.length === 1) {
       const formula = `=${resolveColValue(col)}${rowNums[0]}`
-      return { display: formula, excel: formula }
+      return makeSumExplanation(formula, col)
     }
     const isContiguous = rowNums.every((row, idx) => idx === 0 || row === rowNums[idx - 1] + 1)
     if (isContiguous) {
       const formula = sumFormula(rowNums[0], col, rowNums[rowNums.length - 1], col)
-      return { display: formula, excel: formula }
+      return makeFormulaResult(formula, formula, {
+        title: `${targetLabel} ${columnLabel}`,
+        summary: `연속된 하위 ${fmtNumber(rowNums.length)}개 행의 ${columnLabel}을 합산합니다.`,
+        terms: [{
+          kind: 'sum',
+          label: `${columnLabel} 합계`,
+          detail: `${resolveColValue(col)}${rowNums[0]}:${resolveColValue(col)}${rowNums[rowNums.length - 1]} 범위를 합산합니다.`,
+          refs: `${resolveColValue(col)}${rowNums[0]}:${resolveColValue(col)}${rowNums[rowNums.length - 1]}`,
+        }],
+      })
     }
     return sumByRows(col)
   }
@@ -1600,9 +1692,40 @@ function buildCellFormula(
       const directPart = `=${resolveColValue(directCol)}${rowMeta.excelRow}`
       if (uStartCol <= uEndCol) {
         const formula = `${directPart}+SUM(${resolveColValue(uStartCol)}${rowMeta.excelRow}:${resolveColValue(uEndCol)}${rowMeta.excelRow})`
-        return { display: formula, excel: formula }
+        const mappedQty = (rowMeta.revenueMappedTerms ?? []).reduce((sum, term) => sum + term.quantity, 0)
+        const totalQty = (rowMeta.revenueDirectQty ?? 0) + mappedQty
+        return makeFormulaResult(formula, formula, {
+          title: `${targetLabel} 총판매`,
+          summary: `직접판매 ${quantityResultLabel(rowMeta.revenueDirectQty)} + 위쪽상품 환산 ${quantityResultLabel(mappedQty)} = ${quantityResultLabel(totalQty)}`,
+          terms: [
+            {
+              kind: 'direct-sales',
+              label: '직접판매',
+              detail: `${resolveColValue(directCol)}${rowMeta.excelRow} 직접판매 수량`,
+              refs: `${resolveColValue(directCol)}${rowMeta.excelRow}`,
+              quantity: rowMeta.revenueDirectQty ?? 0,
+            },
+            {
+              kind: 'total-quantity',
+              label: '위쪽상품 환산 수량',
+              detail: `${resolveColValue(uStartCol)}${rowMeta.excelRow}:${resolveColValue(uEndCol)}${rowMeta.excelRow} 교차셀 수량 합계`,
+              refs: `${resolveColValue(uStartCol)}${rowMeta.excelRow}:${resolveColValue(uEndCol)}${rowMeta.excelRow}`,
+              quantity: mappedQty,
+            },
+          ],
+        })
       }
-      return { display: directPart, excel: directPart }
+      return makeFormulaResult(directPart, directPart, {
+        title: `${targetLabel} 총판매`,
+        summary: `직접판매 수량 ${quantityResultLabel(rowMeta.revenueDirectQty)}을 그대로 사용합니다.`,
+        terms: [{
+          kind: 'direct-sales',
+          label: '직접판매',
+          detail: `${resolveColValue(directCol)}${rowMeta.excelRow} 직접판매 수량`,
+          refs: `${resolveColValue(directCol)}${rowMeta.excelRow}`,
+          quantity: rowMeta.revenueDirectQty ?? 0,
+        }],
+      })
     }
 
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
@@ -1637,9 +1760,55 @@ function buildCellFormula(
       const displayTerms = [directPart, ...mappedDisplayTerms].filter(Boolean)
       const excelTerms = [directPart, ...mappedExcelTerms].filter(Boolean)
       if (displayTerms.length === 0 || excelTerms.length === 0) return null
+      const explanationTerms: FormulaExplanationTerm[] = []
+      let directAmount = 0
+      if (!rowMeta.revenueMissing) {
+        directAmount = (rowMeta.revenueDirectQty ?? 0) * (rowMeta.unit_price ?? 0)
+        explanationTerms.push({
+          kind: 'direct-sales',
+          label: '직접판매 매출',
+          detail: `직접판매 ${quantityResultLabel(rowMeta.revenueDirectQty)} × 단가 ${formulaResultLabel(rowMeta.unit_price)}`,
+          refs: `${directQtyRef} × ${directPriceRef}`,
+          quantity: rowMeta.revenueDirectQty ?? 0,
+          unitPrice: rowMeta.unit_price ?? 0,
+          amount: directAmount,
+        })
+      }
+      let mappedAmount = 0
+      ;(rowMeta.revenueMappedTerms ?? []).forEach((term) => {
+        const col = resolveColValue(term.uColOffset)
+        const amount = term.priceMissing ? 0 : term.quantity * term.unitPrice
+        mappedAmount += amount
+        const priceRef = term.priceRef
+        const isSet = priceRef?.kind === 'set-component'
+        const label = term.priceMissing
+          ? '단가 확인불가'
+          : isSet
+            ? '세트 구성 매출'
+            : '전환상품 매출'
+        const source = priceRef
+          ? `${priceRef.sourceProductCode} / ${priceRef.sourceProductName} / ${priceRef.sourceOptionCode} · ${priceRef.sourceOptionName}`
+          : `${col}${rowMeta.excelRow}`
+        const target = priceRef
+          ? `${priceRef.targetProductCode} / ${priceRef.targetProductName} / ${priceRef.targetOptionCode} · ${priceRef.targetOptionName}`
+          : targetLabel
+        explanationTerms.push({
+          kind: isSet ? 'set-component' : 'conversion',
+          label,
+          detail: `${source} 판매 ${quantityResultLabel(term.quantity)} × ${target} 단가 ${term.priceMissing ? '확인불가' : formulaResultLabel(term.unitPrice)}`,
+          refs: `${col}${rowMeta.excelRow}${priceRef ? ` × ${priceRef.refName}` : ''}`,
+          quantity: term.quantity,
+          unitPrice: term.priceMissing ? undefined : term.unitPrice,
+          amount,
+        })
+      })
+      const resultAmount = directAmount + mappedAmount
       return {
-        display: `=${displayTerms.join('+')}`,
-        excel: `=${excelTerms.join('+')}`,
+        ...makeFormulaResult(`=${displayTerms.join('+')}`, `=${excelTerms.join('+')}`, {
+          title: `${targetLabel} 매출`,
+          summary: `${explanationTerms.map((term) => `${term.label} ${formulaResultLabel(term.amount)}`).join(' + ')} = ${formulaResultLabel(resultAmount)}`,
+          terms: explanationTerms,
+        }),
       }
     }
 
@@ -2860,6 +3029,12 @@ export function ProductCodesView() {
     return splitFormulaForDisplay(selectedFormulaText)
   }, [selectedFormulaText])
 
+  const selectedFormulaExplanation = useMemo(() => {
+    if (!selectedCell) return null
+    const formula = rowFormulaByKey.get(`${selectedCell.rowKey}|${selectedCell.colKey}`)
+    return formula?.explanation ?? null
+  }, [selectedCell, rowFormulaByKey])
+
   const currency = state.data?.grand.currency ?? 'KRW'
   const activeDetailCell = hoveredCell ?? selectedCell
 
@@ -3868,27 +4043,60 @@ export function ProductCodesView() {
                         </span>
                       </div>
                     </section>
-                    {selectedFormulaText ? (
-                      <div className="selection-detail-field selection-detail-formula">
-                        <span className="selection-label">수식</span>
-                        <span className="selection-formula-value">
-                          {selectedFormulaParts.map((part, idx) => (
-                            <span
-                              key={`${part.kind}-${idx}`}
-                              className={
-                                part.kind === 'price'
-                                  ? 'selection-formula-price'
-                                  : part.kind === 'set-price'
-                                    ? 'selection-formula-set-price'
-                                    : undefined
-                              }
-                              title={part.title}
-                            >
-                              {part.text}
-                            </span>
+                    {selectedFormulaExplanation ? (
+                      <section className="formula-explanation" aria-label="계산 해설">
+                        <div className="formula-explanation-header">
+                          <span className="formula-explanation-title">{selectedFormulaExplanation.title}</span>
+                          <span className="formula-explanation-summary">{selectedFormulaExplanation.summary}</span>
+                        </div>
+                        <div className="formula-explanation-terms">
+                          {selectedFormulaExplanation.terms.map((term, idx) => (
+                            <div className="formula-explanation-term" key={`${term.kind}-${idx}`}>
+                              <span className={`formula-term-kind formula-term-kind--${term.kind}`}>
+                                {term.label}
+                              </span>
+                              <span className="formula-term-detail" title={term.detail}>{term.detail}</span>
+                              {term.quantity != null ? (
+                                <span className="formula-term-number" title="수량">
+                                  {quantityResultLabel(term.quantity)}
+                                </span>
+                              ) : null}
+                              {term.unitPrice != null ? (
+                                <span className="formula-term-number" title="단가">
+                                  {formulaResultLabel(term.unitPrice)}
+                                </span>
+                              ) : null}
+                              {term.amount != null ? (
+                                <span className="formula-term-amount" title="금액">
+                                  {formulaResultLabel(term.amount)}
+                                </span>
+                              ) : null}
+                            </div>
                           ))}
-                        </span>
-                      </div>
+                        </div>
+                        {selectedFormulaText ? (
+                          <details className="formula-source">
+                            <summary>원문 수식</summary>
+                            <span className="selection-formula-value">
+                              {selectedFormulaParts.map((part, idx) => (
+                                <span
+                                  key={`${part.kind}-${idx}`}
+                                  className={
+                                    part.kind === 'price'
+                                      ? 'selection-formula-price'
+                                      : part.kind === 'set-price'
+                                        ? 'selection-formula-set-price'
+                                        : undefined
+                                  }
+                                  title={part.title}
+                                >
+                                  {part.text}
+                                </span>
+                              ))}
+                            </span>
+                          </details>
+                        ) : null}
+                      </section>
                     ) : null}
                   </div>
                 </div>

@@ -465,6 +465,45 @@ test.describe('상품코드 페이지', () => {
     expect(supportSheet!.getCell(mappedRefRow, 12).value).toBe(19200)
   })
 
+  test('계산식 셀은 원문 수식보다 사용자용 계산 해설을 먼저 보여준다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const explanation = page.locator('.formula-explanation')
+    const summary = explanation.locator('.formula-explanation-summary')
+    const terms = explanation.locator('.formula-explanation-term')
+
+    await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="C:매출"]').click()
+    await expect(explanation).toBeVisible()
+    await expect(explanation.locator('.formula-explanation-title')).toContainText('P00000HT')
+    await expect(summary).toContainText('직접판매 매출')
+    await expect(summary).toContainText('세트 구성 매출')
+    await expect(summary).toContainText('₩2,014,580')
+    await expect(terms.filter({ hasText: '직접판매 매출' })).toContainText('직접판매 75')
+    await expect(terms.filter({ hasText: '세트 구성 매출' })).toContainText('P00000YS')
+    await expect(terms.filter({ hasText: '세트 구성 매출' })).toContainText('₩21,040')
+    await expect(explanation.locator('.formula-source')).toContainText('원문 수식')
+
+    await page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="C:매출"]').click()
+    await expect(summary).toContainText('전환상품 매출')
+    await expect(terms.filter({ hasText: '전환상품 매출' })).toContainText('P00000QE')
+    await expect(terms.filter({ hasText: '전환상품 매출' })).toContainText('P00000BV')
+
+    await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="C:총판매"]').click()
+    await expect(summary).toContainText('직접판매 75')
+    await expect(summary).toContainText('위쪽상품 환산 2')
+    await expect(summary).toContainText('77')
+
+    await page.locator('td[data-row-key="subtotal:500g"][data-col-key="C:총판매"]').click()
+    await expect(summary).toContainText('하위')
+    await expect(terms.filter({ hasText: '총판매 합계' })).toContainText('값을 합산합니다')
+  })
+
   test('상품코드 화면과 엑셀 다운로드는 셀 값, 수식, 매출단가참조를 동적으로 일치시킨다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 

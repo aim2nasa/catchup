@@ -824,6 +824,128 @@
   padding: 0 3px;
 }
 
+.formula-explanation {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.formula-explanation-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.formula-explanation-title {
+  flex: 0 0 auto;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.formula-explanation-summary {
+  min-width: 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.formula-explanation-terms {
+  display: grid;
+  gap: 3px;
+}
+
+.formula-explanation-term {
+  display: grid;
+  grid-template-columns: 96px minmax(180px, 1fr) minmax(44px, auto) minmax(72px, auto) minmax(84px, auto);
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 3px 5px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.formula-term-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: #334155;
+  background: #e2e8f0;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.formula-term-kind--direct-sales,
+.formula-term-kind--total-quantity {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.formula-term-kind--conversion,
+.formula-term-kind--sum {
+  color: #075985;
+  background: #e0f2fe;
+}
+
+.formula-term-kind--set-component {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.formula-term-detail {
+  min-width: 0;
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formula-term-number,
+.formula-term-amount {
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.formula-term-amount {
+  color: #14532d;
+}
+
+.formula-source {
+  min-width: 0;
+}
+
+.formula-source > summary {
+  cursor: pointer;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.formula-source .selection-formula-value {
+  display: block;
+  margin-top: 3px;
+}
+
 .selection-target {
   display: inline-flex;
   align-items: center;
