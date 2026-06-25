@@ -34,9 +34,9 @@
   --pin-4-line: #2563eb;
   --pin-5-bg: rgba(220, 252, 231, 0.74);
   --pin-5-line: #16a34a;
-  --c-sum-bg: #f1f5f9;
-  --c-sum-text: #1f2937;
-  --c-sum-border: var(--grid-border-strong);
+  --c-sum-bg: #fff7ed;
+  --c-sum-text: #5f3b12;
+  --c-sum-border: #e8c77e;
   font: 12px/1.4 "Malgun Gothic", "Apple SD Gothic Neo", "맑은 고딕", sans-serif;
   background: var(--c-bg);
   color: var(--c-text);
@@ -1309,17 +1309,17 @@
 }
 .pc-excel-table tbody tr.subtotal-row td {
   font-weight: 600;
-  background: #f9fbfd;
+  background: var(--c-sum-bg);
   color: var(--c-sum-text);
-  border-top: 1px solid var(--grid-border);
-  border-bottom: 1px solid var(--grid-border);
+  border-top: 1px solid var(--c-sum-border);
+  border-bottom: 1px solid var(--c-sum-border);
 }
 
 .pc-excel-table tr.product-category-row th,
 .pc-excel-table tr.product-category-row td {
-  border-top: 1px solid var(--grid-border-strong);
-  border-bottom: 1px solid var(--grid-border);
-  background: #f6f9fc;
+  border-top: 1px solid #9fb0c4;
+  border-bottom: 1px solid #cbd7e6;
+  background: #eef4fb;
   color: #0f172a;
 }
 
@@ -1328,16 +1328,17 @@
 }
 
 .product-group-band-cell {
-  padding: 6px 10px;
+  padding: 7px 10px;
   text-align: left;
   white-space: nowrap;
+  box-shadow: inset 3px 0 0 #475569;
 }
 
 .product-group-band-sticky {
   position: sticky;
   left: 42px;
   z-index: 5;
-  background: #f6f9fc;
+  background: #eef4fb;
 }
 
 .product-group-band-fill {
@@ -1349,7 +1350,7 @@
   margin-right: 10px;
   padding: 2px 7px;
   border-radius: 3px;
-  background: #334155;
+  background: #475569;
   color: #ffffff;
   font-size: 11px;
   font-weight: 800;
@@ -1376,14 +1377,14 @@
 
 .pc-excel-table tbody tr.category-end-row > th,
 .pc-excel-table tbody tr.category-end-row > td {
-  border-bottom: 1px solid var(--grid-border-strong);
+  border-bottom: 1px solid var(--grid-border);
 }
 
 .pc-excel-table tbody tr.subtotal-row td.sticky-total,
 .pc-excel-table tbody tr.subtotal-row td.sticky-rev,
 .pc-excel-table tfoot tr td.sticky-total,
 .pc-excel-table tfoot tr td.sticky-rev {
-  background: #f8fafc;
+  background: var(--c-sum-bg);
   color: var(--c-sum-text);
   z-index: 4;
 }
@@ -1395,7 +1396,7 @@
   height: 4px;
   padding: 0;
 }
-.pc-excel-table tbody tr.subtotal-row:hover td { background: #f8fafc; }
+.pc-excel-table tbody tr.subtotal-row:hover td { background: #fff3d6; }
 .pc-excel-table tbody tr.subtotal-row td.code-cell { color: var(--c-sum-text); font-style: normal; font-family: inherit; }
 .pc-excel-table td.code-cell {
   font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
@@ -1439,6 +1440,7 @@
 .pc-excel-table .subtotal-label {
   font-weight: 700;
   text-align: left;
+  color: #7c4a03;
 }
 .map-cell {
   position: relative;

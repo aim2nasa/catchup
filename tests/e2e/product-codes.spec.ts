@@ -95,6 +95,51 @@ test.describe('상품코드 페이지', () => {
     expect(worksheet?.getCell('A49').value).toBe('P00000CM')
   })
 
+  test('카테고리 행과 합계 행은 서로 다른 시각 역할로 구분된다', async ({ page }) => {
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const categoryCell = page.locator('.product-category-row .product-group-band-cell').first()
+    const categoryBadge = page.locator('.product-category-row .product-category-badge').first()
+    const subtotalLabel = page.locator('.subtotal-row .subtotal-label').first()
+
+    await expect(categoryCell).toContainText('하드왁스')
+    await expect(categoryBadge).toHaveText('카테고리')
+    await expect(subtotalLabel).toContainText('합계')
+
+    const visualRoles = await page.evaluate(() => {
+      const categoryCellEl = document.querySelector<HTMLElement>('.product-category-row .product-group-band-cell')
+      const categoryBadgeEl = document.querySelector<HTMLElement>('.product-category-row .product-category-badge')
+      const subtotalLabelEl = document.querySelector<HTMLElement>('.subtotal-row .subtotal-label')
+      if (!categoryCellEl || !categoryBadgeEl || !subtotalLabelEl) {
+        throw new Error('카테고리/합계 행을 찾을 수 없습니다.')
+      }
+
+      const categoryCellStyle = getComputedStyle(categoryCellEl)
+      const categoryBadgeStyle = getComputedStyle(categoryBadgeEl)
+      const subtotalLabelStyle = getComputedStyle(subtotalLabelEl)
+
+      return {
+        categoryBackground: categoryCellStyle.backgroundColor,
+        categoryAccent: categoryCellStyle.boxShadow,
+        categoryBadgeBackground: categoryBadgeStyle.backgroundColor,
+        categoryBadgeColor: categoryBadgeStyle.color,
+        subtotalBackground: subtotalLabelStyle.backgroundColor,
+        subtotalColor: subtotalLabelStyle.color,
+      }
+    })
+
+    expect(visualRoles.categoryBackground).not.toBe(visualRoles.subtotalBackground)
+    expect(visualRoles.categoryBadgeBackground).not.toBe(visualRoles.subtotalBackground)
+    expect(visualRoles.categoryBadgeColor).not.toBe(visualRoles.subtotalColor)
+    expect(visualRoles.categoryAccent).toContain('inset')
+  })
+
   test('상품코드 L상품은 스크린샷 기준 옵션까지 표시한다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
