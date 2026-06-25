@@ -465,7 +465,7 @@ test.describe('상품코드 페이지', () => {
     expect(supportSheet!.getCell(mappedRefRow, 12).value).toBe(19200)
   })
 
-  test('계산식 셀은 원문 수식보다 사용자용 계산 해설을 먼저 보여준다', async ({ page }) => {
+  test('계산식 셀은 기본 원문 수식만 보이고 자세히/더블클릭 때 계산 내역을 펼친다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
     await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
@@ -482,21 +482,53 @@ test.describe('상품코드 페이지', () => {
     await expect(explanation).toBeVisible()
     await expect(explanation.locator('.formula-explanation-title')).toContainText('P00000HT')
     await expect(explanation.locator('.formula-explanation-title')).toContainText('매출 계산 내역')
+    await expect(explanation.locator('.formula-source')).toBeVisible()
+    await expect(explanation.locator('.formula-source')).toContainText('원문 수식')
+    await expect(explanation.locator('.formula-source')).toContainText('세트 구성 단가')
+    await expect(terms).toHaveCount(0)
+    await expect(total).toHaveCount(0)
+    await expect(explanation.getByRole('button', { name: '자세히' })).toBeVisible()
+
+    await explanation.getByRole('button', { name: '자세히' }).click()
     await expect(total).toContainText('합계')
     await expect(total).toContainText('₩2,014,580')
     await expect(terms.filter({ hasText: '직접판매 매출' })).toContainText('직접판매 75')
     await expect(terms.filter({ hasText: '세트 구성 매출' })).toContainText('P00000YS')
     await expect(terms.filter({ hasText: '세트 구성 매출' })).toContainText('₩21,040')
-    await expect(explanation.locator('.formula-source')).toContainText('원문 수식')
     await expect(terms.first()).toHaveCSS('margin-left', '12px')
     await expect(terms.first().locator('.formula-term-index')).toHaveText('1')
+    await expect(explanation.locator('.formula-source')).toContainText('원문 수식')
+
+    await explanation.getByRole('button', { name: '간략히' }).click()
+    await expect(terms).toHaveCount(0)
+    await expect(total).toHaveCount(0)
+    await expect(explanation.locator('.formula-source')).toContainText('원문 수식')
 
     await page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="C:매출"]').click()
+    await expect(terms).toHaveCount(0)
+    await page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="C:매출"]').dblclick()
     await expect(total).toContainText('₩131,500')
     await expect(terms.filter({ hasText: '전환상품 매출' })).toContainText('P00000QE')
     await expect(terms.filter({ hasText: '전환상품 매출' })).toContainText('P00000BV')
 
+    const bl20RevenueCellRegression = page.locator('td[data-row-key="variant:P0000BIF:P0000BIF00CM"][data-col-key="C:매출"]')
+    await bl20RevenueCellRegression.dblclick()
+    await expect(explanation.locator('.formula-explanation-title')).toContainText('P0000BIF')
+    await expect(explanation.locator('.formula-explanation-title')).toContainText('CM')
+    await expect(terms.filter({ hasText: '전환상품 매출' })).toHaveCount(2)
+    await expect(total).toContainText('₩380,000')
+    await expect(bl20RevenueCellRegression).toHaveClass(/pc-excel-cell-selected/)
+
+    await page.locator('td[data-row-key="parent:500g:P00000XE"][data-col-key="C:매출"]').hover()
+    await expect(explanation.locator('.formula-explanation-title')).toContainText('P0000BIF')
+    await expect(explanation.locator('.formula-explanation-title')).toContainText('CM')
+    await expect(bl20RevenueCellRegression).toHaveClass(/pc-excel-cell-selected/)
+    await expect(page.locator('td[data-row-key="parent:500g:P00000XE"][data-col-key="C:매출"]')).not.toHaveClass(/pc-excel-hover-cell/)
+
     await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="C:총판매"]').click()
+    await expect(terms).toHaveCount(0)
+    await expect(explanation.locator('.formula-source')).toContainText('SUM')
+    await page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="C:총판매"]').dblclick()
     await expect(explanation.locator('.formula-explanation-title')).toContainText('P00000HT')
     await expect(explanation.locator('.formula-explanation-title')).toContainText('매출 계산 내역')
     await expect(explanation.locator('.formula-explanation-title')).not.toContainText('총판매')
@@ -506,6 +538,8 @@ test.describe('상품코드 페이지', () => {
     await expect(total).toContainText('77')
 
     await page.locator('td[data-row-key="subtotal:500g"][data-col-key="C:총판매"]').click()
+    await expect(terms).toHaveCount(0)
+    await explanation.getByRole('button', { name: '자세히' }).click()
     await expect(total).toContainText('하위')
     await expect(terms.filter({ hasText: '총판매 합계' })).toContainText('값을 합산합니다')
   })

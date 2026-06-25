@@ -1841,6 +1841,14 @@ export function ProductCodesView() {
   const [setComponentDrafts, setSetComponentDrafts] = useState<Record<string, SetProductComponentDraft>>({})
   const [setAddedComponents, setSetAddedComponents] = useState<Record<string, SetProductComponent[]>>({})
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
+  const [formulaDetailsOpen, setFormulaDetailsOpen] = useState(false)
+  const formulaSingleClickTimerRef = useRef<number | null>(null)
+  const cellClickDetailRef = useRef<{
+    rowKey: string
+    colKey: string
+    detail: number
+    viewportTop: number
+  } | null>(null)
   const [hoveredCell, setHoveredCell] = useState<Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null>(null)
   const [pinnedCrosses, setPinnedCrosses] = useState<PinnedCross[]>([])
   const [manualHighlightedRows, setManualHighlightedRows] = useState<Set<string>>(() => new Set())
@@ -1856,63 +1864,120 @@ export function ProductCodesView() {
   const isPinnableCrossCell = (meta: Pick<CellSelectionMeta, 'rowKey' | 'colKey'>) =>
     meta.colKey.startsWith('B:') && meta.rowKey !== 'product-codes-u-direct'
 
-  const handleCellSelect = (meta: CellSelectionMeta) => {
-    const existingPinnedCross = isPinnableCrossCell(meta)
-      ? pinnedCrosses.find((pin) => pin.rowKey === meta.rowKey && pin.colKey === meta.colKey)
-      : null
+  const clearPendingFormulaSingleClick = () => {
+    if (formulaSingleClickTimerRef.current === null) return
+    window.clearTimeout(formulaSingleClickTimerRef.current)
+    formulaSingleClickTimerRef.current = null
+  }
 
-    if (existingPinnedCross) {
-      setPinnedCrosses((prev) => prev.filter((pin) => pin !== existingPinnedCross))
-      setHoveredCell(null)
-      setSelectedCell((prev) => {
-        if (prev?.rowKey === meta.rowKey && prev.colKey === meta.colKey) return null
-        return prev
+  const findTableCell = (rowKey: string, colKey: string) => {
+    const cells = tableWrapRef.current?.querySelectorAll<HTMLElement>('td[data-row-key][data-col-key]')
+    if (!cells) return null
+    return Array.from(cells).find((cell) => cell.dataset.rowKey === rowKey && cell.dataset.colKey === colKey) ?? null
+  }
+
+  const handleCellSelect = (meta: CellSelectionMeta) => {
+    const rowMeta = rowMetaByKey.get(meta.rowKey)
+    const colMeta = colMetaByKey.get(meta.colKey)
+    const formula = rowMeta && colMeta ? rowFormulaByKey.get(`${meta.rowKey}|${meta.colKey}`) : null
+    const nativeClickDetail = cellClickDetailRef.current?.rowKey === meta.rowKey
+      && cellClickDetailRef.current.colKey === meta.colKey
+      ? cellClickDetailRef.current.detail
+      : 0
+    const clickedViewportTop = cellClickDetailRef.current?.rowKey === meta.rowKey
+      && cellClickDetailRef.current.colKey === meta.colKey
+      ? cellClickDetailRef.current.viewportTop
+      : null
+    const opensFormulaDetails = Boolean(formula && nativeClickDetail >= 2)
+
+    const selectCellNow = (openFormulaDetails: boolean) => {
+      setFormulaDetailsOpen(openFormulaDetails)
+      setHoveredCell({ rowKey: meta.rowKey, colKey: meta.colKey })
+      const existingPinnedCross = isPinnableCrossCell(meta)
+        ? pinnedCrosses.find((pin) => pin.rowKey === meta.rowKey && pin.colKey === meta.colKey)
+        : null
+
+      if (existingPinnedCross) {
+        setPinnedCrosses((prev) => prev.filter((pin) => pin !== existingPinnedCross))
+        setHoveredCell(null)
+        setSelectedCell((prev) => {
+          if (prev?.rowKey === meta.rowKey && prev.colKey === meta.colKey) return null
+          return prev
+        })
+        return
+      }
+
+      setSelectedCell(() => {
+        const formulaWarnings = meta.colKey === REVENUE_SCREEN_KEY
+          ? rowMeta?.revenueMappedPriceWarnings
+          : undefined
+
+        return {
+          ...meta,
+          formula: formula?.display ?? '',
+          excelFormula: formula?.excel ?? '',
+          formulaWarnings,
+          screenRow: rowMeta?.screenRow ?? 0,
+          screenCol: colMeta?.screenCol ?? 0,
+          excelRow: rowMeta?.excelRow ?? 0,
+          excelCol: colMeta?.excelCol ?? 0,
+        }
       })
+
+      if (isPinnableCrossCell(meta)) {
+        const palette = pinnedCrossPaletteRef.current % 6
+        pinnedCrossPaletteRef.current += 1
+        setPinnedCrosses((prev) => {
+          return [
+            ...prev,
+            {
+              rowKey: meta.rowKey,
+              rowLabel: meta.rowLabel,
+              colKey: meta.colKey,
+              colLabel: meta.colLabel,
+              coordinate: rowMeta && colMeta ? a1(rowMeta.excelRow, colMeta.excelCol) : '',
+              palette,
+            },
+          ]
+        })
+      }
+
+      if (openFormulaDetails && clickedViewportTop !== null) {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            const cell = findTableCell(meta.rowKey, meta.colKey)
+            if (!cell) return
+            const nextTop = cell.getBoundingClientRect().top
+            window.scrollBy(0, nextTop - clickedViewportTop)
+          })
+        })
+      }
+    }
+
+    if (formula) {
+      if (opensFormulaDetails) {
+        clearPendingFormulaSingleClick()
+        selectCellNow(true)
+        return
+      }
+
+      clearPendingFormulaSingleClick()
+      formulaSingleClickTimerRef.current = window.setTimeout(() => {
+        selectCellNow(false)
+        formulaSingleClickTimerRef.current = null
+      }, 350)
       return
     }
 
-    setSelectedCell(() => {
-      const rowMeta = rowMetaByKey.get(meta.rowKey)
-      const colMeta = colMetaByKey.get(meta.colKey)
-      const formula = rowMeta && colMeta ? rowFormulaByKey.get(`${meta.rowKey}|${meta.colKey}`) : null
-      const formulaWarnings = meta.colKey === REVENUE_SCREEN_KEY
-        ? rowMeta?.revenueMappedPriceWarnings
-        : undefined
-
-      return {
-        ...meta,
-        formula: formula?.display ?? '',
-        excelFormula: formula?.excel ?? '',
-        formulaWarnings,
-        screenRow: rowMeta?.screenRow ?? 0,
-        screenCol: colMeta?.screenCol ?? 0,
-        excelRow: rowMeta?.excelRow ?? 0,
-        excelCol: colMeta?.excelCol ?? 0,
-      }
-    })
-
-    if (isPinnableCrossCell(meta)) {
-      const rowMeta = rowMetaByKey.get(meta.rowKey)
-      const colMeta = colMetaByKey.get(meta.colKey)
-      const palette = pinnedCrossPaletteRef.current % 6
-      pinnedCrossPaletteRef.current += 1
-      setPinnedCrosses((prev) => {
-        return [
-          ...prev,
-          {
-            rowKey: meta.rowKey,
-            rowLabel: meta.rowLabel,
-            colKey: meta.colKey,
-            colLabel: meta.colLabel,
-            coordinate: rowMeta && colMeta ? a1(rowMeta.excelRow, colMeta.excelCol) : '',
-            palette,
-          },
-        ]
-      })
-    }
+    clearPendingFormulaSingleClick()
+    selectCellNow(false)
   }
 
-  const clearSelection = () => setSelectedCell(null)
+  const clearSelection = () => {
+    clearPendingFormulaSingleClick()
+    setFormulaDetailsOpen(false)
+    setSelectedCell(null)
+  }
   const clearInteractionForPinnedCrosses = (pins: PinnedCross[]) => {
     if (pins.length === 0) return
     const overlapsPinnedLine = (cell: Pick<CellSelectionMeta, 'rowKey' | 'colKey'> | null) =>
@@ -2229,6 +2294,7 @@ export function ProductCodesView() {
   }
 
   const handleTableMouseMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (selectedCell?.formula || selectedCell?.excelFormula) return
     const target = event.target instanceof HTMLElement ? event.target : null
     const cell = target?.closest('td[data-row-key][data-col-key]')
     if (!(cell instanceof HTMLTableCellElement)) return
@@ -3410,6 +3476,33 @@ export function ProductCodesView() {
   }, [state.data])
 
   useEffect(() => {
+    const wrap = tableWrapRef.current
+    if (!wrap) return
+    const handleClick = (event: globalThis.MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      const cell = target?.closest<HTMLTableCellElement>('td[data-row-key][data-col-key]')
+      if (!cell || !wrap.contains(cell)) return
+      const rowKey = cell.dataset.rowKey
+      const colKey = cell.dataset.colKey
+      if (!rowKey || !colKey) return
+      cellClickDetailRef.current = {
+        rowKey,
+        colKey,
+        detail: event.detail,
+        viewportTop: cell.getBoundingClientRect().top,
+      }
+    }
+    wrap.addEventListener('click', handleClick, true)
+    return () => {
+      wrap.removeEventListener('click', handleClick, true)
+    }
+  }, [state.data])
+
+  useEffect(() => {
+    return () => clearPendingFormulaSingleClick()
+  }, [])
+
+  useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
 
@@ -4043,65 +4136,86 @@ export function ProductCodesView() {
                         </span>
                       </div>
                     </section>
-                    {selectedFormulaExplanation ? (
-                      <section className="formula-explanation" aria-label="계산 해설">
+                    {selectedFormulaText ? (
+                      <section className="formula-explanation" aria-label="수식 정보">
                         <div className="formula-explanation-header">
-                          <span className="formula-explanation-title">{selectedFormulaExplanation.title}</span>
-                        </div>
-                        <div className="formula-explanation-terms">
-                          {selectedFormulaExplanation.terms.map((term, idx) => (
-                            <div className="formula-explanation-term" key={`${term.kind}-${idx}`}>
-                              <span className="formula-term-index" aria-label={`내역 ${idx + 1}`}>
-                                {idx + 1}
-                              </span>
-                              <span className={`formula-term-kind formula-term-kind--${term.kind}`}>
-                                {term.label}
-                              </span>
-                              <span className="formula-term-detail" title={term.detail}>{term.detail}</span>
-                              {term.quantity != null ? (
-                                <span className="formula-term-number" title="수량">
-                                  {quantityResultLabel(term.quantity)}
-                                </span>
-                              ) : null}
-                              {term.unitPrice != null ? (
-                                <span className="formula-term-number" title="단가">
-                                  {formulaResultLabel(term.unitPrice)}
-                                </span>
-                              ) : null}
-                              {term.amount != null ? (
-                                <span className="formula-term-amount" title="금액">
-                                  {formulaResultLabel(term.amount)}
-                                </span>
-                              ) : null}
-                            </div>
-                          ))}
-                          <div className="formula-explanation-total">
-                            <span className="formula-total-label">합계</span>
-                            <span className="formula-total-value">{selectedFormulaExplanation.summary}</span>
+                          <span className="formula-explanation-title">
+                            {selectedFormulaExplanation?.title ?? `${selectedCoordinateText ?? ''} 수식`}
+                          </span>
+                          <div className="formula-explanation-actions" aria-label="계산 내역 표시 방식">
+                            {formulaDetailsOpen && selectedFormulaExplanation ? (
+                              <button
+                                type="button"
+                                className="formula-explanation-toggle"
+                                onClick={() => setFormulaDetailsOpen(false)}
+                              >
+                                간략히
+                              </button>
+                            ) : selectedFormulaExplanation ? (
+                              <button
+                                type="button"
+                                className="formula-explanation-toggle"
+                                onClick={() => setFormulaDetailsOpen(true)}
+                              >
+                                자세히
+                              </button>
+                            ) : null}
                           </div>
                         </div>
-                        {selectedFormulaText ? (
-                          <details className="formula-source">
-                            <summary>원문 수식</summary>
-                            <span className="selection-formula-value">
-                              {selectedFormulaParts.map((part, idx) => (
-                                <span
-                                  key={`${part.kind}-${idx}`}
-                                  className={
-                                    part.kind === 'price'
-                                      ? 'selection-formula-price'
-                                      : part.kind === 'set-price'
-                                        ? 'selection-formula-set-price'
-                                        : undefined
-                                  }
-                                  title={part.title}
-                                >
-                                  {part.text}
+                        {formulaDetailsOpen && selectedFormulaExplanation ? (
+                          <div className="formula-explanation-terms">
+                            {selectedFormulaExplanation.terms.map((term, idx) => (
+                              <div className="formula-explanation-term" key={`${term.kind}-${idx}`}>
+                                <span className="formula-term-index" aria-label={`내역 ${idx + 1}`}>
+                                  {idx + 1}
                                 </span>
-                              ))}
-                            </span>
-                          </details>
+                                <span className={`formula-term-kind formula-term-kind--${term.kind}`}>
+                                  {term.label}
+                                </span>
+                                <span className="formula-term-detail" title={term.detail}>{term.detail}</span>
+                                {term.quantity != null ? (
+                                  <span className="formula-term-number" title="수량">
+                                    {quantityResultLabel(term.quantity)}
+                                  </span>
+                                ) : null}
+                                {term.unitPrice != null ? (
+                                  <span className="formula-term-number" title="단가">
+                                    {formulaResultLabel(term.unitPrice)}
+                                  </span>
+                                ) : null}
+                                {term.amount != null ? (
+                                  <span className="formula-term-amount" title="금액">
+                                    {formulaResultLabel(term.amount)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            ))}
+                            <div className="formula-explanation-total">
+                              <span className="formula-total-label">합계</span>
+                              <span className="formula-total-value">{selectedFormulaExplanation.summary}</span>
+                            </div>
+                          </div>
                         ) : null}
+                        <div className="formula-source">
+                          <div className="formula-source-label">원문 수식</div>
+                          <span className="selection-formula-value">
+                            {selectedFormulaParts.map((part, idx) => (
+                              <span
+                                key={`${part.kind}-${idx}`}
+                                className={
+                                  part.kind === 'price'
+                                    ? 'selection-formula-price'
+                                    : part.kind === 'set-price'
+                                      ? 'selection-formula-set-price'
+                                      : undefined
+                                }
+                                title={part.title}
+                              >
+                                {part.text}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
                       </section>
                     ) : null}
                   </div>

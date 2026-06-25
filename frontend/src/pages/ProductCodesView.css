@@ -838,6 +838,7 @@
 .formula-explanation-header {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 10px;
   min-width: 0;
   padding-bottom: 2px;
@@ -849,6 +850,30 @@
   font-size: 12px;
   font-weight: 900;
   overflow-wrap: anywhere;
+}
+
+.formula-explanation-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.formula-explanation-toggle {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.formula-explanation-toggle:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
 }
 
 .formula-explanation-terms {
@@ -961,10 +986,11 @@
 
 .formula-source {
   min-width: 0;
+  display: grid;
+  gap: 3px;
 }
 
-.formula-source > summary {
-  cursor: pointer;
+.formula-source-label {
   color: #64748b;
   font-size: 11px;
   font-weight: 800;
@@ -972,7 +998,8 @@
 
 .formula-source .selection-formula-value {
   display: block;
-  margin-top: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .selection-target {
