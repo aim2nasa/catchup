@@ -816,6 +816,14 @@
   padding: 0 2px;
 }
 
+.selection-formula-set-price {
+  color: #047857;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
 .selection-target {
   display: inline-flex;
   align-items: center;

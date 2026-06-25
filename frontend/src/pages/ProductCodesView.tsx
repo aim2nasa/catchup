@@ -46,10 +46,45 @@ type RevenueFormulaTerm = {
   uColOffset: number
   unitPrice: number
   priceMissing?: boolean
+  priceRef?: RevenueUnitPriceRef
 }
 type RevenueFormulaBuildResult = {
   terms: RevenueFormulaTerm[]
   warnings: string[]
+}
+type FormulaBuildResult = {
+  display: string
+  excel: string
+}
+type RevenueUnitPriceRef = {
+  kind: 'mapped' | 'set-component'
+  refName: string
+  displayToken: string
+  title: string
+  sourceProductCode: string
+  sourceOptionCode: string
+  sourceProductName: string
+  sourceOptionName: string
+  targetProductCode: string
+  targetOptionCode: string
+  targetProductName: string
+  targetOptionName: string
+  unitPrice: number
+}
+type SetComponentPriceRef = RevenueUnitPriceRef & {
+  kind: 'set-component'
+  setProductCode: string
+  setOptionCode: string
+  componentProductCode: string
+  componentOptionCode: string
+  componentQty: number
+  componentSetPrice: number
+}
+type RevenueUnitPriceReferenceRow = {
+  ref: RevenueUnitPriceRef
+  sourceType: string
+  quantity: number | null
+  amount: number
 }
 
 type ReadStatus = 'loaded' | 'missing' | 'fallback' | 'partial' | 'calculated'
@@ -118,12 +153,14 @@ interface Row {
   mappingQtyByColumn: number[]
   mappingRevByColumn: number[]
   mappingPriceByColumn: number[]
+  mappingPriceRefByColumn: Array<RevenueUnitPriceRef | null>
   mappingPriceIsFoundByColumn: boolean[]
   mappingStateByColumn: CellState[]
   mappingHasRuleByColumn: boolean[]
   variantMappingQtyByColumn: number[][]
   variantMappingRevByColumn: number[][]
   variantMappingPriceByColumn: number[][]
+  variantMappingPriceRefByColumn: Array<Array<RevenueUnitPriceRef | null>>
   variantMappingPriceIsFoundByColumn: boolean[][]
   variantMappingStateByColumn: CellState[][]
   variantMappingHasRuleByColumn: boolean[][]
@@ -151,6 +188,7 @@ type CellSelectionMeta = {
   colKey: string
   colLabel: string
   formula?: string
+  excelFormula?: string
   formulaWarnings?: string[]
   screenRow?: number
   screenCol?: number
@@ -169,7 +207,8 @@ type PinnedCross = {
 
 type FormulaDisplayPart = {
   text: string
-  kind: 'plain' | 'price'
+  kind: 'plain' | 'price' | 'set-price'
+  title?: string
 }
 
 type RowType = 'uDirect' | 'category' | 'product' | 'variant' | 'subtotal' | 'total'
@@ -258,6 +297,8 @@ type SetProductConfig = {
 }
 
 type SetProductComponentDraft = {
+  id?: string
+  scope?: SetComponentScope
   productCode: string
   optionCode: string
   qty: number
@@ -986,6 +1027,177 @@ function getSetConfigByProductCode(productCode: string | null) {
   return SET_PRODUCT_CONFIGS.find((config) => normalizeProductCode(config.productCode) === normalizedCode) ?? null
 }
 
+function makeDefinedNamePart(value: string) {
+  const normalized = value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_')
+  return normalized || 'NONE'
+}
+
+function makeSetComponentPriceRefName(
+  setProductCode: string,
+  setOptionCode: string,
+  componentProductCode: string,
+  componentOptionCode: string,
+) {
+  return [
+    'SET',
+    makeDefinedNamePart(setProductCode),
+    makeDefinedNamePart(setOptionCode),
+    makeDefinedNamePart(componentProductCode),
+    makeDefinedNamePart(componentOptionCode),
+    'PRICE',
+  ].join('_')
+}
+
+function makeMappedUnitPriceRefName(
+  sourceProductCode: string,
+  sourceOptionCode: string,
+  targetProductCode: string,
+  targetOptionCode: string,
+) {
+  return [
+    'CONVERSION',
+    makeDefinedNamePart(sourceProductCode),
+    makeDefinedNamePart(sourceOptionCode),
+    makeDefinedNamePart(targetProductCode),
+    makeDefinedNamePart(targetOptionCode),
+    'PRICE',
+  ].join('_')
+}
+
+function makeMappedUnitPriceRef(
+  sourceProductCode: string,
+  sourceOptionCode: string,
+  sourceProductName: string,
+  targetProductCode: string,
+  targetOptionCode: string,
+  unitPrice: number,
+): RevenueUnitPriceRef {
+  const normalizedSourceProductCode = normalizeProductCode(sourceProductCode)
+  const normalizedSourceOptionCode = normalizeVariantCode(sourceOptionCode)
+  const normalizedTargetProductCode = normalizeProductCode(targetProductCode)
+  const normalizedTargetOptionCode = normalizeVariantCode(targetOptionCode)
+  const targetProductName = getLProductName(normalizedTargetProductCode)
+  const targetOptionName = displayOptionName(
+    getLVariantChoices(normalizedTargetProductCode).find(
+      (variant) => normalizeVariantCode(variant.code) === normalizedTargetOptionCode,
+    )?.option,
+  )
+  const refName = makeMappedUnitPriceRefName(
+    normalizedSourceProductCode,
+    normalizedSourceOptionCode,
+    normalizedTargetProductCode,
+    normalizedTargetOptionCode,
+  )
+  const displayToken =
+    `전환 단가[${normalizedSourceProductCode}/${normalizedSourceOptionCode}->${normalizedTargetProductCode}/${normalizedTargetOptionCode}]`
+  const title = [
+    '전환 단가',
+    `참조명: ${refName}`,
+    `위쪽상품: ${normalizedSourceProductCode} / ${sourceProductName}`,
+    `위쪽옵션: ${normalizedSourceOptionCode}`,
+    `왼쪽상품: ${normalizedTargetProductCode} / ${targetProductName}`,
+    `왼쪽옵션: ${normalizedTargetOptionCode} / ${targetOptionName}`,
+    `단가: ${fmtCurrency(unitPrice, 'KRW')}`,
+    'Excel 다운로드에서는 매출단가참조 시트의 이 참조명을 사용합니다.',
+  ].join('\n')
+
+  return {
+    kind: 'mapped',
+    refName,
+    displayToken,
+    title,
+    sourceProductCode: normalizedSourceProductCode,
+    sourceOptionCode: normalizedSourceOptionCode,
+    sourceProductName,
+    sourceOptionName: normalizedSourceOptionCode,
+    targetProductCode: normalizedTargetProductCode,
+    targetOptionCode: normalizedTargetOptionCode,
+    targetProductName,
+    targetOptionName,
+    unitPrice,
+  }
+}
+
+function makeSetComponentPriceRef(
+  setConfig: SetProductConfig,
+  setVariantCode: string,
+  component: SetProductComponentDraft,
+): SetComponentPriceRef {
+  const setProductCode = normalizeProductCode(setConfig.productCode)
+  const setOptionCode = normalizeVariantCode(setVariantCode)
+  const componentProductCode = normalizeProductCode(component.productCode)
+  const componentOptionCode = normalizeVariantCode(component.optionCode)
+  const componentProductName = getLProductName(componentProductCode)
+  const componentOptionName = displayOptionName(
+    getLVariantChoices(componentProductCode).find(
+      (variant) => normalizeVariantCode(variant.code) === componentOptionCode,
+    )?.option,
+  )
+  const refName = makeSetComponentPriceRefName(
+    setProductCode,
+    setOptionCode,
+    componentProductCode,
+    componentOptionCode,
+  )
+  const displayToken = `세트 구성 단가[${setProductCode}/${setOptionCode}->${componentProductCode}/${componentOptionCode}]`
+  const title = [
+    '세트 구성 단가',
+    `참조명: ${refName}`,
+    `세트상품: ${setProductCode} / ${setOptionCode}`,
+    `구성상품: ${componentProductCode} / ${componentProductName}`,
+    `구성옵션: ${componentOptionCode} / ${componentOptionName}`,
+    `구성수량: ${fmtNumber(component.qty)}`,
+    `단가: ${fmtCurrency(component.setPrice, 'KRW')}`,
+    `구성금액: ${fmtCurrency(getSetComponentDraftAmount(component), 'KRW')}`,
+    'Excel 다운로드에서는 매출단가참조 시트의 이 참조명을 사용합니다.',
+  ].join('\n')
+
+  return {
+    kind: 'set-component',
+    refName,
+    displayToken,
+    title,
+    sourceProductCode: setProductCode,
+    sourceOptionCode: setOptionCode,
+    sourceProductName: setConfig.productName,
+    sourceOptionName: displayOptionName(setConfig.variants.find(
+      (variant) => normalizeVariantCode(variant.variantCode) === setOptionCode,
+    )?.optionName),
+    targetProductCode: componentProductCode,
+    targetOptionCode: componentOptionCode,
+    targetProductName: componentProductName,
+    targetOptionName: componentOptionName,
+    unitPrice: component.setPrice,
+    setProductCode,
+    setOptionCode,
+    componentProductCode,
+    componentOptionCode,
+    componentQty: component.qty,
+    componentSetPrice: component.setPrice,
+  }
+}
+
+function buildRevenueUnitPriceReferenceRows(rowMetaByKey: Map<string, RowFormulaMeta>): RevenueUnitPriceReferenceRow[] {
+  const rowByRefName = new Map<string, RevenueUnitPriceReferenceRow>()
+
+  rowMetaByKey.forEach((rowMeta) => {
+    ;(rowMeta.revenueMappedTerms ?? []).forEach((term) => {
+      if (!term.priceRef || rowByRefName.has(term.priceRef.refName)) return
+      const quantity = term.priceRef.kind === 'set-component'
+        ? (term.priceRef as SetComponentPriceRef).componentQty
+        : null
+      rowByRefName.set(term.priceRef.refName, {
+        ref: term.priceRef,
+        sourceType: term.priceRef.kind === 'set-component' ? '세트 구성 단가' : '전환 단가',
+        quantity,
+        amount: quantity ? quantity * term.priceRef.unitPrice : term.priceRef.unitPrice,
+      })
+    })
+  })
+
+  return Array.from(rowByRefName.values())
+}
+
 function makeSetComponentScopeKey(productCode: string, scope: SetComponentScope, variantCode?: string) {
   return `${normalizeProductCode(productCode)}${COLUMN_KEY_DELIM}${scope}${COLUMN_KEY_DELIM}${
     scope === 'common' ? 'common' : normalizeVariantCode(variantCode ?? '')
@@ -996,7 +1208,14 @@ function getSetComponentDraft(
   drafts: Record<string, SetProductComponentDraft>,
   component: SetProductComponent,
 ) {
-  return drafts[component.id] ?? {
+  const draft = drafts[component.id]
+  return draft ? {
+    id: component.id,
+    scope: component.scope,
+    ...draft,
+  } : {
+    id: component.id,
+    scope: component.scope,
     productCode: component.productCode,
     optionCode: component.optionCode,
     qty: component.qty,
@@ -1048,6 +1267,8 @@ function getSetComponentMatch(
   components: SetProductComponentDraft[],
   productCode: string,
   optionCode: string | null,
+  setConfig?: SetProductConfig | null,
+  setVariantCode?: string,
 ) {
   const normalizedProductCode = normalizeProductCode(productCode)
   const normalizedOptionCode = normalizeVariantCode(optionCode ?? '')
@@ -1064,9 +1285,17 @@ function getSetComponentMatch(
           hasComponent: true,
           qtyPerSet: acc.qtyPerSet + componentQty,
           revenuePerSet: acc.revenuePerSet + componentQty * componentSetPrice,
+          priceRefs: setConfig && setVariantCode
+            ? [...acc.priceRefs, makeSetComponentPriceRef(setConfig, setVariantCode, component)]
+            : acc.priceRefs,
         }
       },
-      { hasComponent: false, qtyPerSet: 0, revenuePerSet: 0 },
+      {
+        hasComponent: false,
+        qtyPerSet: 0,
+        revenuePerSet: 0,
+        priceRefs: [] as SetComponentPriceRef[],
+      },
     )
 }
 
@@ -1119,13 +1348,26 @@ function formatFormulaPrice(value: number) {
 
 function splitFormulaForDisplay(text: string): FormulaDisplayPart[] {
   const parts: FormulaDisplayPart[] = []
-  const pricePattern = /\b[A-Z]{1,3}\d+\*(\d+(?:\.\d+)?)(?=$|[+\-*/)\s])/g
+  const formulaTokenPattern = /((?:세트 구성 단가|전환 단가)\[[^\]]+\])|\b[A-Z]{1,3}\d+\*(\d+(?:\.\d+)?)(?=$|[+\-*/)\s])/g
   let cursor = 0
   let match: RegExpExecArray | null
 
-  while ((match = pricePattern.exec(text)) !== null) {
+  while ((match = formulaTokenPattern.exec(text)) !== null) {
+    if (match[1]) {
+      if (match.index > cursor) {
+        parts.push({ text: text.slice(cursor, match.index), kind: 'plain' })
+      }
+      parts.push({
+        text: match[1],
+        kind: 'set-price',
+        title: '매출단가참조 시트의 이름 정의를 참조하는 구성 단가입니다.',
+      })
+      cursor = match.index + match[1].length
+      continue
+    }
+
     const priceStart = match.index + match[0].lastIndexOf('*') + 1
-    const priceEnd = priceStart + match[1].length
+    const priceEnd = priceStart + match[2].length
     if (priceStart > cursor) {
       parts.push({ text: text.slice(cursor, priceStart), kind: 'plain' })
     }
@@ -1143,6 +1385,7 @@ function splitFormulaForDisplay(text: string): FormulaDisplayPart[] {
 function buildRevenueMappedTerms(
   qtyByColumn: number[],
   priceByColumn: number[],
+  priceRefByColumn: Array<RevenueUnitPriceRef | null> | undefined,
   hasRuleByColumn: boolean[] | undefined,
   priceIsFoundByColumn: boolean[] | undefined,
   uStartCol: number,
@@ -1161,13 +1404,14 @@ function buildRevenueMappedTerms(
       const mappedUColumn = U_COLUMNS[idx]
       const uProduct = mappedUColumn?.uProduct ?? ''
       const uVariant = mappedUColumn?.uVariant ?? ''
-      warnings.push(`${rowKey}: LU 매핑 단가 미확인 (${uProduct}-${uVariant}, 인덱스 ${idx + 1})`)
+      warnings.push(`${rowKey}: 전환 단가 미확인 (${uProduct}-${uVariant}, 인덱스 ${idx + 1})`)
     }
     const uColOffset = uStartCol + idx
     terms.push({
       uColOffset,
       unitPrice: price,
       priceMissing: !priceIsFoundByColumn?.[idx],
+      priceRef: priceRefByColumn?.[idx] ?? undefined,
     })
   })
   return { terms, warnings }
@@ -1292,7 +1536,7 @@ function buildCellFormula(
     uStartCol: number
     uEndCol: number
   },
-) {
+): FormulaBuildResult | null {
   const {
     directCol,
     totalCol,
@@ -1314,17 +1558,25 @@ function buildCellFormula(
     .sort((a, b) => a - b)
 
   const sumByRows = (col: number) => {
-    if (rowNums.length === 0) return ''
-    if (rowNums.length === 1) return `=${resolveColValue(col)}${rowNums[0]}`
-    return `=SUM(${rowNums.map((r) => `${resolveColValue(col)}${r}`).join(',')})`
+    if (rowNums.length === 0) return null
+    if (rowNums.length === 1) {
+      const formula = `=${resolveColValue(col)}${rowNums[0]}`
+      return { display: formula, excel: formula }
+    }
+    const formula = `=SUM(${rowNums.map((r) => `${resolveColValue(col)}${r}`).join(',')})`
+    return { display: formula, excel: formula }
   }
 
   const sumByRowsOrContiguousRange = (col: number) => {
-    if (rowNums.length === 0) return ''
-    if (rowNums.length === 1) return `=${resolveColValue(col)}${rowNums[0]}`
+    if (rowNums.length === 0) return null
+    if (rowNums.length === 1) {
+      const formula = `=${resolveColValue(col)}${rowNums[0]}`
+      return { display: formula, excel: formula }
+    }
     const isContiguous = rowNums.every((row, idx) => idx === 0 || row === rowNums[idx - 1] + 1)
     if (isContiguous) {
-      return sumFormula(rowNums[0], col, rowNums[rowNums.length - 1], col)
+      const formula = sumFormula(rowNums[0], col, rowNums[rowNums.length - 1], col)
+      return { display: formula, excel: formula }
     }
     return sumByRows(col)
   }
@@ -1333,47 +1585,62 @@ function buildCellFormula(
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
       return sumByRowsOrContiguousRange(directCol)
     }
-    return ''
+    return null
   }
 
   if (colMeta.excelCol >= uStartCol && colMeta.excelCol <= uEndCol) {
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
       return sumByRowsOrContiguousRange(colMeta.excelCol)
     }
-    return ''
+    return null
   }
 
   if (colMeta.excelCol === totalCol) {
     if (rowMeta.rowType === 'product' || rowMeta.rowType === 'variant') {
       const directPart = `=${resolveColValue(directCol)}${rowMeta.excelRow}`
       if (uStartCol <= uEndCol) {
-        return `${directPart}+SUM(${resolveColValue(uStartCol)}${rowMeta.excelRow}:${resolveColValue(uEndCol)}${rowMeta.excelRow})`
+        const formula = `${directPart}+SUM(${resolveColValue(uStartCol)}${rowMeta.excelRow}:${resolveColValue(uEndCol)}${rowMeta.excelRow})`
+        return { display: formula, excel: formula }
       }
-      return directPart
+      return { display: directPart, excel: directPart }
     }
 
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
       return sumByRows(totalCol)
     }
 
-    return ''
+    return null
   }
 
   if (colMeta.excelCol === revenueCol) {
     if (rowMeta.rowType === 'product' || rowMeta.rowType === 'variant') {
       const directQtyRef = `${resolveColValue(directCol)}${rowMeta.excelRow}`
       const directPriceRef = `${resolveColValue(priceCol)}${rowMeta.excelRow}`
-      const mappedTerms = (rowMeta.revenueMappedTerms ?? []).map((term) => {
+      const mappedDisplayTerms = (rowMeta.revenueMappedTerms ?? []).map((term) => {
         const col = resolveColValue(term.uColOffset)
         if (term.priceMissing) {
           return `${col}${rowMeta.excelRow}*단가미확인`
         }
+        if (term.priceRef) {
+          return `${col}${rowMeta.excelRow}*${term.priceRef.displayToken}`
+        }
         return `${col}${rowMeta.excelRow}*${formatFormulaPrice(term.unitPrice)}`
       })
+      const mappedExcelTerms = (rowMeta.revenueMappedTerms ?? []).map((term) => {
+        const col = resolveColValue(term.uColOffset)
+        if (term.priceMissing) {
+          return `${col}${rowMeta.excelRow}*단가미확인`
+        }
+        return `${col}${rowMeta.excelRow}*${term.priceRef?.refName ?? formatFormulaPrice(term.unitPrice)}`
+      })
       const directPart = rowMeta.revenueMissing ? '' : `${directQtyRef}*${directPriceRef}`
-      const formulaTerms = [directPart, ...mappedTerms].filter(Boolean)
-      if (formulaTerms.length === 0) return ''
-      return `=${formulaTerms.join('+')}`
+      const displayTerms = [directPart, ...mappedDisplayTerms].filter(Boolean)
+      const excelTerms = [directPart, ...mappedExcelTerms].filter(Boolean)
+      if (displayTerms.length === 0 || excelTerms.length === 0) return null
+      return {
+        display: `=${displayTerms.join('+')}`,
+        excel: `=${excelTerms.join('+')}`,
+      }
     }
 
     if (rowMeta.rowType === 'subtotal' || rowMeta.rowType === 'total') {
@@ -1381,7 +1648,7 @@ function buildCellFormula(
     }
   }
 
-  return ''
+  return null
 }
 
 export function ProductCodesView() {
@@ -1436,14 +1703,15 @@ export function ProductCodesView() {
     setSelectedCell(() => {
       const rowMeta = rowMetaByKey.get(meta.rowKey)
       const colMeta = colMetaByKey.get(meta.colKey)
-      const formula = rowMeta && colMeta ? rowFormulaByKey.get(`${meta.rowKey}|${meta.colKey}`) ?? '' : ''
+      const formula = rowMeta && colMeta ? rowFormulaByKey.get(`${meta.rowKey}|${meta.colKey}`) : null
       const formulaWarnings = meta.colKey === REVENUE_SCREEN_KEY
         ? rowMeta?.revenueMappedPriceWarnings
         : undefined
 
       return {
         ...meta,
-        formula,
+        formula: formula?.display ?? '',
+        excelFormula: formula?.excel ?? '',
         formulaWarnings,
         screenRow: rowMeta?.screenRow ?? 0,
         screenCol: colMeta?.screenCol ?? 0,
@@ -1855,11 +2123,15 @@ export function ProductCodesView() {
       const mappingHasRuleByColumn = Array(U_COLUMNS.length).fill(false)
       const mappingRevByColumn = Array(U_COLUMNS.length).fill(0)
       const mappingPriceByColumn = Array(U_COLUMNS.length).fill(0)
+      const mappingPriceRefByColumn: Array<RevenueUnitPriceRef | null> = Array(U_COLUMNS.length).fill(null)
       const mappingPriceIsFoundByColumn = Array(U_COLUMNS.length).fill(false)
       const mappingStateByColumn = Array(U_COLUMNS.length).fill('unmapped' as CellState)
       const variantMappingQtyByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
       const variantMappingRevByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
       const variantMappingPriceByColumn = variants.map(() => Array(U_COLUMNS.length).fill(0))
+      const variantMappingPriceRefByColumn: Array<Array<RevenueUnitPriceRef | null>> = variants.map(() =>
+        Array(U_COLUMNS.length).fill(null),
+      )
       const variantMappingPriceIsFoundByColumn = variants.map(() => Array(U_COLUMNS.length).fill(false))
       const variantMappingStateByColumn = variants.map(() =>
         Array(U_COLUMNS.length).fill('unmapped' as CellState),
@@ -1932,6 +2204,19 @@ export function ProductCodesView() {
             : { qty: 0, rev: 0 }
         mappingQtyByColumn[idx] = qty
         mappingRevByColumn[idx] = rev
+        if (!isSetColumn && mappingHasRuleByColumn[idx] && uPriceFound) {
+          const parentOptionCode = firstVariant
+            ? normalizeVariantSuffix(normalizedCode, firstVariant.variant_code).toUpperCase()
+            : ''
+          mappingPriceRefByColumn[idx] = makeMappedUnitPriceRef(
+            col.uProduct,
+            col.uVariant,
+            col.blockLabel,
+            normalizedCode,
+            parentOptionCode,
+            uPrice,
+          )
+        }
         if (isSetColumn) {
           mappingPriceByColumn[idx] = getSetComponentUnitPrice(parentSetMatch)
           mappingPriceIsFoundByColumn[idx] = parentSetMatch.hasComponent
@@ -1948,8 +2233,8 @@ export function ProductCodesView() {
           const targetLVariant = normalizeVariantSuffix(normalizedCode, v.variant_code).toUpperCase()
           const targetLVariantIndex = vIdx
           const variantSetMatch = isSetColumn
-            ? getSetComponentMatch(setComponents, normalizedCode, targetLVariant)
-            : { hasComponent: false, qtyPerSet: 0, revenuePerSet: 0 }
+            ? getSetComponentMatch(setComponents, normalizedCode, targetLVariant, setConfig, col.uVariant)
+            : { hasComponent: false, qtyPerSet: 0, revenuePerSet: 0, priceRefs: [] as SetComponentPriceRef[] }
           variantMappingHasRuleByColumn[vIdx][idx] = isSetColumn
             ? variantSetMatch.hasComponent
             : hasRuleMatch(
@@ -1980,6 +2265,18 @@ export function ProductCodesView() {
           variantMappingQtyByColumn[vIdx][idx] = variantQty
           variantMappingRevByColumn[vIdx][idx] = variantRev
           variantMappingPriceByColumn[vIdx][idx] = isSetColumn ? getSetComponentUnitPrice(variantSetMatch) : uPrice
+          variantMappingPriceRefByColumn[vIdx][idx] = isSetColumn
+            ? (variantSetMatch.priceRefs[0] ?? null)
+            : variantMappingHasRuleByColumn[vIdx][idx] && uPriceFound
+              ? makeMappedUnitPriceRef(
+                  col.uProduct,
+                  col.uVariant,
+                  col.blockLabel,
+                  normalizedCode,
+                  targetLVariant,
+                  uPrice,
+                )
+              : null
           variantMappingPriceIsFoundByColumn[vIdx][idx] = isSetColumn
             ? variantSetMatch.hasComponent
             : mappingPriceIsFoundByColumn[idx]
@@ -2061,6 +2358,7 @@ export function ProductCodesView() {
           variantTotalMeta,
           directUnitPrice,
           mappingPriceByColumn,
+          mappingPriceRefByColumn,
           mappingPriceIsFoundByColumn,
           mappingQtyByColumn,
           mappingHasRuleByColumn,
@@ -2068,6 +2366,7 @@ export function ProductCodesView() {
           mappingStateByColumn,
           variantMappingQtyByColumn,
           variantMappingPriceByColumn,
+          variantMappingPriceRefByColumn,
           variantMappingPriceIsFoundByColumn,
           variantMappingRevByColumn,
           variantMappingStateByColumn,
@@ -2102,6 +2401,7 @@ export function ProductCodesView() {
         variantTotalMeta: [],
         directUnitPrice,
         mappingPriceByColumn,
+        mappingPriceRefByColumn,
         mappingPriceIsFoundByColumn,
         mappingQtyByColumn,
         mappingHasRuleByColumn,
@@ -2109,6 +2409,7 @@ export function ProductCodesView() {
         mappingStateByColumn,
         variantMappingQtyByColumn: [],
         variantMappingPriceByColumn: [],
+        variantMappingPriceRefByColumn: [],
         variantMappingPriceIsFoundByColumn: [],
         variantMappingRevByColumn: [],
         variantMappingHasRuleByColumn: [],
@@ -2318,6 +2619,10 @@ export function ProductCodesView() {
           if (row.mappingHasRuleByColumn[idx]) return price
           return row.variantMappingPriceByColumn[0]?.[idx] ?? 0
         })
+        const parentTotalMappedPriceRef = row.mappingPriceRefByColumn.map((priceRef, idx) => {
+          if (row.mappingHasRuleByColumn[idx]) return priceRef
+          return row.variantMappingPriceRefByColumn[0]?.[idx] ?? null
+        })
         const parentPriceFoundByColumn = row.mappingPriceIsFoundByColumn.map((priceIsFound, idx) => {
           if (priceIsFound) return true
           return row.variantMappingPriceIsFoundByColumn[0]?.[idx] ?? false
@@ -2325,6 +2630,7 @@ export function ProductCodesView() {
         const parentMapped = buildRevenueMappedTerms(
           parentTotalMappedQty,
           parentTotalMappedPrice,
+          parentTotalMappedPriceRef,
           parentHasRuleByColumn,
           parentPriceFoundByColumn,
           U_START_EXCEL_COL,
@@ -2353,10 +2659,12 @@ export function ProductCodesView() {
             const variantIdx = idx + 1
             const variantQtyByColumn = row.variantMappingQtyByColumn[variantIdx] ?? []
             const variantPriceByColumn = row.variantMappingPriceByColumn[variantIdx] ?? []
+            const variantPriceRefByColumn = row.variantMappingPriceRefByColumn[variantIdx] ?? []
             const variantHasRuleByColumn = row.variantMappingHasRuleByColumn[variantIdx] ?? []
             const variantMapped = buildRevenueMappedTerms(
               variantQtyByColumn,
               variantPriceByColumn,
+              variantPriceRefByColumn,
               variantHasRuleByColumn,
               row.variantMappingPriceIsFoundByColumn[variantIdx] ?? [],
               U_START_EXCEL_COL,
@@ -2442,7 +2750,7 @@ export function ProductCodesView() {
   }, [colMetaByKey, totalExcelColumn, revenueExcelColumn])
 
   const rowFormulaByKey = useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, FormulaBuildResult>()
     rowMetaByKey.forEach((rowMeta, rowKey) => {
       colMetaByKey.forEach((colMeta) => {
         const formula = buildCellFormula(
@@ -2833,16 +3141,17 @@ export function ProductCodesView() {
       const rowKey = cell.getAttribute('data-row-key') ?? ''
       const colKey = cell.getAttribute('data-col-key') ?? ''
       const explicitTitle = cell.getAttribute('title')?.trim()
-      const formula = rowKey && colKey ? rowFormulaByKey.get(`${rowKey}|${colKey}`) : ''
+      const formula = rowKey && colKey ? rowFormulaByKey.get(`${rowKey}|${colKey}`) : null
       const rowMeta = rowMetaByKey.get(rowKey)
       const colMeta = colMetaByKey.get(colKey)
       cell.setAttribute('data-row', rowKey)
       cell.setAttribute('data-col', colKey)
       cell.setAttribute('data-a1', rowMeta && colMeta ? a1(rowMeta.excelRow, colMeta.excelCol) : '')
-      cell.setAttribute('data-formula', formula ?? '')
+      cell.setAttribute('data-formula', formula?.display ?? '')
+      cell.setAttribute('data-excel-formula', formula?.excel ?? '')
       if (formula) {
         cell.classList.add('formula-cell')
-        cell.setAttribute('title', `수식: ${formula}`)
+        cell.setAttribute('title', `수식: ${formula.display}`)
       } else {
         const fullText = cell.getAttribute('data-full-text')?.trim()
         cell.classList.remove('formula-cell')
@@ -2975,6 +3284,57 @@ export function ProductCodesView() {
       }
     }
 
+    const priceReferenceRows = buildRevenueUnitPriceReferenceRows(rowMetaByKey)
+    const priceReferenceSheet = workbook.addWorksheet('매출단가참조')
+    priceReferenceSheet.columns = [
+      { header: '참조명', key: 'refName', width: 44 },
+      { header: '참조유형', key: 'sourceType', width: 16 },
+      { header: '위쪽상품코드', key: 'sourceProductCode', width: 14 },
+      { header: '위쪽상품명', key: 'sourceProductName', width: 38 },
+      { header: '위쪽옵션', key: 'sourceOptionCode', width: 10 },
+      { header: '위쪽옵션명', key: 'sourceOptionName', width: 34 },
+      { header: '왼쪽상품코드', key: 'targetProductCode', width: 14 },
+      { header: '왼쪽상품명', key: 'targetProductName', width: 42 },
+      { header: '왼쪽옵션', key: 'targetOptionCode', width: 10 },
+      { header: '왼쪽옵션명', key: 'targetOptionName', width: 36 },
+      { header: '수량', key: 'componentQty', width: 8 },
+      { header: '구성 단가', key: 'unitPrice', width: 14 },
+      { header: '구성금액', key: 'amount', width: 14 },
+    ]
+    priceReferenceSheet.getRow(1).font = { bold: true, color: { argb: 'FF064E3B' } }
+    priceReferenceSheet.getRow(1).fill = {
+      type: 'pattern' as const,
+      pattern: 'solid' as const,
+      fgColor: { argb: 'FFD1FAE5' },
+    }
+    priceReferenceRows.forEach((row) => {
+      const nextRow = priceReferenceSheet.addRow({
+        refName: row.ref.refName,
+        sourceType: row.sourceType,
+        sourceProductCode: row.ref.sourceProductCode,
+        sourceProductName: row.ref.sourceProductName,
+        sourceOptionCode: row.ref.sourceOptionCode,
+        sourceOptionName: row.ref.sourceOptionName,
+        targetProductCode: row.ref.targetProductCode,
+        targetProductName: row.ref.targetProductName,
+        targetOptionCode: row.ref.targetOptionCode,
+        targetOptionName: row.ref.targetOptionName,
+        componentQty: row.quantity ?? '',
+        unitPrice: row.ref.unitPrice,
+        amount: row.amount,
+      })
+      const priceCell = nextRow.getCell(12)
+      priceCell.numFmt = '"₩"#,##0'
+      nextRow.getCell(13).numFmt = '"₩"#,##0'
+      workbook.definedNames.add(`매출단가참조!$L$${nextRow.number}`, row.ref.refName)
+    })
+    priceReferenceSheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = { top: border, right: border, bottom: border, left: border }
+        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+      })
+    })
+
     const fixedHeaders: Array<[number, string]> = [
       [1, '상품코드'],
       [2, '상품명'],
@@ -3037,7 +3397,7 @@ export function ProductCodesView() {
       const address = domCell.dataset.a1
       if (!address) return
       const cell = worksheet.getCell(address)
-      const formula = domCell.dataset.formula
+      const formula = domCell.dataset.excelFormula || domCell.dataset.formula
       const readStatus = domCell.dataset.readStatus
       const readNote = domCell.dataset.readNote
       const value = parseExportValue(domCell.dataset.exportValue ?? domCell.textContent ?? '')
@@ -3450,7 +3810,14 @@ export function ProductCodesView() {
                           {selectedFormulaParts.map((part, idx) => (
                             <span
                               key={`${part.kind}-${idx}`}
-                              className={part.kind === 'price' ? 'selection-formula-price' : undefined}
+                              className={
+                                part.kind === 'price'
+                                  ? 'selection-formula-price'
+                                  : part.kind === 'set-price'
+                                    ? 'selection-formula-set-price'
+                                    : undefined
+                              }
+                              title={part.title}
                             >
                               {part.text}
                             </span>
