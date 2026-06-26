@@ -44,6 +44,8 @@ type PendingLuAction = LuToggleTarget & {
   price: number
   revenueImpact: number
   targetCellRect: LuTargetCellRect | null
+  targetConnection: LuConnectionTarget
+  existingConnection: LuConnectionTarget | null
 }
 
 type LuConfirmTarget = {
@@ -59,6 +61,148 @@ type LuTargetCellRect = {
   top: number
   width: number
   height: number
+}
+
+type LuConnectionTarget = {
+  rowKey: string
+  colKey: string
+}
+
+type LuConnectionOverlayItem = {
+  key: string
+  label: string
+  tone: 'before' | 'after'
+  columnPath: string
+  rowPath: string
+  cellX: number
+  cellY: number
+  cellWidth: number
+  cellHeight: number
+  labelX: number
+  labelY: number
+}
+
+function findDataCell(container: HTMLElement, rowKey: string, colKey: string) {
+  return Array.from(container.querySelectorAll<HTMLElement>('td[data-row-key][data-col-key]'))
+    .find((cell) => cell.dataset.rowKey === rowKey && cell.dataset.colKey === colKey) ?? null
+}
+
+function findColumnHeader(container: HTMLElement, colKey: string) {
+  return Array.from(container.querySelectorAll<HTMLElement>('th[data-col-key]'))
+    .find((cell) => cell.dataset.colKey === colKey) ?? null
+}
+
+function toScrollRect(element: HTMLElement, container: HTMLElement) {
+  const rect = element.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+  return {
+    left: rect.left - containerRect.left + container.scrollLeft,
+    top: rect.top - containerRect.top + container.scrollTop,
+    width: rect.width,
+    height: rect.height,
+    right: rect.right - containerRect.left + container.scrollLeft,
+    bottom: rect.bottom - containerRect.top + container.scrollTop,
+  }
+}
+
+function LuConnectionOverlay({
+  action,
+  tableWrapRef,
+}: {
+  action: PendingLuAction | null
+  tableWrapRef: { current: HTMLDivElement | null }
+}) {
+  const [items, setItems] = useState<LuConnectionOverlayItem[]>([])
+  const [size, setSize] = useState({ width: 0, height: 0 })
+
+  useEffect(() => {
+    const container = tableWrapRef.current
+    if (!container || !action) {
+      setItems([])
+      return
+    }
+
+    const buildItem = (target: LuConnectionTarget, tone: 'before' | 'after', label: string): LuConnectionOverlayItem | null => {
+      const cell = findDataCell(container, target.rowKey, target.colKey)
+      const columnHeader = findColumnHeader(container, target.colKey)
+      const rowHeader = findDataCell(container, target.rowKey, 'A:상품코드')
+      if (!cell || !columnHeader || !rowHeader) return null
+
+      const cellRect = toScrollRect(cell, container)
+      const columnRect = toScrollRect(columnHeader, container)
+      const rowRect = toScrollRect(rowHeader, container)
+      const cellCenterX = cellRect.left + cellRect.width / 2
+      const columnCenterX = columnRect.left + columnRect.width / 2
+      const columnStartY = columnRect.bottom + 4
+      const rowStartX = rowRect.right + 4
+      const rowCenterY = rowRect.top + rowRect.height / 2
+      const columnBendY = Math.max(columnStartY, cellRect.top - 8)
+      const rowEndX = Math.max(rowStartX, cellRect.left - 8)
+
+      return {
+        key: `${tone}:${target.rowKey}:${target.colKey}`,
+        label,
+        tone,
+        columnPath: `M ${columnCenterX} ${columnStartY} V ${columnBendY} H ${cellCenterX} V ${Math.max(cellRect.top, columnBendY)}`,
+        rowPath: `M ${rowStartX} ${rowCenterY} H ${rowEndX}`,
+        cellX: cellRect.left,
+        cellY: cellRect.top,
+        cellWidth: cellRect.width,
+        cellHeight: cellRect.height,
+        labelX: cellRect.left + cellRect.width + 6,
+        labelY: cellRect.top + Math.max(12, cellRect.height / 2),
+      }
+    }
+
+    const update = () => {
+      const nextItems = [
+        action.existingConnection ? buildItem(action.existingConnection, 'before', '변경 전') : null,
+        buildItem(action.targetConnection, 'after', '변경 후'),
+      ].filter((item): item is LuConnectionOverlayItem => Boolean(item))
+      setItems(nextItems)
+      setSize({
+        width: Math.max(container.scrollWidth, container.clientWidth),
+        height: Math.max(container.scrollHeight, container.clientHeight),
+      })
+    }
+
+    update()
+    container.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      container.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [action, tableWrapRef])
+
+  if (!action || items.length === 0) return null
+
+  return (
+    <svg
+      className="lu-sheet-link-overlay"
+      width={size.width}
+      height={size.height}
+      viewBox={`0 0 ${size.width} ${size.height}`}
+      aria-hidden="true"
+    >
+      <defs>
+        <marker id="lu-sheet-link-arrow-before" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 Z" />
+        </marker>
+        <marker id="lu-sheet-link-arrow-after" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 Z" />
+        </marker>
+      </defs>
+      {items.map((item) => (
+        <g key={item.key} className={`lu-sheet-link lu-sheet-link--${item.tone}`}>
+          <path className="lu-sheet-link-path lu-sheet-link-path--column" d={item.columnPath} markerEnd={`url(#lu-sheet-link-arrow-${item.tone})`} />
+          <path className="lu-sheet-link-path lu-sheet-link-path--row" d={item.rowPath} markerEnd={`url(#lu-sheet-link-arrow-${item.tone})`} />
+          <rect className="lu-sheet-link-cell" x={item.cellX + 1} y={item.cellY + 1} width={Math.max(0, item.cellWidth - 2)} height={Math.max(0, item.cellHeight - 2)} rx="2" />
+          <text className="lu-sheet-link-label" x={item.labelX} y={item.labelY}>{item.label}</text>
+        </g>
+      ))}
+    </svg>
+  )
 }
 
 type RevenueFormulaTerm = {
@@ -2336,6 +2480,8 @@ export function ProductCodesView() {
   const requestLuCellToggle = (
     target: LuToggleTarget,
     context: {
+      rowKey: string
+      colKey: string
       uLabel: string
       uProductName: string
       uOptionName: string
@@ -2388,6 +2534,30 @@ export function ProductCodesView() {
     const existingTarget = existingRule
       ? makeLuConfirmTarget(existingRule.lProduct, existingRule.lVariant ?? null, allGroups)
       : null
+    const findLuConnectionTarget = (rule: Pick<MappingRule, 'uProduct' | 'uVariant' | 'lProduct' | 'lVariant'>): LuConnectionTarget | null => {
+      const normalizedProductCode = normalizeProductCode(rule.lProduct)
+      const normalizedVariantCode = rule.lVariant ? normalizeVariantCode(rule.lVariant) : ''
+      let parentRowKey: string | null = null
+      let variantRowKey: string | null = null
+      rowMetaByKey.forEach((meta, key) => {
+        if (normalizeProductCode(meta.product_code ?? '') !== normalizedProductCode) return
+        if (meta.rowType === 'product') parentRowKey = key
+        if (
+          normalizedVariantCode &&
+          meta.rowType === 'variant' &&
+          normalizeVariantSuffix(normalizedProductCode, meta.variant_code ?? '') === normalizedVariantCode
+        ) {
+          variantRowKey = key
+        }
+      })
+      const rowKey = variantRowKey ?? parentRowKey
+      if (!rowKey) return null
+      return {
+        rowKey,
+        colKey: `B:${rule.uProduct}-${rule.uVariant}`,
+      }
+    }
+    const existingConnection = existingRule ? findLuConnectionTarget(existingRule) : null
     const qty = Number.isFinite(context.qty) ? context.qty : 0
     const price = Number.isFinite(context.price) ? context.price : 0
 
@@ -2432,6 +2602,11 @@ export function ProductCodesView() {
       price,
       revenueImpact: qty * price,
       targetCellRect: context.targetCellRect ?? null,
+      targetConnection: {
+        rowKey: context.rowKey,
+        colKey: context.colKey,
+      },
+      existingConnection,
     })
   }
 
@@ -2478,6 +2653,14 @@ export function ProductCodesView() {
 
   const getCellSelectionClass = (rowKey: string, colKey: string) => {
     const classes: string[] = []
+    const luTarget = pendingLuAction?.targetConnection
+    const luExisting = pendingLuAction?.existingConnection
+    if (luExisting) {
+      if (luExisting.rowKey === rowKey && luExisting.colKey === colKey) classes.push('lu-link-cell--before')
+    }
+    if (luTarget) {
+      if (luTarget.rowKey === rowKey && luTarget.colKey === colKey) classes.push('lu-link-cell--after')
+    }
     if (manualHighlightedRows.has(rowKey)) classes.push('pc-excel-manual-row')
     if (manualHighlightedCols.has(colKey)) classes.push('pc-excel-manual-col')
     if (manualHighlightedRows.has(rowKey) && manualHighlightedCols.has(colKey)) {
@@ -4585,6 +4768,7 @@ export function ProductCodesView() {
             onMouseMove={handleTableMouseMove}
             onMouseLeave={clearHoveredCell}
           >
+            <LuConnectionOverlay action={pendingLuAction} tableWrapRef={tableWrapRef} />
             <table
               className="pc-excel-table pc-excel-matrix"
               ref={tableRef}
@@ -5073,6 +5257,8 @@ export function ProductCodesView() {
                                          hasLVariants: parentHasLVariants,
                                        },
                                        {
+                                         rowKey,
+                                         colKey,
                                          uLabel: `${U_COLUMNS[idx]?.uProduct ?? ''} / ${U_COLUMNS[idx]?.uVariant ?? ''}`,
                                          uProductName: U_COLUMNS[idx]?.blockLabel ?? '',
                                          uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[idx]?.uVariant ?? '-',
@@ -5294,6 +5480,8 @@ export function ProductCodesView() {
                                             hasLVariants: !!g.is_multi || g.variants.length > 1,
                                           },
                                           {
+                                            rowKey: variantRowKey,
+                                            colKey,
                                             uLabel: `${U_COLUMNS[cellIdx]?.uProduct ?? ''} / ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`,
                                             uProductName: U_COLUMNS[cellIdx]?.blockLabel ?? '',
                                             uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[cellIdx]?.uVariant ?? '-',
@@ -5874,18 +6062,6 @@ export function ProductCodesView() {
 
       {pendingLuAction ? (
         <div className="lu-confirm-backdrop" role="presentation">
-          {pendingLuAction.targetCellRect ? (
-            <div
-              className="lu-confirm-cell-spotlight"
-              aria-hidden="true"
-              style={{
-                left: pendingLuAction.targetCellRect.left,
-                top: pendingLuAction.targetCellRect.top,
-                width: pendingLuAction.targetCellRect.width,
-                height: pendingLuAction.targetCellRect.height,
-              }}
-            />
-          ) : null}
           <div
             className="lu-confirm-dialog"
             style={{

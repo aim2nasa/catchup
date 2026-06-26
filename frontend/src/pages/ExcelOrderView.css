@@ -89,11 +89,62 @@
 }
 
 .excel-table-wrap {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: auto;
+}
+
+.lu-sheet-link-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 12;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.lu-sheet-link {
+  color: #f97316;
+}
+
+.lu-sheet-link--before {
+  color: #ef4444;
+}
+
+.lu-sheet-link path,
+.lu-sheet-link marker path {
+  fill: currentColor;
+}
+
+.lu-sheet-link-path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.95;
+}
+
+.lu-sheet-link-path--row {
+  stroke-dasharray: 5 4;
+}
+
+.lu-sheet-link-cell {
+  fill: rgba(255, 255, 255, 0.16);
+  stroke: currentColor;
+  stroke-width: 3;
+}
+
+.lu-sheet-link-label {
+  fill: currentColor;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 3;
+  paint-order: stroke;
+  font-size: 11px;
+  font-weight: 900;
 }
 .excel-cat-label {
   display: flex;
@@ -782,6 +833,48 @@
     0 0 0 1px rgba(71, 85, 105, 0.42),
     0 2px 4px rgba(15, 23, 42, 0.22);
 }
+
+.excel-table td.lu-link-row--before,
+.excel-table td.lu-link-row--after,
+.excel-table td.lu-link-col--before,
+.excel-table td.lu-link-col--after {
+  position: relative;
+}
+
+.excel-table td.lu-link-row--before {
+  border-bottom-color: #ef4444 !important;
+}
+
+.excel-table td.lu-link-col--before {
+  border-left-color: #ef4444 !important;
+  border-right-color: #ef4444 !important;
+}
+
+.excel-table td.lu-link-row--after {
+  border-bottom-color: #f97316 !important;
+}
+
+.excel-table td.lu-link-col--after {
+  border-left-color: #f97316 !important;
+  border-right-color: #f97316 !important;
+}
+
+.excel-table td.lu-link-cell--before,
+.excel-table td.lu-link-cell--after {
+  z-index: 4;
+  outline-offset: -2px;
+}
+
+.excel-table td.lu-link-cell--before {
+  outline: 3px solid #ef4444;
+  background-color: rgba(254, 226, 226, 0.9) !important;
+}
+
+.excel-table td.lu-link-cell--after {
+  outline: 3px solid #f97316;
+  background-color: rgba(255, 237, 213, 0.95) !important;
+}
+
 .excel-table tbody tr td.excel-row-selected,
 .excel-table thead tr td.excel-row-selected,
 .excel-table tfoot tr td.excel-row-selected {
@@ -858,18 +951,7 @@
   justify-content: center;
   padding: 18px;
   background: rgba(15, 23, 42, 0.42);
-}
-
-.lu-confirm-cell-spotlight {
-  position: fixed;
-  z-index: 0;
   pointer-events: none;
-  border: 2px solid #f59e0b;
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.95),
-    0 0 0 6px rgba(245, 158, 11, 0.35),
-    0 8px 16px rgba(15, 23, 42, 0.28);
-  background: rgba(255, 247, 237, 0.14);
 }
 
 .lu-confirm-dialog {
@@ -883,6 +965,7 @@
   border-radius: 6px;
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
   padding: 14px;
+  pointer-events: auto;
   touch-action: none;
 }
 
