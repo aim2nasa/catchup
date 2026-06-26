@@ -107,7 +107,7 @@
 }
 
 .lu-sheet-link {
-  color: #f97316;
+  color: #c026d3;
 }
 
 .lu-sheet-link--before {
@@ -851,12 +851,12 @@
 }
 
 .excel-table td.lu-link-row--after {
-  border-bottom-color: #f97316 !important;
+  border-bottom-color: #c026d3 !important;
 }
 
 .excel-table td.lu-link-col--after {
-  border-left-color: #f97316 !important;
-  border-right-color: #f97316 !important;
+  border-left-color: #c026d3 !important;
+  border-right-color: #c026d3 !important;
 }
 
 .excel-table td.lu-link-cell--before,
@@ -871,8 +871,8 @@
 }
 
 .excel-table td.lu-link-cell--after {
-  outline: 3px solid #f97316;
-  background-color: rgba(255, 237, 213, 0.95) !important;
+  outline: 3px solid #c026d3;
+  background-color: rgba(253, 244, 255, 0.95) !important;
 }
 
 .excel-table tbody tr td.excel-row-selected,
@@ -1112,14 +1112,14 @@
 
 .lu-confirm-product-block--selected {
   grid-column: 1 / -1;
-  border-color: #bbf7d0;
-  background: #f7fef9;
+  border-color: #f0abfc;
+  background: #fdf4ff;
 }
 
 .lu-confirm-product-block--selected dt {
-  color: #166534;
-  border-bottom-color: #bbf7d0;
-  background: #dcfce7;
+  color: #86198f;
+  border-bottom-color: #f0abfc;
+  background: #fae8ff;
 }
 
 .lu-confirm-code {
