@@ -2097,7 +2097,9 @@
 }
 
 .lu-confirm-dialog {
-  width: min(520px, 100%);
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -2124,13 +2126,15 @@
   margin: 0 0 14px;
   color: #334155;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .lu-confirm-details {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   margin: 0 0 16px;
-  padding: 12px;
+  padding: 14px;
   background: #f8fafc;
   border: 1px solid var(--grid-border);
   border-radius: 4px;
@@ -2138,12 +2142,12 @@
 
 .lu-confirm-details div {
   display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 10px;
+  gap: 7px;
 }
 
 .lu-confirm-details dt {
-  color: var(--grid-border-strong);
+  color: #64748b;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -2151,6 +2155,8 @@
   margin: 0;
   color: #0f172a;
   font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .lu-confirm-details dd span {
@@ -2159,19 +2165,48 @@
 
 .lu-confirm-product-block {
   align-items: start;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #dbe3ee;
+  border-radius: 4px;
+}
+
+.lu-confirm-product-block--existing {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.lu-confirm-product-block--source {
+  grid-column: 1 / -1;
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.lu-confirm-product-block--selected {
+  border-color: #bbf7d0;
+  background: #f7fef9;
 }
 
 .lu-confirm-code {
   color: #0f172a;
   font-weight: 800;
+  line-height: 1.35;
 }
 
 .lu-confirm-name {
-  margin-top: 3px;
-  color: var(--grid-border-strong);
-  font-size: 12px;
+  margin-top: 5px;
+  color: #475569;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.45;
+}
+
+.lu-confirm-option {
+  margin-top: 5px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .lu-confirm-price {
@@ -2179,6 +2214,13 @@
   color: #111827;
   font-size: 12px;
   font-weight: 800;
+}
+
+.lu-confirm-metric {
+  grid-column: 1 / -1;
+  grid-template-columns: 130px 1fr;
+  align-items: start;
+  padding: 0 2px;
 }
 
 .lu-confirm-formula {
@@ -2220,6 +2262,16 @@
   background: #b91c1c;
   border-color: #991b1b;
   color: #fff;
+}
+
+@media (max-width: 640px) {
+  .lu-confirm-details {
+    grid-template-columns: 1fr;
+  }
+
+  .lu-confirm-metric {
+    grid-template-columns: 1fr;
+  }
 }
 .pc-excel-table tfoot td {
   font-weight: 700;

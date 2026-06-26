@@ -34,12 +34,23 @@ type PendingLuAction = LuToggleTarget & {
   actionTone: 'primary' | 'danger'
   uLabel: string
   uProductName: string
+  uOptionName: string
   lLabel: string
   lProductName: string
+  lOptionName: string
   lPriceLabel: string
+  existingTarget: LuConfirmTarget | null
   qty: number
   price: number
   revenueImpact: number
+}
+
+type LuConfirmTarget = {
+  productCode: string
+  productName: string
+  optionCode: string
+  optionName: string
+  fullLabel: string
 }
 
 type RevenueFormulaTerm = {
@@ -1048,6 +1059,52 @@ function displayOptionName(option?: string) {
   return option ? option.replaceAll('=', ' : ') : '-'
 }
 
+function formatLuOptionLine(optionCode: string | null | undefined, optionName: string | null | undefined) {
+  const code = optionCode || '-'
+  const name = optionName && optionName !== '-' ? ` · ${optionName}` : ''
+  return `옵션 ${code}${name}`
+}
+
+function makeLuConfirmTarget(
+  productCode: string,
+  variantCode?: string | null,
+  groups: Array<Pick<Row, 'product_code' | 'product_name' | 'variants'>> = [],
+): LuConfirmTarget {
+  const normalizedProductCode = normalizeProductCode(productCode)
+  const normalizedVariantCode = variantCode ? normalizeVariantCode(variantCode) : ''
+  const group = groups.find((item) => normalizeProductCode(item.product_code) === normalizedProductCode)
+  const productSpec = L_PRODUCT_DISPLAY_BY_CODE[normalizedProductCode]
+  const groupVariant = normalizedVariantCode
+    ? group?.variants.find((variant) => normalizeVariantSuffix(normalizedProductCode, variant.variant_code) === normalizedVariantCode)
+    : group?.variants.length === 1
+      ? group.variants[0]
+      : undefined
+  const specVariants = productSpec?.variants ?? []
+  const variantSpec = groupVariant
+    ? undefined
+    : normalizedVariantCode
+      ? specVariants.find((variant) => normalizeVariantCode(variant.code) === normalizedVariantCode)
+      : specVariants.length === 1
+        ? specVariants[0]
+        : undefined
+  const optionCode = groupVariant
+    ? normalizeVariantSuffix(normalizedProductCode, groupVariant.variant_code)
+    : variantSpec?.code ?? normalizedVariantCode
+  const optionName = displayOptionName(groupVariant?.option ?? variantSpec?.option ?? optionCode)
+  const productName = group?.product_name || productSpec?.name || normalizedProductCode
+  const optionLabel = optionCode ? `${optionCode} ${optionName}` : optionName
+
+  return {
+    productCode: normalizedProductCode,
+    productName,
+    optionCode,
+    optionName,
+    fullLabel: optionCode
+      ? `${normalizedProductCode} / ${optionCode} · ${productName} · ${optionLabel}`
+      : `${normalizedProductCode} · ${productName}`,
+  }
+}
+
 function getSetConfigByProductCode(productCode: string | null) {
   if (!productCode) return null
   const normalizedCode = normalizeProductCode(productCode)
@@ -2044,6 +2101,10 @@ export function ProductCodesView() {
   const [copyToast, setCopyToast] = useState<string | null>(null)
   const copyTimerRef = useRef<number | null>(null)
   const effectiveRuleMap = useMemo(() => makeEffectiveRuleMap(luOverrides), [luOverrides])
+  const allGroups = useMemo(
+    () => state.data?.results.flatMap((r) => r.groups) ?? [],
+    [state.data],
+  )
 
   const isPinnableCrossCell = (meta: Pick<CellSelectionMeta, 'rowKey' | 'colKey'>) =>
     meta.colKey.startsWith('B:') && meta.rowKey !== 'product-codes-u-direct'
@@ -2269,8 +2330,10 @@ export function ProductCodesView() {
     context: {
       uLabel: string
       uProductName: string
+      uOptionName: string
       lLabel: string
       lProductName: string
+      lOptionName: string
       lPriceLabel: string
       qty: number
       price: number
@@ -2313,6 +2376,9 @@ export function ProductCodesView() {
     const isBaseMapped = isCurrentTarget && matchingBaseRules.length > 0
     const existingRule = currentRules[0]
     const isChangingTarget = !isCurrentTarget && !!existingRule
+    const existingTarget = existingRule
+      ? makeLuConfirmTarget(existingRule.lProduct, existingRule.lVariant ?? null, allGroups)
+      : null
     const qty = Number.isFinite(context.qty) ? context.qty : 0
     const price = Number.isFinite(context.price) ? context.price : 0
 
@@ -2335,7 +2401,7 @@ export function ProductCodesView() {
       actionTone = 'danger'
     } else if (isChangingTarget) {
       title = '이 U상품의 매핑 대상을 변경할까요?'
-      description = `현재 매핑 대상(${existingRule.lProduct}${existingRule.lVariant ? `/${existingRule.lVariant}` : ''})은 해제되고, 선택한 셀만 매핑셀로 지정됩니다.`
+      description = '아래 기존 대상은 해제되고, 선택한 L상품/옵션만 매핑셀로 지정됩니다.'
       confirmLabel = '변경'
     }
 
@@ -2347,9 +2413,12 @@ export function ProductCodesView() {
       actionTone,
       uLabel: context.uLabel,
       uProductName: context.uProductName,
+      uOptionName: context.uOptionName,
       lLabel: context.lLabel,
       lProductName: context.lProductName,
+      lOptionName: context.lOptionName,
       lPriceLabel: context.lPriceLabel,
+      existingTarget,
       qty,
       price,
       revenueImpact: qty * price,
@@ -2518,11 +2587,6 @@ export function ProductCodesView() {
     }
     run({ start, end, codes: QUERY_CODES.join(',') })
   }
-
-  const allGroups = useMemo(
-    () => state.data?.results.flatMap((r) => r.groups) ?? [],
-    [state.data],
-  )
 
   const uDirectQtyByColumn = useMemo<{ qty: number; excluded: boolean }[]>(() => {
     const byCode = new Map(allGroups.map((g) => [normalizeProductCode(g.product_code), g]))
@@ -5001,10 +5065,12 @@ export function ProductCodesView() {
                                          {
                                            uLabel: `${U_COLUMNS[idx]?.uProduct ?? ''} / ${U_COLUMNS[idx]?.uVariant ?? ''}`,
                                            uProductName: U_COLUMNS[idx]?.blockLabel ?? '',
+                                           uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[idx]?.uVariant ?? '-',
                                            lLabel: hasVariantRows
                                              ? `${g.product_code} / ${firstVariantSuffix || '-'}`
                                              : g.product_code,
                                            lProductName: g.product_name,
+                                           lOptionName: hasVariantRows ? displayOptionName(firstVariantOption) : '-',
                                            lPriceLabel: firstVariantDisplayPrice,
                                            qty: q > 0 ? q : (uDirectQtyByColumn[idx]?.qty ?? 0),
                                            price: g.mappingPriceByColumn[idx] ?? 0,
@@ -5219,8 +5285,10 @@ export function ProductCodesView() {
                                             {
                                               uLabel: `${U_COLUMNS[cellIdx]?.uProduct ?? ''} / ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`,
                                               uProductName: U_COLUMNS[cellIdx]?.blockLabel ?? '',
+                                              uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[cellIdx]?.uVariant ?? '-',
                                               lLabel: `${g.product_code} / ${suffix || '-'}`,
                                               lProductName: g.product_name,
+                                              lOptionName: displayOptionName(v.option || v.variant_code),
                                               lPriceLabel: fmtVariantPrice(v.price, g.price, currency),
                                               qty: q > 0 ? q : (uDirectQtyByColumn[cellIdx]?.qty ?? 0),
                                               price: g.variantMappingPriceByColumn[idx]?.[cellIdx] ?? 0,
@@ -5816,27 +5884,39 @@ export function ProductCodesView() {
             </div>
             <p className="lu-confirm-desc">{pendingLuAction.description}</p>
             <dl className="lu-confirm-details">
-              <div className="lu-confirm-product-block">
-                <dt>U상품/옵션</dt>
-                <dd>
-                  <span className="lu-confirm-code">{pendingLuAction.uLabel}</span>
+              <div className="lu-confirm-product-block lu-confirm-product-block--source">
+                <dt>매핑 기준 U상품/옵션</dt>
+                <dd title={`${pendingLuAction.uLabel} · ${pendingLuAction.uProductName || '-'} · ${pendingLuAction.uOptionName || '-'}`}>
+                  <span className="lu-confirm-code">상품코드 {pendingLuAction.uProduct}</span>
                   <span className="lu-confirm-name">{pendingLuAction.uProductName || '-'}</span>
+                  <span className="lu-confirm-option">{formatLuOptionLine(pendingLuAction.uVariant, pendingLuAction.uOptionName)}</span>
                   <span className="lu-confirm-price">단가 {pendingLuAction.price > 0 ? fmtCurrency(pendingLuAction.price, currency) : '단가미확인'}</span>
                 </dd>
               </div>
-              <div className="lu-confirm-product-block">
-                <dt>L상품/옵션</dt>
-                <dd>
-                  <span className="lu-confirm-code">{pendingLuAction.lLabel}</span>
+              {pendingLuAction.existingTarget ? (
+                <div className="lu-confirm-product-block lu-confirm-product-block--existing">
+                  <dt>변경 전: 해제될 L상품/옵션</dt>
+                  <dd title={pendingLuAction.existingTarget.fullLabel}>
+                    <span className="lu-confirm-code">상품코드 {pendingLuAction.existingTarget.productCode}</span>
+                    <span className="lu-confirm-name">{pendingLuAction.existingTarget.productName}</span>
+                    <span className="lu-confirm-option">{formatLuOptionLine(pendingLuAction.existingTarget.optionCode, pendingLuAction.existingTarget.optionName)}</span>
+                  </dd>
+                </div>
+              ) : null}
+              <div className="lu-confirm-product-block lu-confirm-product-block--selected">
+                <dt>{pendingLuAction.existingTarget ? '변경 후: 지정할 L상품/옵션' : '선택한 L상품/옵션'}</dt>
+                <dd title={`${pendingLuAction.lLabel} · ${pendingLuAction.lProductName || '-'} · ${pendingLuAction.lOptionName || '-'}`}>
+                  <span className="lu-confirm-code">상품코드 {pendingLuAction.lProduct}</span>
                   <span className="lu-confirm-name">{pendingLuAction.lProductName || '-'}</span>
+                  <span className="lu-confirm-option">{formatLuOptionLine(pendingLuAction.lVariant, pendingLuAction.lOptionName)}</span>
                   <span className="lu-confirm-price">단가 {pendingLuAction.lPriceLabel || '단가미확인'}</span>
                 </dd>
               </div>
-              <div>
+              <div className="lu-confirm-metric">
                 <dt>반영 수량</dt>
                 <dd>{fmtNumber(pendingLuAction.qty)}</dd>
               </div>
-              <div>
+              <div className="lu-confirm-metric">
                 <dt>예상 매출 반영</dt>
                 <dd className="lu-confirm-formula">
                   {pendingLuAction.price > 0
