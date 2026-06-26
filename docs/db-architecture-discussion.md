@@ -549,4 +549,26 @@ DB 도입은 단순한 저장소 추가가 아니다. 다음 리스크를 먼저
   - 전체 아키텍처 문서에도 기준 버전 운영 정책을 연결했다.
 - 판단:
   - 1차 DB 도입 설계 기준으로 커밋 가능한 수준이다.
-  - 사용자 계정/권한, PostgreSQL 전환, 장기 아카이브 저장소는 1차 구현의 blocker가 아니므로 보류 항목으로 둔다.
+  - 당시에는 사용자 계정/권한, PostgreSQL 전환, 장기 아카이브 저장소를 보류 항목으로 두었다.
+  - 이후 tars DB 실사 결과 PostgreSQL 전환은 보류가 아니라 운영 DB 선정 사항으로 확정했다.
+
+#### tars DB 실사 후 DB 선정 변경
+
+- 사용자 질문:
+  - tars에 설치되어 있는 DB가 무엇인지 확인하고, 어떤 DB를 사용할지 판단하라고 요청했다.
+- tars 확인 결과:
+  - PostgreSQL 16.14 실행 중: `127.0.0.1:5432`
+  - MySQL 8.0.46 실행 중: `127.0.0.1:3306`
+  - MongoDB 8.0.20 실행 중: `0.0.0.0:27017`
+  - Redis 7.0.15 실행 중: `127.0.0.1:6379`
+  - SQLite 3.45.1 설치됨
+  - 현재 Catchup은 어떤 DB에도 연결되어 있지 않다.
+- 결정:
+  - 운영 DB는 tars의 기존 PostgreSQL 16을 사용한다.
+  - SQLite 1차 운영안은 폐기하고 테스트 보조 용도로만 둔다.
+  - Catchup 전용 PostgreSQL database/user/schema를 만든다.
+  - 기존 MongoDB의 `docupload`, `aims_analytics` 등 다른 서비스 DB는 재사용하지 않는다.
+- 설계 반영:
+  - `docs/db-architecture-design.md`의 저장소 선택을 PostgreSQL 기준으로 수정한다.
+  - `docs/catchup-architecture-design.md`의 저장소 선택도 PostgreSQL 기준으로 수정한다.
+  - PostgreSQL 보안, 백업/복구, 물리 타입, 제약/인덱스, raw 개인정보 보관 정책을 추가한다.

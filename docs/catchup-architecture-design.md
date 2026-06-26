@@ -307,28 +307,40 @@ sequenceDiagram
 
 ## 8. 저장소 선택
 
-1차는 SQLite가 적절하다.
+운영 저장소는 tars에 이미 설치된 PostgreSQL 16을 사용한다.
 
 이유:
 
-- 현재 운영 규모와 구조가 단일 FastAPI 서버 중심이다.
-- DB 운영 복잡도를 낮춰야 한다.
-- 세트상품/매핑 정의는 데이터 규모가 작다.
-- Cafe24 스냅샷도 초기에는 기간 단위로 관리 가능하다.
+- tars에 PostgreSQL 16.14가 이미 설치되어 실행 중이다.
+- Catchup은 세트상품/매핑/기준 세트/스냅샷 사이의 FK와 transaction 정합성이 중요하다.
+- PostgreSQL은 JSONB, partial index, advisory lock, `pg_dump`, Alembic migration에 적합하다.
+- 새 DB 엔진을 추가 설치하지 않아도 된다.
+- 장기적으로 동시 편집, 감사 로그, 권한 모델, 배치 작업까지 확장하기 쉽다.
 
-단, 다음 시점에는 PostgreSQL로 전환한다.
+권장 구성:
 
-- 다중 사용자 동시 편집이 많아진다.
-- 장기 주문 스냅샷이 커진다.
-- 별도 배치/동기화 워커가 상시 동작한다.
-- 권한/감사/운영 조회가 본격화된다.
+- engine: PostgreSQL 16
+- database: `catchup`
+- role/user: `catchup_app`
+- schema: `app`
+- connection: `localhost:5432`
+- ORM/migration: SQLAlchemy + Alembic + `psycopg`
 
-SQLite 운영 조건:
+사용하지 않는 DB:
 
-- WAL 모드
-- 배포 전 자동 백업
-- DB 파일과 WAL/SHM 파일 백업 정책
-- 마이그레이션 실패 시 배포 중단
+- MySQL: 가능은 하지만 PostgreSQL이 JSONB/partial index/advisory lock 측면에서 더 적합하다.
+- MongoDB: 기존 `docupload`, `aims_analytics` 등 다른 서비스용 DB가 있으며 Catchup 주 DB로 부적합하다.
+- Redis: 업무 원천 저장소가 아니라 향후 큐/캐시/락 보조 용도로만 검토한다.
+- SQLite: 운영 주 DB가 아니라 테스트 보조 용도로만 사용한다.
+
+운영 조건:
+
+- tars 기존 DB와 분리된 전용 database/user/schema를 사용한다.
+- DB superuser로 앱을 실행하지 않는다.
+- 마이그레이션 전 `pg_dump -Fc` 백업을 만든다.
+- 마이그레이션 실패 시 앱 시작 또는 배포를 차단한다.
+- DB 접속 정보와 Cafe24 token은 git에 커밋하지 않는다.
+- Cafe24 raw response는 개인정보/거래정보를 포함할 수 있으므로 접근 제한과 보관 기간을 둔다.
 
 ## 9. 기준 버전 운영 정책
 
@@ -417,6 +429,6 @@ Catchup의 최적 아키텍처는 다음 방향이다.
 - DB는 Catchup 원천과 Cafe24 캐시/스냅샷을 분리해서 저장한다.
 - 상품코드 화면 기준 세트, 매핑 세트, 계산 정책 버전은 불변 참조로 관리한다.
 - 화면과 Excel은 같은 계산 snapshot을 공유한다.
-- 초기 DB는 SQLite로 작게 시작하되, 스키마는 PostgreSQL 전환을 막지 않게 설계한다.
+- 운영 DB는 tars PostgreSQL 16을 사용하고, SQLite는 테스트 보조로만 둔다.
 
 이 구조가 현재 Catchup의 업무 크기와 운영 부담 사이에서 가장 현실적인 균형이다.
