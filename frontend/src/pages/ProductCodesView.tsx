@@ -2400,7 +2400,7 @@ export function ProductCodesView() {
       confirmLabel = '지정 취소'
       actionTone = 'danger'
     } else if (isChangingTarget) {
-      title = '이 U상품의 매핑 대상을 변경할까요?'
+      title = '이 U상품의 매핑 대상인 L상품을 변경할까요?'
       description = '아래 기존 대상은 해제되고, 선택한 L상품/옵션만 매핑셀로 지정됩니다.'
       confirmLabel = '변경'
     }
@@ -5883,6 +5883,19 @@ export function ProductCodesView() {
               <h2 id="lu-confirm-title">{pendingLuAction.title}</h2>
             </div>
             <p className="lu-confirm-desc">{pendingLuAction.description}</p>
+            <div className="lu-confirm-concept" aria-label="매핑 개념">
+              <svg className="lu-confirm-concept-map" viewBox="0 0 360 150" role="img" aria-label="U상품 전환상품에서 L상품 집계기준으로 향하는 매핑 관계">
+                <defs>
+                  <marker id="lu-confirm-arrowhead" viewBox="0 0 10 10" refX="0.8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 Z" fill="currentColor" />
+                  </marker>
+                </defs>
+                <text className="lu-confirm-concept-title" x="262" y="35" textAnchor="middle">U상품(전환상품)</text>
+                <path d="M 262 48 V 78 H 200" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" markerEnd="url(#lu-confirm-arrowhead)" />
+                <text className="lu-confirm-concept-title" x="86" y="88" textAnchor="middle">L상품(집계기준)</text>
+              </svg>
+              <p>U상품이 어떠한 L상품과 관계되는지를 정의합니다.</p>
+            </div>
             <dl className="lu-confirm-details">
               <div className="lu-confirm-product-block lu-confirm-product-block--source">
                 <dt>매핑 기준 U상품/옵션</dt>
