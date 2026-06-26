@@ -482,6 +482,12 @@ type SetProductComponentDraft = {
   deleted?: boolean
 }
 
+type SetDrilldownTarget = {
+  productCode: string
+  variantCode: string
+  componentId: string
+}
+
 function makeUCellKey(uProduct: string, uVariant: string) {
   return `${normalizeProductCode(uProduct)}${COLUMN_KEY_DELIM}${normalizeVariantCode(uVariant)}`
 }
@@ -2219,6 +2225,7 @@ export function ProductCodesView() {
   const [setEditorLayout, setSetEditorLayout] = useState<SetEditorLayout | null>(null)
   const [setComponentDrafts, setSetComponentDrafts] = useState<Record<string, SetProductComponentDraft>>({})
   const [setAddedComponents, setSetAddedComponents] = useState<Record<string, SetProductComponent[]>>({})
+  const [activeSetDrilldown, setActiveSetDrilldown] = useState<SetDrilldownTarget | null>(null)
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [formulaDetailsOpen, setFormulaDetailsOpen] = useState(false)
   const formulaSingleClickTimerRef = useRef<number | null>(null)
@@ -2463,6 +2470,47 @@ export function ProductCodesView() {
     })
   }
 
+  const findSetDrilldownTarget = (target: LuToggleTarget): SetDrilldownTarget | null => {
+    const config = getSetConfigByProductCode(target.uProduct)
+    if (!config) return null
+    const normalizedVariant = normalizeVariantCode(target.uVariant)
+    const variant = config.variants.find(
+      (item) => normalizeVariantCode(item.variantCode) === normalizedVariant,
+    )
+    if (!variant) return null
+
+    const commonScopeKey = makeSetComponentScopeKey(config.productCode, 'common')
+    const optionScopeKey = makeSetComponentScopeKey(config.productCode, 'option', variant.variantCode)
+    const components = [
+      ...(config.commonComponents ?? []),
+      ...(setAddedComponents[commonScopeKey] ?? []),
+      ...variant.components,
+      ...(setAddedComponents[optionScopeKey] ?? []),
+    ]
+    const normalizedLProduct = normalizeProductCode(target.lProduct)
+    const variantChoices = getLVariantChoices(target.lProduct)
+    const normalizedLVariant = normalizeVariantCode(target.lVariant ?? '')
+      || (variantChoices.length === 1 ? normalizeVariantCode(variantChoices[0].code) : '')
+    const match = components.find((component) => {
+      const draft = getSetComponentDraft(setComponentDrafts, component)
+      if (draft.deleted || !isSetComponentDraftComplete(draft)) return false
+      return normalizeProductCode(draft.productCode) === normalizedLProduct
+        && normalizeVariantCode(draft.optionCode) === normalizedLVariant
+    })
+    if (!match) return null
+    return {
+      productCode: config.productCode,
+      variantCode: variant.variantCode,
+      componentId: match.id,
+    }
+  }
+
+  const requestSetCellDrilldown = (target: LuToggleTarget) => {
+    const drilldown = findSetDrilldownTarget(target)
+    if (!drilldown) return
+    openSetConfigModal(drilldown.productCode, drilldown.variantCode, drilldown)
+  }
+
   const requestLuCellToggle = (
     target: LuToggleTarget,
     context: {
@@ -2480,10 +2528,20 @@ export function ProductCodesView() {
       targetCellRect?: LuTargetCellRect
     },
   ) => {
-    if (EXCLUDED_U_PRODUCTS.has(target.uProduct)) return
+    handleCellSelect({
+      rowKey: context.rowKey,
+      rowLabel: context.lLabel,
+      colKey: context.colKey,
+      colLabel: `U상품 ${context.uLabel}`,
+    })
     const targetUColumn = U_COLUMNS.find(
       (col) => col.uProduct === target.uProduct && col.uVariant === target.uVariant,
     )
+    if (targetUColumn?.group === 'set') {
+      requestSetCellDrilldown(target)
+      return
+    }
+    if (EXCLUDED_U_PRODUCTS.has(target.uProduct)) return
     if (targetUColumn?.group !== 'conversion') return
 
     const targetRule = makeOverrideRule({
@@ -3609,6 +3667,24 @@ export function ProductCodesView() {
     || (setAddedComponents[optionSetScopeKey]?.length ?? 0) > 0
   ))
   const showSetCommonCard = activeSetCommonComponents.length > 0
+
+  useEffect(() => {
+    if (!activeSetDrilldown || !activeSetConfig || !activeSetVariant) return
+    if (normalizeProductCode(activeSetConfig.productCode) !== normalizeProductCode(activeSetDrilldown.productCode)) return
+    if (normalizeVariantCode(activeSetVariant.variantCode) !== normalizeVariantCode(activeSetDrilldown.variantCode)) return
+
+    const frame = window.requestAnimationFrame(() => {
+      const modal = setEditorModalRef.current
+      if (!modal) return
+      const row = modal.querySelector<HTMLElement>(
+        `[data-set-component-id="${activeSetDrilldown.componentId}"]`,
+      )
+      row?.scrollIntoView({ block: 'center', inline: 'nearest' })
+      row?.querySelector<HTMLInputElement>('input[aria-label$="수량"]')?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [activeSetConfig, activeSetDrilldown, activeSetVariant])
+
   const setEditorLayoutStyle: CSSProperties | undefined = setEditorLayout
     ? {
       left: `${setEditorLayout.x}px`,
@@ -3759,10 +3835,15 @@ export function ProductCodesView() {
     })
   }
 
-  const openSetConfigModal = (productCode: string, variantCode?: string) => {
+  const openSetConfigModal = (
+    productCode: string,
+    variantCode?: string,
+    drilldownTarget?: SetDrilldownTarget | null,
+  ) => {
     const config = getSetConfigByProductCode(productCode)
     if (!config) return
     setEditingSetProductCode(config.productCode)
+    setActiveSetDrilldown(drilldownTarget ?? null)
     setSelectedSetVariantCode(variantCode && config.variants.some((variant) => normalizeVariantCode(variant.variantCode) === normalizeVariantCode(variantCode))
       ? normalizeVariantCode(variantCode)
       : config.variants[0]?.variantCode ?? '')
@@ -3872,6 +3953,7 @@ export function ProductCodesView() {
   const cancelActiveSetDraft = () => {
     if (activeSetConfig) clearSetDraftForConfig(activeSetConfig)
     setEditingSetProductCode(null)
+    setActiveSetDrilldown(null)
   }
 
   const excelRowNumber = (rowKey: string) => rowMetaByKey.get(rowKey)?.excelRow ?? ''
@@ -4385,10 +4467,12 @@ export function ProductCodesView() {
       const variantChoices = getLVariantChoices(draft.productCode)
       const isIncomplete = !isSetComponentDraftComplete(draft)
       const amount = getSetComponentDraftAmount(draft)
+      const isDrilldownTarget = activeSetDrilldown?.componentId === component.id
       return (
         <tr
           key={component.id}
-          className={`${isChanged ? 'is-changed' : ''}${draft.deleted ? ' is-deleted' : ''}${isIncomplete ? ' is-incomplete' : ''}`}
+          className={`${isChanged ? 'is-changed' : ''}${draft.deleted ? ' is-deleted' : ''}${isIncomplete ? ' is-incomplete' : ''}${isDrilldownTarget ? ' is-drilldown-target' : ''}`}
+          data-set-component-id={component.id}
         >
           <td>
             <span className={`set-editor-scope is-${component.scope}`}>
@@ -5908,7 +5992,10 @@ export function ProductCodesView() {
                   className="btn btn-primary"
                   disabled={activeSetHasIncomplete}
                   title={activeSetHasIncomplete ? '왼쪽상품과 옵션을 선택해야 적용할 수 있습니다.' : undefined}
-                  onClick={() => setEditingSetProductCode(null)}
+                  onClick={() => {
+                    setEditingSetProductCode(null)
+                    setActiveSetDrilldown(null)
+                  }}
                 >
                   적용
                 </button>
@@ -5941,7 +6028,10 @@ export function ProductCodesView() {
                         type="button"
                         key={variant.variantCode}
                         className={`set-editor-option${isSelected ? ' is-selected' : ''}`}
-                        onClick={() => setSelectedSetVariantCode(variant.variantCode)}
+                        onClick={() => {
+                          setSelectedSetVariantCode(variant.variantCode)
+                          setActiveSetDrilldown(null)
+                        }}
                         title={`${variant.variantCode} · ${displayOptionName(variant.optionName)}\n구성 ${optionComponents.length}개 · ${fmtCurrency(optionTotal, currency)}`}
                       >
                         <span className="set-editor-option-code">{variant.variantCode}</span>

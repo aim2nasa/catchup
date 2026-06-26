@@ -393,7 +393,7 @@ test.describe('상품코드 페이지', () => {
     await expect(oldDirectSetCell).not.toHaveClass(/map-cell--mapped/)
   })
 
-  test('교차셀 매핑 변경 더블클릭은 전환상품에서만 동작한다', async ({ page }) => {
+  test('교차셀 더블클릭은 세트상품 기존 구성과 전환상품 매핑을 구분한다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
     await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
@@ -407,6 +407,20 @@ test.describe('상품코드 페이지', () => {
     await expect(setProductCrossCell).toHaveClass(/map-cell--mapped/)
     await setProductCrossCell.dblclick()
     await expect(page.locator('.lu-confirm-dialog')).toHaveCount(0)
+    const setModal = page.getByRole('dialog', { name: '제모미인 스타터키트20%' })
+    await expect(setModal).toBeVisible()
+    await expect(setModal.locator('tr.is-drilldown-target')).toContainText('P00000HT')
+    await expect(page.getByLabel('P00000YS-A-P00000HT-A 수량', { exact: true })).toBeFocused()
+    await setModal.getByRole('button', { name: '취소' }).click()
+    await expect(setModal).toBeHidden()
+
+    const emptySetCell = page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="B:P00000YS-A"]')
+    await expect(emptySetCell).toHaveClass(/u-col-set/)
+    await expect(emptySetCell).toHaveClass(/map-cell--unmapped/)
+    await emptySetCell.dblclick()
+    await expect(page.locator('.set-editor-modal')).toHaveCount(0)
+    await expect(page.locator('.lu-confirm-dialog')).toHaveCount(0)
+    await expect(emptySetCell).toHaveClass(/pc-excel-cell-selected/)
 
     const conversionCrossCell = page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="B:P00000QE-G"]')
     await expect(conversionCrossCell).toHaveClass(/u-col-conversion/)
