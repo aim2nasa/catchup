@@ -2390,8 +2390,8 @@ export function ProductCodesView() {
     let actionTone: PendingLuAction['actionTone'] = 'primary'
 
     if (isBaseMapped) {
-      title = '기본 매핑셀을 해제할까요?'
-      description = '기본 규칙을 삭제하지 않고 사용자 변경사항으로만 비활성화합니다. 해제하면 이 U상품 항목은 총판매/매출/수식에서 제외됩니다.'
+      title = '선택된 U상품과 매핑되어 있는 L상품과의 연결을 해제할까요?'
+      description = '현재 U상품과 연결되어 있는 L상품이 있습니다. L상품과의 연결을 해제합니다.'
       confirmLabel = '매핑셀 해제'
       actionTone = 'danger'
     } else if (isManualMapped) {
@@ -2401,7 +2401,7 @@ export function ProductCodesView() {
       actionTone = 'danger'
     } else if (isChangingTarget) {
       title = '이 U상품의 매핑 대상인 L상품을 변경할까요?'
-      description = '아래 기존 대상은 해제되고, 선택한 L상품/옵션만 매핑셀로 지정됩니다.'
+      description = '현재 U상품과 연결된 L상품을 해제하고 선택된 L상품과 연결합니다.'
       confirmLabel = '변경'
     }
 
