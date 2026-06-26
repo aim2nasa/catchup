@@ -1209,6 +1209,7 @@ test.describe('상품코드 페이지', () => {
   })
 
   test('세트상품 헤더에서 구성 편집 모달을 열고 왼쪽상품을 교체/추가/삭제할 수 있다', async ({ page }) => {
+    await page.setViewportSize({ width: 1706, height: 960 })
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
     await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
@@ -1220,10 +1221,37 @@ test.describe('상품코드 페이지', () => {
     await setProductCodesScrollLeft(page, 1500)
     await page.getByRole('button', { name: 'P00000YZ 세트상품 구성 편집' }).click()
     const modal = page.getByRole('dialog', { name: '라이콘 컵 왁스 비즈 110g 세트' })
+    const footer = modal.locator('.set-editor-footer')
     await expect(modal).toBeVisible()
     await expect(modal).toContainText('공통 구성')
     await expect(modal).toContainText('선택 옵션 구성')
-    await expect(modal).toContainText('구성 합계 ₩44,380')
+    await expect(footer).toContainText('구성 합계')
+    await expect(footer).toContainText('₩44,380')
+    await expect(modal.locator('[data-set-editor-section="option"] .set-editor-card-head')).not.toContainText('구성 합계')
+    const amountColumnBox = await modal.locator('[data-set-editor-section="common"] .set-editor-amount').first().boundingBox()
+    const totalValueBox = await footer.locator('.set-editor-total-value').boundingBox()
+    const footerActionsBox = await footer.locator('.set-editor-footer-actions').boundingBox()
+    expect(amountColumnBox).not.toBeNull()
+    expect(totalValueBox).not.toBeNull()
+    expect(footerActionsBox).not.toBeNull()
+    expect(Math.abs(
+      (amountColumnBox!.x + amountColumnBox!.width) - (totalValueBox!.x + totalValueBox!.width),
+    )).toBeLessThan(24)
+    expect(totalValueBox!.y + totalValueBox!.height).toBeLessThanOrEqual(footerActionsBox!.y)
+
+    await page.setViewportSize({ width: 1200, height: 900 })
+    const narrowModalBox = await modal.boundingBox()
+    const narrowTotalValueBox = await footer.locator('.set-editor-total-value').boundingBox()
+    const narrowFooterActionsBox = await footer.locator('.set-editor-footer-actions').boundingBox()
+    expect(narrowModalBox).not.toBeNull()
+    expect(narrowTotalValueBox).not.toBeNull()
+    expect(narrowFooterActionsBox).not.toBeNull()
+    expect(narrowTotalValueBox!.x + narrowTotalValueBox!.width).toBeLessThanOrEqual(
+      narrowModalBox!.x + narrowModalBox!.width - 8,
+    )
+    expect(narrowTotalValueBox!.x).toBeGreaterThanOrEqual(narrowModalBox!.x + 8)
+    expect(narrowTotalValueBox!.y + narrowTotalValueBox!.height).toBeLessThanOrEqual(narrowFooterActionsBox!.y)
+    await page.setViewportSize({ width: 1706, height: 960 })
     await expect(page.getByLabel('세트상품 선택')).toHaveCount(0)
 
     await expect(modal).toContainText('P00000ZA')
@@ -1231,7 +1259,7 @@ test.describe('상품코드 페이지', () => {
     await expect(modal).toContainText('P00000ZB')
 
     await page.getByLabel('P00000YZ-common-P00000ZA-A 수량', { exact: true }).fill('2')
-    await expect(modal).toContainText('구성 합계 ₩49,000')
+    await expect(footer).toContainText('₩49,000')
     await expect(modal).toContainText('화면 초안')
 
     const commonLeftProductSelect = page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품', { exact: true })
@@ -1253,7 +1281,7 @@ test.describe('상품코드 페이지', () => {
     await expect(modal.getByRole('button', { name: '복구' })).toBeVisible()
 
     await page.getByRole('button', { name: '초기값' }).click()
-    await expect(modal).toContainText('구성 합계 ₩44,380')
+    await expect(footer).toContainText('₩44,380')
     await expect(modal).not.toContainText('화면 초안')
 
     await page.getByRole('button', { name: '취소' }).click()
@@ -1264,7 +1292,7 @@ test.describe('상품코드 페이지', () => {
     const yuModal = page.getByRole('dialog', { name: '라이콘 바디왁싱 스타터 키트20%할인' })
     await expect(yuModal).toContainText('P00000TX')
     await expect(yuModal).toContainText('P00000DG')
-    await expect(yuModal).toContainText('구성 합계 ₩304,080')
+    await expect(yuModal.locator('.set-editor-footer')).toContainText('₩304,080')
   })
 
   test('세트상품 편집 모달은 위치/크기를 바꿀 수 있고 공통구성이 없으면 공간을 숨긴다', async ({ page }) => {

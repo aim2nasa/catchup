@@ -6025,35 +6025,6 @@ export function ProductCodesView() {
                   {activeSetDirty ? <span className="set-editor-dirty">화면 초안</span> : null}
                 </p>
               </div>
-              <div className="set-editor-header-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={resetActiveSetDraft}
-                  disabled={!activeSetDirty}
-                >
-                  초기값
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={cancelActiveSetDraft}
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={activeSetHasIncomplete}
-                  title={activeSetHasIncomplete ? '왼쪽상품과 옵션을 선택해야 적용할 수 있습니다.' : undefined}
-                  onClick={() => {
-                    setEditingSetProductCode(null)
-                    setActiveSetDrilldown(null)
-                  }}
-                >
-                  적용
-                </button>
-              </div>
             </header>
 
             <div className="set-editor-body">
@@ -6143,7 +6114,6 @@ export function ProductCodesView() {
                       </span>
                     </div>
                     <div className="set-editor-card-actions">
-                      <span className="set-editor-total">구성 합계 {fmtCurrency(activeSetTotal, currency)}</span>
                       {!showSetCommonCard ? (
                         <button type="button" className="btn btn-secondary" onClick={() => addSetComponent('common')}>
                           공통구성 추가
@@ -6179,6 +6149,52 @@ export function ProductCodesView() {
                 </section>
               </main>
             </div>
+            <footer className="set-editor-footer">
+              <div className="set-editor-total-block" aria-label="세트상품 구성 합계">
+                <table className="set-editor-total-table">
+                  <tbody>
+                    <tr>
+                      <td />
+                      <td />
+                      <td />
+                      <td />
+                      <td className="set-editor-total-label">구성 합계</td>
+                      <td className="set-editor-total-value">{fmtCurrency(activeSetTotal, currency)}</td>
+                      <td />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="set-editor-footer-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={resetActiveSetDraft}
+                  disabled={!activeSetDirty}
+                >
+                  초기값
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={cancelActiveSetDraft}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={activeSetHasIncomplete}
+                  title={activeSetHasIncomplete ? '왼쪽상품과 옵션을 선택해야 적용할 수 있습니다.' : undefined}
+                  onClick={() => {
+                    setEditingSetProductCode(null)
+                    setActiveSetDrilldown(null)
+                  }}
+                >
+                  적용
+                </button>
+              </div>
+            </footer>
             <div
               className="set-editor-resize-handle"
               aria-label="세트상품 구성 편집 모달 크기 조절"

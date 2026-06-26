@@ -210,8 +210,8 @@
   font-weight: 900;
 }
 
-.set-editor-header-actions,
-.set-editor-card-actions {
+.set-editor-card-actions,
+.set-editor-footer-actions {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -335,11 +335,101 @@
   min-width: 0;
 }
 
-.set-editor-total {
+.set-editor-footer {
+  position: relative;
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--grid-border);
+  background: var(--axis-top-set-cell-bg);
+}
+
+.set-editor-total-block {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.set-editor-total-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.set-editor-total-table td {
+  padding: 0 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-editor-total-table td:nth-child(1) { width: 52px; }
+.set-editor-total-table td:nth-child(2) { width: 360px; }
+.set-editor-total-table td:nth-child(3) { width: 380px; }
+.set-editor-total-table td:nth-child(4) { width: 64px; }
+.set-editor-total-table td:nth-child(5) { width: 112px; }
+.set-editor-total-table td:nth-child(6) { width: 96px; }
+.set-editor-total-table td:nth-child(7) { width: 60px; }
+
+.set-editor-total-label {
   color: var(--axis-top-set-text);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 800;
+  text-align: right;
   white-space: nowrap;
+}
+
+.set-editor-total-value {
+  color: #064e3b;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.set-editor-footer-actions {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: end;
+}
+
+@media (max-width: 1300px) {
+  .set-editor-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .set-editor-total-block,
+  .set-editor-footer-actions {
+    grid-column: 1;
+  }
+
+  .set-editor-total-table,
+  .set-editor-total-table tbody,
+  .set-editor-total-table tr {
+    display: block;
+  }
+
+  .set-editor-total-table tr {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .set-editor-total-table td {
+    display: none;
+    width: auto;
+    padding: 0;
+  }
+
+  .set-editor-total-table .set-editor-total-label,
+  .set-editor-total-table .set-editor-total-value {
+    display: block;
+  }
 }
 
 .set-editor-table-wrap {
