@@ -3364,12 +3364,6 @@ export function ExcelOrderView() {
               <h2 id="lu-confirm-title">{pendingLuAction.title}</h2>
             </div>
             <p className="lu-confirm-desc">{pendingLuAction.description}</p>
-            <div className="lu-confirm-target-cell" aria-label="더블클릭한 셀">
-              <span>더블클릭한 셀</span>
-              <strong title={`U상품 ${pendingLuAction.uLabel} · L상품 ${pendingLuAction.lLabel}`}>
-                U상품 {pendingLuAction.uLabel} / L상품 {pendingLuAction.lLabel}
-              </strong>
-            </div>
             <div className="lu-confirm-concept" aria-label="매핑 개념">
               <svg className="lu-confirm-concept-map" viewBox="0 0 360 150" role="img" aria-label="U상품 전환상품에서 L상품 집계기준으로 향하는 매핑 관계">
                 <defs>

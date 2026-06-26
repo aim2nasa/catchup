@@ -2226,37 +2226,6 @@
   overflow-wrap: anywhere;
 }
 
-.lu-confirm-target-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  margin: 0 0 8px;
-  padding: 7px 9px;
-  border: 1px solid #fed7aa;
-  border-left: 3px solid #f97316;
-  border-radius: 4px;
-  background: #fff7ed;
-  color: #0f172a;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.lu-confirm-target-cell span {
-  flex: 0 0 auto;
-  color: #9a3412;
-  font-weight: 800;
-}
-
-.lu-confirm-target-cell strong {
-  min-width: 0;
-  overflow: hidden;
-  color: #1e293b;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .lu-confirm-concept {
   display: grid;
   justify-items: center;
@@ -2308,17 +2277,23 @@
 
 .lu-confirm-details div {
   display: grid;
-  gap: 5px;
+  gap: 0;
 }
 
 .lu-confirm-details dt {
+  margin: 0;
+  padding: 7px 10px;
   color: #64748b;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 900;
+  line-height: 1.25;
+  border-bottom: 1px solid #dbe3ee;
+  background: #f8fafc;
 }
 
 .lu-confirm-details dd {
   margin: 0;
+  padding: 9px 10px 10px;
   color: #0f172a;
   font-weight: 700;
   min-width: 0;
@@ -2331,16 +2306,23 @@
 
 .lu-confirm-product-block {
   align-items: start;
-  padding: 9px 10px;
+  padding: 0;
   background: #fff;
   border: 1px solid #dbe3ee;
   border-radius: 4px;
+  overflow: hidden;
 }
 
 .lu-confirm-product-block--existing {
   grid-column: 1 / -1;
   border-color: #fecaca;
   background: #fff7f7;
+}
+
+.lu-confirm-product-block--existing dt {
+  color: #991b1b;
+  border-bottom-color: #fecaca;
+  background: #fee2e2;
 }
 
 .lu-confirm-product-block--source {
@@ -2351,6 +2333,8 @@
 
 .lu-confirm-product-block--source dt {
   color: var(--axis-top-conversion-text);
+  border-bottom-color: var(--axis-top-conversion-border);
+  background: #bfdbfe;
 }
 
 .lu-confirm-product-block--source .lu-confirm-code,
@@ -2367,6 +2351,12 @@
   grid-column: 1 / -1;
   border-color: #bbf7d0;
   background: #f7fef9;
+}
+
+.lu-confirm-product-block--selected dt {
+  color: #166534;
+  border-bottom-color: #bbf7d0;
+  background: #dcfce7;
 }
 
 .lu-confirm-code {
@@ -2405,6 +2395,18 @@
   font-size: 12px;
   align-items: start;
   padding: 0 2px;
+}
+
+.lu-confirm-metric dt {
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.lu-confirm-metric dd {
+  padding: 0;
 }
 
 .lu-confirm-formula {
