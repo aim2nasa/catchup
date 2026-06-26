@@ -2096,7 +2096,21 @@
   background: rgba(15, 23, 42, 0.42);
 }
 
+.lu-confirm-cell-spotlight {
+  position: fixed;
+  z-index: 0;
+  pointer-events: none;
+  border: 2px solid #f59e0b;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.95),
+    0 0 0 6px rgba(245, 158, 11, 0.35),
+    0 8px 16px rgba(15, 23, 42, 0.28);
+  background: rgba(255, 247, 237, 0.14);
+}
+
 .lu-confirm-dialog {
+  position: relative;
+  z-index: 1;
   width: min(760px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
   overflow: auto;
@@ -2128,6 +2142,37 @@
   color: #334155;
   line-height: 1.55;
   overflow-wrap: anywhere;
+}
+
+.lu-confirm-target-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  border: 1px solid #fed7aa;
+  border-left: 3px solid #f97316;
+  border-radius: 4px;
+  background: #fff7ed;
+  color: #0f172a;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.lu-confirm-target-cell span {
+  flex: 0 0 auto;
+  color: #9a3412;
+  font-weight: 800;
+}
+
+.lu-confirm-target-cell strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #1e293b;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lu-confirm-concept {

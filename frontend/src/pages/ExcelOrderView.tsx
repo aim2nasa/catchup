@@ -43,6 +43,7 @@ type PendingLuAction = LuToggleTarget & {
   qty: number
   price: number
   revenueImpact: number
+  targetCellRect: LuTargetCellRect | null
 }
 
 type LuConfirmTarget = {
@@ -51,6 +52,13 @@ type LuConfirmTarget = {
   optionCode: string
   optionName: string
   fullLabel: string
+}
+
+type LuTargetCellRect = {
+  left: number
+  top: number
+  width: number
+  height: number
 }
 
 type RevenueFormulaTerm = {
@@ -924,6 +932,7 @@ export function ExcelOrderView() {
       lPriceLabel: string
       qty: number
       price: number
+      targetCellRect?: LuTargetCellRect
     },
   ) => {
     if (EXCLUDED_U_PRODUCTS.has(target.uProduct)) return
@@ -1005,6 +1014,7 @@ export function ExcelOrderView() {
       qty,
       price,
       revenueImpact: qty * price,
+      targetCellRect: context.targetCellRect ?? null,
     })
   }
 
@@ -2531,16 +2541,16 @@ export function ExcelOrderView() {
                                return (
                                  <td
                                    key={`${g.product_code}-${idx}`}
-                                  className={`num ${uColumnClass(idx)} ${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
-                                  onClick={() =>
-                                    handleCellSelect({
-                                      rowKey,
-                                      rowLabel,
-                                      colKey,
+                                   className={`num ${uColumnClass(idx)} ${columnCellClass(state)} ${getCellSelectionClass(rowKey, colKey)}`}
+                                   onClick={() =>
+                                     handleCellSelect({
+                                       rowKey,
+                                       rowLabel,
+                                       colKey,
                                        colLabel,
                                      })
                                    }
-                                   onDoubleClick={() =>
+                                   onDoubleClick={(event) =>
                                      requestLuCellToggle(
                                        {
                                          uProduct: U_COLUMNS[idx]?.uProduct ?? '',
@@ -2550,25 +2560,26 @@ export function ExcelOrderView() {
                                          lVariantIndex: parentHasLVariants && hasVariantRows ? 0 : null,
                                          hasLVariants: parentHasLVariants,
                                        },
-                                         {
-                                           uLabel: `${U_COLUMNS[idx]?.uProduct ?? ''} / ${U_COLUMNS[idx]?.uVariant ?? ''}`,
-                                           uProductName: U_COLUMNS[idx]?.blockLabel ?? '',
-                                           uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[idx]?.uVariant ?? '—',
-                                           lLabel: hasVariantRows
-                                             ? `${g.product_code} / ${firstVariantSuffix || '-'}`
-                                             : g.product_code,
-                                           lProductName: g.product_name,
-                                           lOptionName: hasVariantRows ? displayOptionName(firstVariantOption) : '—',
-                                           lPriceLabel: firstVariantDisplayPrice,
-                                           qty: q > 0 ? q : (uDirectQtyByColumn[idx]?.qty ?? 0),
-                                           price: g.mappingPriceByColumn[idx] ?? 0,
-                                         },
+                                       {
+                                         uLabel: `${U_COLUMNS[idx]?.uProduct ?? ''} / ${U_COLUMNS[idx]?.uVariant ?? ''}`,
+                                         uProductName: U_COLUMNS[idx]?.blockLabel ?? '',
+                                         uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[idx]?.uVariant ?? '—',
+                                         lLabel: hasVariantRows
+                                           ? `${g.product_code} / ${firstVariantSuffix || '-'}`
+                                           : g.product_code,
+                                         lProductName: g.product_name,
+                                         lOptionName: hasVariantRows ? displayOptionName(firstVariantOption) : '—',
+                                         lPriceLabel: firstVariantDisplayPrice,
+                                         qty: q > 0 ? q : (uDirectQtyByColumn[idx]?.qty ?? 0),
+                                         price: g.mappingPriceByColumn[idx] ?? 0,
+                                         targetCellRect: event.currentTarget.getBoundingClientRect().toJSON(),
+                                       },
                                      )
                                    }
                                    data-row-key={rowKey}
                                    data-col-key={colKey}
                                    data-row-label={rowLabel}
-                                  data-col-label={colLabel}
+                                   data-col-label={colLabel}
                                 >
                                   {state !== 'excluded' &&
                                    !(state === 'unmapped' && q === 0)
@@ -2748,7 +2759,7 @@ export function ExcelOrderView() {
                                           colLabel,
                                         })
                                       }
-                                      onDoubleClick={() =>
+                                      onDoubleClick={(event) =>
                                         requestLuCellToggle(
                                           {
                                             uProduct: U_COLUMNS[cellIdx]?.uProduct ?? '',
@@ -2758,17 +2769,18 @@ export function ExcelOrderView() {
                                             lVariantIndex: idx,
                                             hasLVariants: !!g.is_multi || g.variants.length > 1,
                                           },
-                                            {
-                                              uLabel: `${U_COLUMNS[cellIdx]?.uProduct ?? ''} / ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`,
-                                              uProductName: U_COLUMNS[cellIdx]?.blockLabel ?? '',
-                                              uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[cellIdx]?.uVariant ?? '—',
-                                              lLabel: `${g.product_code} / ${suffix || '-'}`,
-                                              lProductName: g.product_name,
-                                              lOptionName: displayOptionName(v.option || v.variant_code),
-                                              lPriceLabel: fmtVariantPrice(v.price, g.price, currency),
-                                              qty: q > 0 ? q : (uDirectQtyByColumn[cellIdx]?.qty ?? 0),
-                                              price: g.variantMappingPriceByColumn[idx]?.[cellIdx] ?? 0,
-                                            },
+                                          {
+                                            uLabel: `${U_COLUMNS[cellIdx]?.uProduct ?? ''} / ${U_COLUMNS[cellIdx]?.uVariant ?? ''}`,
+                                            uProductName: U_COLUMNS[cellIdx]?.blockLabel ?? '',
+                                            uOptionName: uColumnInfoByKey.get(colKey)?.optionLabel ?? U_COLUMNS[cellIdx]?.uVariant ?? '—',
+                                            lLabel: `${g.product_code} / ${suffix || '-'}`,
+                                            lProductName: g.product_name,
+                                            lOptionName: displayOptionName(v.option || v.variant_code),
+                                            lPriceLabel: fmtVariantPrice(v.price, g.price, currency),
+                                            qty: q > 0 ? q : (uDirectQtyByColumn[cellIdx]?.qty ?? 0),
+                                            price: g.variantMappingPriceByColumn[idx]?.[cellIdx] ?? 0,
+                                            targetCellRect: event.currentTarget.getBoundingClientRect().toJSON(),
+                                          },
                                         )
                                       }
                                       data-row-key={variantRowKey}
@@ -3143,6 +3155,18 @@ export function ExcelOrderView() {
 
       {pendingLuAction ? (
         <div className="lu-confirm-backdrop" role="presentation">
+          {pendingLuAction.targetCellRect ? (
+            <div
+              className="lu-confirm-cell-spotlight"
+              aria-hidden="true"
+              style={{
+                left: pendingLuAction.targetCellRect.left,
+                top: pendingLuAction.targetCellRect.top,
+                width: pendingLuAction.targetCellRect.width,
+                height: pendingLuAction.targetCellRect.height,
+              }}
+            />
+          ) : null}
           <div
             className="lu-confirm-dialog"
             style={{
@@ -3164,6 +3188,12 @@ export function ExcelOrderView() {
               <h2 id="lu-confirm-title">{pendingLuAction.title}</h2>
             </div>
             <p className="lu-confirm-desc">{pendingLuAction.description}</p>
+            <div className="lu-confirm-target-cell" aria-label="더블클릭한 셀">
+              <span>더블클릭한 셀</span>
+              <strong title={`U상품 ${pendingLuAction.uLabel} · L상품 ${pendingLuAction.lLabel}`}>
+                U상품 {pendingLuAction.uLabel} / L상품 {pendingLuAction.lLabel}
+              </strong>
+            </div>
             <div className="lu-confirm-concept" aria-label="매핑 개념">
               <svg className="lu-confirm-concept-map" viewBox="0 0 360 150" role="img" aria-label="U상품 전환상품에서 L상품 집계기준으로 향하는 매핑 관계">
                 <defs>
