@@ -1234,7 +1234,15 @@ test.describe('상품코드 페이지', () => {
     await expect(modal).toContainText('구성 합계 ₩49,000')
     await expect(modal).toContainText('화면 초안')
 
-    await page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품', { exact: true }).selectOption('P00000HT')
+    const commonLeftProductSelect = page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품', { exact: true })
+    await expect(commonLeftProductSelect.locator('option[value="P00000BV"]')).toContainText('라이코드림 하이브리드')
+
+    await commonLeftProductSelect.selectOption('P00000BV')
+    await expect(modal).toContainText('라이코드림 하이브리드(Lycodream Hybrid Hot Wax)500g')
+    await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품 옵션', { exact: true })).toHaveValue('A')
+    await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 세트가', { exact: true })).toHaveValue('₩26,300')
+
+    await commonLeftProductSelect.selectOption('P00000HT')
     await expect(modal).toContainText('라이코젯아이브로우(Lycojet Eyebrow Hot Wax) 500g')
     await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품 옵션', { exact: true })).toHaveValue('A')
 

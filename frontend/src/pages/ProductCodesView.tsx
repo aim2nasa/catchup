@@ -669,6 +669,24 @@ const L_PRODUCT_CHOICES = Object.entries(L_PRODUCT_DISPLAY_BY_CODE).map(([produc
   variants: spec.variants,
 }))
 
+function buildLProductChoiceFromRow(row: Row) {
+  const normalizedProductCode = normalizeProductCode(row.product_code)
+  const fallback = L_PRODUCT_DISPLAY_BY_CODE[normalizedProductCode]
+  const variants = row.variants.length > 0
+    ? row.variants.map((variant) => ({
+        code: normalizeVariantSuffix(normalizedProductCode, variant.variant_code).toUpperCase(),
+        option: variant.option || '-',
+        price: variant.price || row.price || 0,
+      })).filter((variant) => variant.code)
+    : fallback?.variants ?? []
+
+  return {
+    productCode: normalizedProductCode,
+    productName: row.product_name || fallback?.name || normalizedProductCode,
+    variants,
+  }
+}
+
 const QUERY_CODES = [
   ...new Set([
     ...L_GROUPS.flatMap((g) => g.codes),
@@ -3259,6 +3277,42 @@ export function ProductCodesView() {
     })
   }, [allGroups, effectiveRuleMap, setAddedComponents, setComponentDrafts])
 
+  const lProductChoices = useMemo(() => {
+    const byCode = new Map(
+      L_PRODUCT_CHOICES.map((choice) => [normalizeProductCode(choice.productCode), choice]),
+    )
+    groupRows.forEach((group) => {
+      group.rows.forEach((row) => {
+        const choice = buildLProductChoiceFromRow(row)
+        byCode.set(choice.productCode, choice)
+      })
+    })
+
+    return L_GROUPS
+      .flatMap((group) => group.codes)
+      .map((code) => byCode.get(normalizeProductCode(code)))
+      .filter((choice): choice is NonNullable<typeof choice> => Boolean(choice))
+  }, [groupRows])
+
+  const lProductChoiceByCode = useMemo(
+    () => new Map(lProductChoices.map((choice) => [normalizeProductCode(choice.productCode), choice])),
+    [lProductChoices],
+  )
+
+  const getSetEditorLProductName = (productCode: string) =>
+    lProductChoiceByCode.get(normalizeProductCode(productCode))?.productName ?? getLProductName(productCode)
+
+  const getSetEditorVariantChoices = (productCode: string) =>
+    lProductChoiceByCode.get(normalizeProductCode(productCode))?.variants ?? getLVariantChoices(productCode)
+
+  const getSetEditorVariantPrice = (productCode: string, optionCode: string) => {
+    const normalizedOptionCode = normalizeVariantCode(optionCode)
+    const spec = getSetEditorVariantChoices(productCode).find(
+      (variant) => normalizeVariantCode(variant.code) === normalizedOptionCode,
+    )
+    return spec?.price ?? getLVariantPrice(productCode, normalizedOptionCode)
+  }
+
   const totalQty = groupRows.reduce(
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalQty),
     0,
@@ -3882,7 +3936,7 @@ export function ProductCodesView() {
 
   const updateSetComponentProduct = (component: SetProductComponent, productCode: string) => {
     const normalizedProductCode = normalizeProductCode(productCode)
-    const firstVariant = getLVariantChoices(normalizedProductCode)[0]
+    const firstVariant = getSetEditorVariantChoices(normalizedProductCode)[0]
     updateSetComponentDraft(component, {
       productCode: normalizedProductCode,
       optionCode: firstVariant?.code ?? '',
@@ -3895,7 +3949,7 @@ export function ProductCodesView() {
     const normalizedOptionCode = normalizeVariantCode(optionCode)
     updateSetComponentDraft(component, {
       optionCode: normalizedOptionCode,
-      setPrice: getLVariantPrice(current.productCode, normalizedOptionCode) || current.setPrice,
+      setPrice: getSetEditorVariantPrice(current.productCode, normalizedOptionCode) || current.setPrice,
     })
   }
 
@@ -4464,7 +4518,7 @@ export function ProductCodesView() {
     components.map((component) => {
       const draft = getSetComponentDraft(setComponentDrafts, component)
       const isChanged = hasSetComponentDraftChange(setComponentDrafts, component)
-      const variantChoices = getLVariantChoices(draft.productCode)
+      const variantChoices = getSetEditorVariantChoices(draft.productCode)
       const isIncomplete = !isSetComponentDraftComplete(draft)
       const amount = getSetComponentDraftAmount(draft)
       const isDrilldownTarget = activeSetDrilldown?.componentId === component.id
@@ -4482,13 +4536,13 @@ export function ProductCodesView() {
           <td>
             <select
               value={draft.productCode}
-              title={draft.productCode ? `${draft.productCode} · ${getLProductName(draft.productCode)}` : '왼쪽상품을 선택하세요'}
+              title={draft.productCode ? `${draft.productCode} · ${getSetEditorLProductName(draft.productCode)}` : '왼쪽상품을 선택하세요'}
               aria-label={`${component.id} 왼쪽상품`}
               onChange={(event) => updateSetComponentProduct(component, event.target.value)}
               disabled={draft.deleted}
             >
               <option value="">왼쪽상품 선택</option>
-              {L_PRODUCT_CHOICES.map((choice) => (
+              {lProductChoices.map((choice) => (
                 <option key={choice.productCode} value={choice.productCode}>
                   {choice.productCode} · {choice.productName}
                 </option>
@@ -4499,7 +4553,7 @@ export function ProductCodesView() {
             <select
               value={draft.optionCode}
               title={draft.optionCode
-                ? `${draft.optionCode} · ${displayOptionName(getLVariantChoices(draft.productCode).find((variant) => variant.code === draft.optionCode)?.option)}`
+                ? `${draft.optionCode} · ${displayOptionName(getSetEditorVariantChoices(draft.productCode).find((variant) => variant.code === draft.optionCode)?.option)}`
                 : '왼쪽상품을 먼저 선택하세요'}
               aria-label={`${component.id} 왼쪽상품 옵션`}
               onChange={(event) => updateSetComponentOption(component, event.target.value)}
