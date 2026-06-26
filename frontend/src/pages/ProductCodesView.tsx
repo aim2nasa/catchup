@@ -1004,13 +1004,13 @@ function clampNumber(value: number, min: number, max: number) {
 }
 
 function leftColumnWidthsForViewMode(viewMode: ProductCodesViewMode, isCompact: boolean) {
-  if (viewMode === 'focus') return [98, 0, 40, 0, 0, 64]
+  if (viewMode === 'focus') return [98, 0, 48, 0, 0, 64]
   if (viewMode === 'wide') return isCompact
-    ? [98, 150, 40, 110, 0, 64]
-    : [98, 220, 40, 160, 0, 64]
+    ? [98, 150, 48, 110, 0, 64]
+    : [98, 220, 48, 160, 0, 64]
   return isCompact
-    ? [98, 180, 40, 180, 68, 64]
-    : [98, 360, 40, 260, 68, 64]
+    ? [98, 180, 48, 180, 68, 64]
+    : [98, 360, 48, 260, 68, 64]
 }
 
 function readStatusClass(meta?: ReadMeta) {

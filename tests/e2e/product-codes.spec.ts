@@ -1039,11 +1039,21 @@ test.describe('상품코드 페이지', () => {
     const detail = await readProductCodesViewModeState(page)
     await expect(page.getByRole('button', { name: '기본' })).toHaveAttribute('aria-pressed', 'true')
     expect(detail.nameWidth).toBeGreaterThan(300)
+    expect(detail.optionCodeWidth).toBeGreaterThanOrEqual(48)
     expect(detail.priceWidth).toBeGreaterThan(60)
+    expect(detail.optionCodeFits).toBe(true)
+    const firstProductNameCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="A:상품명"]')
+    const firstProductOptionCodeCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="A:코드"]')
+    await firstProductNameCell.click()
+    await firstProductOptionCodeCell.click()
+    await expect(firstProductOptionCodeCell).toHaveClass(/pc-excel-cell-selected/)
+    await expect(firstProductOptionCodeCell).toHaveText('A')
 
     await page.getByRole('button', { name: '넓게', exact: true }).click()
     const wide = await readProductCodesViewModeState(page)
     expect(wide.uStartLeft).toBeLessThan(detail.uStartLeft)
+    expect(wide.optionCodeWidth).toBeGreaterThanOrEqual(48)
+    expect(wide.optionCodeFits).toBe(true)
     expect(wide.priceWidth).toBe(0)
     expect(wide.nameWidth).toBeGreaterThan(0)
     expect(wide.optionNameWidth).toBeGreaterThan(0)
@@ -1051,6 +1061,8 @@ test.describe('상품코드 페이지', () => {
     await page.getByRole('button', { name: '더 넓게' }).click()
     const focus = await readProductCodesViewModeState(page)
     expect(focus.uStartLeft).toBeLessThan(wide.uStartLeft)
+    expect(focus.optionCodeWidth).toBeGreaterThanOrEqual(48)
+    expect(focus.optionCodeFits).toBe(true)
     expect(focus.nameWidth).toBe(0)
     expect(focus.optionNameWidth).toBe(0)
     expect(focus.priceWidth).toBe(0)
@@ -1075,6 +1087,22 @@ test.describe('상품코드 페이지', () => {
       .getAttribute('title')
     expect(hiddenContextTitle).toContain('상품명: 라이콘워머기 2구 / 자디니 베이비 히터기 220g')
     expect(hiddenContextTitle).toContain('옵션명: 자디니 베이비 히터(220g)')
+    const heaterOptionCodeCell = page.locator('td[data-row-key="variant:P00000VK:P00000VK000M"][data-col-key="A:코드"]')
+    await heaterOptionCodeCell.click()
+    await expect(heaterOptionCodeCell).toHaveText('M')
+    const selectedStickyCodeStyle = await heaterOptionCodeCell.evaluate((cell) => {
+      const style = getComputedStyle(cell)
+      return {
+        background: style.backgroundColor,
+        color: style.color,
+        width: Math.round((cell as HTMLElement).getBoundingClientRect().width),
+        fits: (cell as HTMLElement).scrollWidth <= (cell as HTMLElement).clientWidth,
+      }
+    })
+    expect(selectedStickyCodeStyle.background).not.toBe('rgb(255, 244, 194)')
+    expect(selectedStickyCodeStyle.color).toBe('rgb(17, 24, 39)')
+    expect(selectedStickyCodeStyle.width).toBeGreaterThanOrEqual(48)
+    expect(selectedStickyCodeStyle.fits).toBe(true)
     await page.locator('td[data-row-key="variant:P00000VK:P00000VK000D"][data-col-key="A:직접판매"]').click()
     await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('라이콘워머기 2구 / 자디니 베이비 히터기 220g')
     await expect(page.getByLabel('L상품(왼쪽 상품)')).toContainText('D')
@@ -1111,6 +1139,28 @@ test.describe('상품코드 페이지', () => {
     const setMaskComponentA1 = await setMaskComponentCell.getAttribute('data-a1')
     expect(setMaskComponentA1).toBeTruthy()
     await setProductCrossCell.evaluate((cell) => (cell as HTMLElement).click())
+    await expect(setProductCrossCell).toHaveClass(/pc-excel-cell-selected/)
+    const selectedMappedCellVisibility = await setProductCrossCell.evaluate((cell) => {
+      const style = getComputedStyle(cell)
+      return {
+        boxShadow: style.boxShadow,
+        zIndex: style.zIndex,
+      }
+    })
+    expect(selectedMappedCellVisibility.boxShadow).toContain('rgb(15, 118, 110)')
+    expect(Number(selectedMappedCellVisibility.zIndex)).toBeGreaterThanOrEqual(6)
+    const unmappedSetCell = page.locator('td.map-cell--unmapped.u-col-set').first()
+    await unmappedSetCell.click()
+    await expect(unmappedSetCell).toHaveClass(/pc-excel-cell-selected/)
+    const selectedEmptyCellVisibility = await unmappedSetCell.evaluate((cell) => {
+      const style = getComputedStyle(cell)
+      return {
+        boxShadow: style.boxShadow,
+        zIndex: style.zIndex,
+      }
+    })
+    expect(selectedEmptyCellVisibility.boxShadow).toContain('rgb(15, 118, 110)')
+    expect(Number(selectedEmptyCellVisibility.zIndex)).toBeGreaterThanOrEqual(5)
     await page.mouse.move(5, 5)
     await expect(page.getByLabel('U상품(위쪽 상품)')).toContainText('세트 상품')
     await expect(page.locator('.selection-product-panel-top')).toHaveClass(/is-set/)
@@ -1580,11 +1630,13 @@ async function readProductCodesScrollState(page: import('@playwright/test').Page
 async function readProductCodesViewModeState(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
     const name = document.querySelector('tbody td.sticky-name')
+    const optionCode = document.querySelector('tbody td.sticky-option-code')
     const optionName = document.querySelector('tbody td.sticky-option-name')
     const price = document.querySelector('tbody td.sticky-price')
     const firstMatrix = document.querySelector('tbody tr.category-scope-row td[data-col-key]:not(.sticky)')
     if (
       !(name instanceof HTMLElement) ||
+      !(optionCode instanceof HTMLElement) ||
       !(optionName instanceof HTMLElement) ||
       !(price instanceof HTMLElement) ||
       !(firstMatrix instanceof HTMLElement)
@@ -1593,6 +1645,8 @@ async function readProductCodesViewModeState(page: import('@playwright/test').Pa
     }
     return {
       nameWidth: Math.round(name.getBoundingClientRect().width),
+      optionCodeWidth: Math.round(optionCode.getBoundingClientRect().width),
+      optionCodeFits: optionCode.scrollWidth <= optionCode.clientWidth,
       optionNameWidth: Math.round(optionName.getBoundingClientRect().width),
       priceWidth: Math.round(price.getBoundingClientRect().width),
       uStartLeft: Math.round(firstMatrix.getBoundingClientRect().left),
