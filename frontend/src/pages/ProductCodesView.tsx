@@ -72,7 +72,6 @@ type LuConnectionOverlayItem = {
   key: string
   label: string
   tone: 'before' | 'after'
-  columnPath: string
   rowPath: string
   cellX: number
   cellY: number
@@ -85,11 +84,6 @@ type LuConnectionOverlayItem = {
 function findDataCell(container: HTMLElement, rowKey: string, colKey: string) {
   return Array.from(container.querySelectorAll<HTMLElement>('td[data-row-key][data-col-key]'))
     .find((cell) => cell.dataset.rowKey === rowKey && cell.dataset.colKey === colKey) ?? null
-}
-
-function findColumnHeader(container: HTMLElement, colKey: string) {
-  return Array.from(container.querySelectorAll<HTMLElement>('th[data-col-key]'))
-    .find((cell) => cell.dataset.colKey === colKey) ?? null
 }
 
 function toScrollRect(element: HTMLElement, container: HTMLElement) {
@@ -124,26 +118,19 @@ function LuConnectionOverlay({
 
     const buildItem = (target: LuConnectionTarget, tone: 'before' | 'after', label: string): LuConnectionOverlayItem | null => {
       const cell = findDataCell(container, target.rowKey, target.colKey)
-      const columnHeader = findColumnHeader(container, target.colKey)
       const rowHeader = findDataCell(container, target.rowKey, 'A:상품코드')
-      if (!cell || !columnHeader || !rowHeader) return null
+      if (!cell || !rowHeader) return null
 
       const cellRect = toScrollRect(cell, container)
-      const columnRect = toScrollRect(columnHeader, container)
       const rowRect = toScrollRect(rowHeader, container)
-      const cellCenterX = cellRect.left + cellRect.width / 2
-      const columnCenterX = columnRect.left + columnRect.width / 2
-      const columnStartY = columnRect.bottom + 4
       const rowStartX = rowRect.right + 4
       const rowCenterY = rowRect.top + rowRect.height / 2
-      const columnBendY = Math.max(columnStartY, cellRect.top - 8)
       const rowEndX = Math.max(rowStartX, cellRect.left - 8)
 
       return {
         key: `${tone}:${target.rowKey}:${target.colKey}`,
         label,
         tone,
-        columnPath: `M ${columnCenterX} ${columnStartY} V ${columnBendY} H ${cellCenterX} V ${Math.max(cellRect.top, columnBendY)}`,
         rowPath: `M ${rowStartX} ${rowCenterY} H ${rowEndX}`,
         cellX: cellRect.left,
         cellY: cellRect.top,
@@ -195,7 +182,6 @@ function LuConnectionOverlay({
       </defs>
       {items.map((item) => (
         <g key={item.key} className={`lu-sheet-link lu-sheet-link--${item.tone}`}>
-          <path className="lu-sheet-link-path lu-sheet-link-path--column" d={item.columnPath} markerEnd={`url(#lu-sheet-link-arrow-${item.tone})`} />
           <path className="lu-sheet-link-path lu-sheet-link-path--row" d={item.rowPath} markerEnd={`url(#lu-sheet-link-arrow-${item.tone})`} />
           <rect className="lu-sheet-link-cell" x={item.cellX + 1} y={item.cellY + 1} width={Math.max(0, item.cellWidth - 2)} height={Math.max(0, item.cellHeight - 2)} rx="2" />
           <text className="lu-sheet-link-label" x={item.labelX} y={item.labelY}>{item.label}</text>
@@ -2655,6 +2641,7 @@ export function ProductCodesView() {
     const classes: string[] = []
     const luTarget = pendingLuAction?.targetConnection
     const luExisting = pendingLuAction?.existingConnection
+    if (luTarget?.colKey === colKey) classes.push('pc-excel-col-selected', 'lu-active-u-column')
     if (luExisting) {
       if (luExisting.rowKey === rowKey && luExisting.colKey === colKey) classes.push('lu-link-cell--before')
     }
@@ -2715,7 +2702,9 @@ export function ProductCodesView() {
     'pc-excel-column-letter',
     baseClassName,
     manualHighlightedCols.has(colKey) ? 'pc-excel-column-letter--manual' : '',
-    selectedCell?.colKey === colKey ? 'pc-excel-column-letter--selected' : '',
+    selectedCell?.colKey === colKey || pendingLuAction?.targetConnection.colKey === colKey
+      ? 'pc-excel-column-letter--selected'
+      : '',
     hoveredCell?.colKey === colKey ? 'pc-excel-column-letter--hovered' : '',
     pinnedCrosses.some((pin) => pin.colKey === colKey) ? 'pc-excel-column-letter--pinned' : '',
   ].filter(Boolean).join(' ')

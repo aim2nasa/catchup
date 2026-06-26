@@ -484,6 +484,11 @@
   font-weight: 700;
   vertical-align: middle;
 }
+
+.excel-table .excel-column-letter--selected {
+  background: #ccfbf1 !important;
+  color: #0f766e !important;
+}
 .excel-table thead tr.excel-column-letter-row th.excel-column-letter,
 .excel-table thead tr.excel-column-letter-row th.excel-corner-cell {
   background: #e5e7eb;
