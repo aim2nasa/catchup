@@ -6266,6 +6266,13 @@ export function ProductCodesView() {
                         const lOptionName = draft.lVariant
                           ? displayOptionName(variantChoices.find((variant) => variant.code === draft.lVariant)?.option ?? draft.lVariant)
                           : ''
+                        const selectedLVariant = variantChoices.find((variant) =>
+                          normalizeVariantCode(variant.code) === normalizeVariantCode(draft.lVariant)
+                        ) ?? variantChoices[0] ?? null
+                        const showLVariantSelect = !draft.unmapped && draft.lProduct && variantChoices.length > 1
+                        const readonlyLVariantLabel = selectedLVariant
+                          ? `${selectedLVariant.code} · ${displayOptionName(selectedLVariant.option)}`
+                          : '-'
                         const uPrice = uInfo?.price ?? 0
                         const lPrice = !draft.unmapped && draft.lProduct && draft.lVariant
                           ? getSetEditorVariantPrice(draft.lProduct, draft.lVariant)
@@ -6305,20 +6312,33 @@ export function ProductCodesView() {
                               </select>
                             </td>
                             <td>
-                              <select
-                                value={draft.lVariant}
-                                title={draft.lVariant ? `${draft.lVariant} · ${lOptionName}` : 'L옵션을 선택하세요'}
-                                aria-label={`${activeConversionBlock.productCode}-${uVariant} L옵션`}
-                                onChange={(event) => updateConversionDraftOption(activeConversionBlock, uVariant, event.target.value)}
-                                disabled={draft.unmapped || !draft.lProduct}
-                              >
-                                <option value="">L옵션 선택</option>
-                                {variantChoices.map((variant) => (
-                                  <option key={variant.code} value={variant.code}>
-                                    {variant.code} · {displayOptionName(variant.option)}
-                                  </option>
-                                ))}
-                              </select>
+                              {showLVariantSelect ? (
+                                <select
+                                  value={draft.lVariant}
+                                  title={draft.lVariant ? `${draft.lVariant} · ${lOptionName}` : 'L옵션을 선택하세요'}
+                                  aria-label={`${activeConversionBlock.productCode}-${uVariant} L옵션`}
+                                  onChange={(event) => updateConversionDraftOption(activeConversionBlock, uVariant, event.target.value)}
+                                >
+                                  <option value="">L옵션 선택</option>
+                                  {variantChoices.map((variant) => (
+                                    <option key={variant.code} value={variant.code}>
+                                      {variant.code} · {displayOptionName(variant.option)}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span
+                                  className="conversion-editor-option-readonly"
+                                  aria-label={`${activeConversionBlock.productCode}-${uVariant} L옵션`}
+                                  title={draft.unmapped
+                                    ? '매핑 제외'
+                                    : draft.lProduct
+                                      ? readonlyLVariantLabel
+                                      : 'L상품을 먼저 선택하세요'}
+                                >
+                                  {draft.unmapped ? '-' : readonlyLVariantLabel}
+                                </span>
+                              )}
                             </td>
                             <td
                               className="conversion-editor-price"

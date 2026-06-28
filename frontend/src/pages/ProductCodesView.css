@@ -684,6 +684,21 @@
   text-align: right;
 }
 
+.conversion-editor-option-readonly {
+  display: block;
+  height: 24px;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 800;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .conversion-editor-unmapped {
   display: inline-flex;
   align-items: center;
