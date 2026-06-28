@@ -622,6 +622,78 @@
   box-shadow: inset 0 0 0 2px rgba(22, 163, 74, 0.28);
 }
 
+.pc-excel-table .u-header-conversion.is-conversion-editable {
+  cursor: pointer;
+}
+
+.pc-excel-table .u-header-conversion.is-conversion-editable:hover {
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.26);
+}
+
+.conversion-editor-modal {
+  width: min(1500px, 94vw);
+  max-height: 82vh;
+}
+
+.conversion-editor-header,
+.conversion-editor-card-head {
+  background: var(--axis-top-conversion-bg);
+}
+
+.conversion-editor-header .set-editor-eyebrow,
+.conversion-editor-card-head strong {
+  color: var(--axis-top-conversion-text);
+}
+
+.conversion-editor-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.conversion-editor-table-wrap {
+  overflow-x: auto;
+}
+
+.conversion-editor-table th:nth-child(1) { width: 64px; }
+.conversion-editor-table th:nth-child(2) { width: 360px; }
+.conversion-editor-table th:nth-child(3) { width: 430px; }
+.conversion-editor-table th:nth-child(4) { width: 430px; }
+.conversion-editor-table th:nth-child(5) { width: 72px; }
+.conversion-editor-table th:nth-child(6) { width: 92px; }
+
+.conversion-editor-table tr.is-unmapped td {
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.conversion-editor-ratio {
+  color: #1e3a8a;
+  font-weight: 900;
+  text-align: center;
+}
+
+.conversion-editor-unmapped {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  font-weight: 800;
+}
+
+.conversion-editor-unmapped input {
+  width: 14px;
+  height: 14px;
+}
+
+.conversion-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .pc-excel-horizontal-scrollbar-top {
   flex: 0 0 auto;
   max-width: 100%;

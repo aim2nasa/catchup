@@ -18,6 +18,12 @@ type LuRuleOverride = {
   lVariant?: string
 }
 
+type ConversionMappingDraft = {
+  lProduct: string
+  lVariant: string
+  unmapped: boolean
+}
+
 type LuToggleTarget = {
   uProduct: string
   uVariant: string
@@ -2244,6 +2250,8 @@ export function ProductCodesView() {
   const [setComponentDrafts, setSetComponentDrafts] = useState<Record<string, SetProductComponentDraft>>({})
   const [setAddedComponents, setSetAddedComponents] = useState<Record<string, SetProductComponent[]>>({})
   const [activeSetDrilldown, setActiveSetDrilldown] = useState<SetDrilldownTarget | null>(null)
+  const [editingConversionProductCode, setEditingConversionProductCode] = useState<string | null>(null)
+  const [conversionMappingDrafts, setConversionMappingDrafts] = useState<Record<string, ConversionMappingDraft>>({})
   const [selectedCell, setSelectedCell] = useState<CellSelectionMeta | null>(null)
   const [formulaDetailsOpen, setFormulaDetailsOpen] = useState(false)
   const formulaSingleClickTimerRef = useRef<number | null>(null)
@@ -3313,6 +3321,78 @@ export function ProductCodesView() {
     return spec?.price ?? getLVariantPrice(productCode, normalizedOptionCode)
   }
 
+  const activeConversionBlock = useMemo(
+    () => U_BLOCKS.find((block) =>
+      block.group === 'conversion' &&
+      normalizeProductCode(block.productCode) === normalizeProductCode(editingConversionProductCode ?? '')
+    ) ?? null,
+    [editingConversionProductCode],
+  )
+
+  const conversionDraftKey = (uProduct: string, uVariant: string) =>
+    makeUCellKey(uProduct, uVariant)
+
+  const resolveRuleLVariantForDraft = (rule: MappingRule, uProduct: string, uVariant: string) => {
+    if (rule.lVariant) return rule.lVariant
+    const choices = getSetEditorVariantChoices(rule.lProduct)
+    if (choices.length === 0) return ''
+    if (choices.length === 1) return choices[0].code
+    const uVariantIndex = U_VARIANT_INDEX_BY_KEY.get(makeUCellKey(uProduct, uVariant)) ?? -1
+    return choices[uVariantIndex]?.code ?? choices[0].code
+  }
+
+  const buildConversionDraftsForBlock = (
+    block: UBlock,
+    sourceRuleMap: Map<string, MappingRule[]> = effectiveRuleMap,
+  ) => {
+    const drafts: Record<string, ConversionMappingDraft> = {}
+    block.variants.forEach((uVariant) => {
+      const uKey = makeUCellKey(block.productCode, uVariant)
+      const rule = sourceRuleMap.get(uKey)?.[0]
+      drafts[conversionDraftKey(block.productCode, uVariant)] = rule
+        ? {
+            lProduct: rule.lProduct,
+            lVariant: resolveRuleLVariantForDraft(rule, block.productCode, uVariant),
+            unmapped: false,
+          }
+        : {
+            lProduct: '',
+            lVariant: '',
+            unmapped: true,
+          }
+    })
+    return drafts
+  }
+
+  const getConversionDraftForVariant = (block: UBlock, uVariant: string) =>
+    conversionMappingDrafts[conversionDraftKey(block.productCode, uVariant)] ?? {
+      lProduct: '',
+      lVariant: '',
+      unmapped: true,
+    }
+
+  const conversionDraftsDirty = activeConversionBlock
+    ? activeConversionBlock.variants.some((uVariant) => {
+        const key = conversionDraftKey(activeConversionBlock.productCode, uVariant)
+        const current = buildConversionDraftsForBlock(activeConversionBlock)[key]
+        const draft = conversionMappingDrafts[key]
+        return !!draft && (
+          draft.unmapped !== current.unmapped ||
+          draft.lProduct !== current.lProduct ||
+          draft.lVariant !== current.lVariant
+        )
+      })
+    : false
+
+  const conversionDraftsIncomplete = activeConversionBlock
+    ? activeConversionBlock.variants.some((uVariant) => {
+        const draft = getConversionDraftForVariant(activeConversionBlock, uVariant)
+        if (draft.unmapped) return false
+        if (!draft.lProduct) return true
+        return getSetEditorVariantChoices(draft.lProduct).length > 0 && !draft.lVariant
+      })
+    : false
+
   const totalQty = groupRows.reduce(
     (s, g) => s + (g.withSubtotal === false ? 0 : g.subtotalQty),
     0,
@@ -3901,6 +3981,125 @@ export function ProductCodesView() {
     setSelectedSetVariantCode(variantCode && config.variants.some((variant) => normalizeVariantCode(variant.variantCode) === normalizeVariantCode(variantCode))
       ? normalizeVariantCode(variantCode)
       : config.variants[0]?.variantCode ?? '')
+  }
+
+  const openConversionMappingModal = (productCode: string) => {
+    const block = U_BLOCKS.find((candidate) =>
+      candidate.group === 'conversion' &&
+      normalizeProductCode(candidate.productCode) === normalizeProductCode(productCode)
+    )
+    if (!block || EXCLUDED_U_PRODUCTS.has(block.productCode)) return
+    setEditingConversionProductCode(block.productCode)
+    setConversionMappingDrafts(buildConversionDraftsForBlock(block))
+  }
+
+  const updateConversionDraftProduct = (block: UBlock, uVariant: string, productCode: string) => {
+    const key = conversionDraftKey(block.productCode, uVariant)
+    const normalizedProductCode = normalizeProductCode(productCode)
+    const firstVariant = getSetEditorVariantChoices(normalizedProductCode)[0]
+    setConversionMappingDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        lProduct: normalizedProductCode,
+        lVariant: firstVariant?.code ?? '',
+        unmapped: !normalizedProductCode,
+      },
+    }))
+  }
+
+  const updateConversionDraftOption = (block: UBlock, uVariant: string, optionCode: string) => {
+    const key = conversionDraftKey(block.productCode, uVariant)
+    setConversionMappingDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? { lProduct: '', lVariant: '', unmapped: true }),
+        lVariant: normalizeVariantCode(optionCode),
+        unmapped: false,
+      },
+    }))
+  }
+
+  const updateConversionDraftUnmapped = (block: UBlock, uVariant: string, unmapped: boolean) => {
+    const key = conversionDraftKey(block.productCode, uVariant)
+    setConversionMappingDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? { lProduct: '', lVariant: '', unmapped: true }),
+        unmapped,
+      },
+    }))
+  }
+
+  const resetActiveConversionDraftToDefault = () => {
+    if (!activeConversionBlock) return
+    setConversionMappingDrafts(buildConversionDraftsForBlock(activeConversionBlock, RULE_BY_KEY))
+  }
+
+  const cancelActiveConversionDraft = () => {
+    setEditingConversionProductCode(null)
+    setConversionMappingDrafts({})
+  }
+
+  const applyActiveConversionDraft = () => {
+    if (!activeConversionBlock || conversionDraftsIncomplete) return
+    const variantKeys = new Set(activeConversionBlock.variants.map((uVariant) =>
+      makeUCellKey(activeConversionBlock.productCode, uVariant)
+    ))
+    const nextOverrides: LuRuleOverride[] = []
+
+    activeConversionBlock.variants.forEach((uVariant) => {
+      const uKey = makeUCellKey(activeConversionBlock.productCode, uVariant)
+      const baseRules = RULE_BY_KEY.get(uKey) ?? []
+      const draft = getConversionDraftForVariant(activeConversionBlock, uVariant)
+      const baseRemovals = baseRules.map((rule): LuRuleOverride => ({
+        action: 'remove',
+        uProduct: rule.uProduct,
+        uVariant: rule.uVariant,
+        lProduct: rule.lProduct,
+        lVariant: rule.lVariant,
+      }))
+
+      if (draft.unmapped || !draft.lProduct) {
+        nextOverrides.push(...baseRemovals)
+        return
+      }
+
+      const lProduct = normalizeProductCode(draft.lProduct)
+      const lVariant = normalizeVariantCode(draft.lVariant)
+      const choices = getSetEditorVariantChoices(lProduct)
+      const targetLVariantIndex = choices.findIndex((choice) =>
+        normalizeVariantCode(choice.code) === lVariant
+      )
+      const ruleUVariantIndex = U_VARIANT_INDEX_BY_KEY.get(uKey) ?? null
+      const isBaseTarget = hasRuleMatch(
+        baseRules,
+        lProduct,
+        lVariant || null,
+        targetLVariantIndex >= 0 ? targetLVariantIndex : null,
+        ruleUVariantIndex,
+        choices.length > 1,
+      )
+
+      if (isBaseTarget) return
+
+      nextOverrides.push(
+        ...baseRemovals,
+        {
+          action: 'add',
+          uProduct: activeConversionBlock.productCode,
+          uVariant,
+          lProduct,
+          lVariant: lVariant || undefined,
+        },
+      )
+    })
+
+    setLuOverrides((prev) => [
+      ...prev.filter((override) => !variantKeys.has(makeUCellKey(override.uProduct, override.uVariant))),
+      ...nextOverrides,
+    ])
+    setEditingConversionProductCode(null)
+    setConversionMappingDrafts({})
   }
 
   const updateSetComponentDraft = (
@@ -4960,22 +5159,26 @@ export function ProductCodesView() {
                     <th
                       key={block.productCode}
                       colSpan={block.variants.length}
-                      className={`u-header copyable-header ${uBlockClass(block)}${block.group === 'set' ? ' is-set-editable' : ''}`}
+                      className={`u-header copyable-header ${uBlockClass(block)}${block.group === 'set' ? ' is-set-editable' : ''}${block.group === 'conversion' ? ' is-conversion-editable' : ''}`}
                       style={{ minWidth: `${Math.max(block.variants.length * 32, 96)}px` }}
                       title={block.group === 'set'
                         ? `${block.productCode} ${block.productLabel} 구성 편집`
-                        : `${block.productCode} ${block.productLabel} 더블클릭 복사`}
-                      tabIndex={block.group === 'set' ? 0 : undefined}
-                      role={block.group === 'set' ? 'button' : undefined}
-                      aria-label={block.group === 'set' ? `${block.productCode} 세트상품 구성 편집` : undefined}
+                        : `${block.productCode} ${block.productLabel} 매핑 편집`}
+                      tabIndex={block.group === 'set' || block.group === 'conversion' ? 0 : undefined}
+                      role={block.group === 'set' || block.group === 'conversion' ? 'button' : undefined}
+                      aria-label={block.group === 'set'
+                        ? `${block.productCode} 세트상품 구성 편집`
+                        : `${block.productCode} 전환상품 매핑 편집`}
                       onClick={() => {
                         if (block.group === 'set') openSetConfigModal(block.productCode)
+                        if (block.group === 'conversion') openConversionMappingModal(block.productCode)
                       }}
                       onKeyDown={(event) => {
-                        if (block.group !== 'set') return
+                        if (block.group !== 'set' && block.group !== 'conversion') return
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
-                          openSetConfigModal(block.productCode)
+                          if (block.group === 'set') openSetConfigModal(block.productCode)
+                          if (block.group === 'conversion') openConversionMappingModal(block.productCode)
                         }
                       }}
                       onDoubleClick={() => handleCopyProductCode(block.productCode)}
@@ -5997,6 +6200,155 @@ export function ProductCodesView() {
           </div>
         </div>
       )}
+
+      {activeConversionBlock && editingConversionProductCode ? (
+        <div className="set-editor-backdrop" role="presentation">
+          <div
+            className="set-editor-modal conversion-editor-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="conversion-editor-title"
+          >
+            <header className="set-editor-header conversion-editor-header">
+              <div>
+                <span className="set-editor-eyebrow">전환상품 매핑 편집</span>
+                <h2 id="conversion-editor-title">{activeConversionBlock.productLabel}</h2>
+                <p>
+                  <span className="set-editor-code">{activeConversionBlock.productCode}</span>
+                  <span>옵션 {activeConversionBlock.variants.length}개</span>
+                  {conversionDraftsDirty ? <span className="set-editor-dirty">화면 초안</span> : null}
+                </p>
+              </div>
+            </header>
+
+            <div className="conversion-editor-body">
+              <section className="set-editor-card">
+                <div className="set-editor-card-head conversion-editor-card-head">
+                  <div>
+                    <strong>옵션별 1:1 매핑</strong>
+                    <span>전환상품 옵션마다 집계할 L상품/옵션을 선택</span>
+                  </div>
+                </div>
+                <div className="set-editor-table-wrap conversion-editor-table-wrap">
+                  <table className="set-editor-table conversion-editor-table">
+                    <thead>
+                      <tr>
+                        <th>U코드</th>
+                        <th>U옵션명</th>
+                        <th>L상품 선택</th>
+                        <th>L옵션 선택</th>
+                        <th>수량</th>
+                        <th>상태</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeConversionBlock.variants.map((uVariant) => {
+                        const draft = getConversionDraftForVariant(activeConversionBlock, uVariant)
+                        const variantChoices = getSetEditorVariantChoices(draft.lProduct)
+                        const uInfo = uColumnInfoByKey.get(`B:${activeConversionBlock.productCode}-${uVariant}`)
+                        const rowKey = conversionDraftKey(activeConversionBlock.productCode, uVariant)
+                        const isIncomplete = !draft.unmapped && (
+                          !draft.lProduct ||
+                          (variantChoices.length > 0 && !draft.lVariant)
+                        )
+                        const lProductName = draft.lProduct ? getSetEditorLProductName(draft.lProduct) : ''
+                        const lOptionName = draft.lVariant
+                          ? displayOptionName(variantChoices.find((variant) => variant.code === draft.lVariant)?.option ?? draft.lVariant)
+                          : ''
+                        return (
+                          <tr
+                            key={rowKey}
+                            className={`${isIncomplete ? 'is-incomplete' : ''}${draft.unmapped ? ' is-unmapped' : ''}`}
+                            data-conversion-row={rowKey}
+                          >
+                            <td>
+                              <span className="set-editor-scope is-common">{uVariant}</span>
+                            </td>
+                            <td title={uInfo?.optionLabel ?? uVariant}>
+                              {uInfo?.optionLabel ?? uVariant}
+                            </td>
+                            <td>
+                              <select
+                                value={draft.lProduct}
+                                title={draft.lProduct ? `${draft.lProduct} · ${lProductName}` : 'L상품을 선택하세요'}
+                                aria-label={`${activeConversionBlock.productCode}-${uVariant} L상품`}
+                                onChange={(event) => updateConversionDraftProduct(activeConversionBlock, uVariant, event.target.value)}
+                                disabled={draft.unmapped}
+                              >
+                                <option value="">L상품 선택</option>
+                                {lProductChoices.map((choice) => (
+                                  <option key={choice.productCode} value={choice.productCode}>
+                                    {choice.productCode} · {choice.productName}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>
+                              <select
+                                value={draft.lVariant}
+                                title={draft.lVariant ? `${draft.lVariant} · ${lOptionName}` : 'L옵션을 선택하세요'}
+                                aria-label={`${activeConversionBlock.productCode}-${uVariant} L옵션`}
+                                onChange={(event) => updateConversionDraftOption(activeConversionBlock, uVariant, event.target.value)}
+                                disabled={draft.unmapped || !draft.lProduct}
+                              >
+                                <option value="">L옵션 선택</option>
+                                {variantChoices.map((variant) => (
+                                  <option key={variant.code} value={variant.code}>
+                                    {variant.code} · {displayOptionName(variant.option)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="conversion-editor-ratio">1:1</td>
+                            <td>
+                              <label className="conversion-editor-unmapped">
+                                <input
+                                  type="checkbox"
+                                  checked={draft.unmapped}
+                                  aria-label={`${activeConversionBlock.productCode}-${uVariant} 매핑 제외`}
+                                  onChange={(event) => updateConversionDraftUnmapped(activeConversionBlock, uVariant, event.target.checked)}
+                                />
+                                제외
+                              </label>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+            <footer className="set-editor-footer conversion-editor-footer">
+              <div className="set-editor-footer-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={resetActiveConversionDraftToDefault}
+                >
+                  초기값
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={cancelActiveConversionDraft}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={conversionDraftsIncomplete}
+                  title={conversionDraftsIncomplete ? 'L상품과 L옵션을 선택해야 적용할 수 있습니다.' : undefined}
+                  onClick={applyActiveConversionDraft}
+                >
+                  적용
+                </button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      ) : null}
 
       {activeSetConfig && editingSetProductCode ? (
         <div className="set-editor-backdrop" role="presentation">

@@ -488,6 +488,64 @@ test.describe('상품코드 페이지', () => {
     expect(existingTargetTitle).toContain('라이코플렉스 바닐라')
   })
 
+  test('전환상품 헤더 모달에서 옵션별 1:1 매핑을 확인하고 변경/취소/제외할 수 있다', async ({ page }) => {
+    await page.setViewportSize({ width: 1706, height: 960 })
+    await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
+
+    await expect(page.getByRole('heading', { name: '상품코드' })).toBeVisible()
+    await page.locator('input[type="date"]').first().fill(PRODUCT_CODES_START)
+    await page.locator('input[type="date"]').nth(1).fill(PRODUCT_CODES_END)
+    await page.getByRole('button', { name: '조회' }).click()
+    await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
+
+    const defaultTargetCell = page.locator('td[data-row-key="parent:500g:P00000BV"][data-col-key="B:P00000QE-G"]')
+    const changedTargetCell = page.locator('td[data-row-key="parent:500g:P00000HT"][data-col-key="B:P00000QE-G"]')
+    await expect(defaultTargetCell).toHaveClass(/map-cell--mapped/)
+    await expect(changedTargetCell).toHaveClass(/map-cell--unmapped/)
+
+    await page.getByRole('button', { name: 'P00000QE 전환상품 매핑 편집' }).click()
+    const modal = page.getByRole('dialog', { name: '하드왁스500g 24개' })
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText('옵션 5개')
+    await expect(modal.locator('[data-conversion-row="P00000QE|G"]')).toContainText('G')
+    await expect(modal.locator('[data-conversion-row="P00000QE|G"]')).toContainText('라이코드림 하이브리드')
+    await expect(modal.getByLabel('P00000QE-G L상품', { exact: true })).toHaveValue('P00000BV')
+    await expect(modal.getByLabel('P00000QE-G L옵션', { exact: true })).toHaveValue('A')
+
+    await modal.getByLabel('P00000QE-G L상품', { exact: true }).selectOption('P00000HT')
+    await expect(modal.getByLabel('P00000QE-G L옵션', { exact: true })).toHaveValue('A')
+    await expect(modal).toContainText('화면 초안')
+    await modal.getByRole('button', { name: '취소' }).click()
+    await expect(modal).toBeHidden()
+    await expect(defaultTargetCell).toHaveClass(/map-cell--mapped/)
+    await expect(changedTargetCell).toHaveClass(/map-cell--unmapped/)
+
+    await page.getByRole('button', { name: 'P00000QE 전환상품 매핑 편집' }).click()
+    const reopened = page.getByRole('dialog', { name: '하드왁스500g 24개' })
+    await reopened.getByLabel('P00000QE-G L상품', { exact: true }).selectOption('P00000HT')
+    await reopened.getByRole('button', { name: '적용' }).click()
+    await expect(reopened).toBeHidden()
+    await expect(defaultTargetCell).toHaveClass(/map-cell--unmapped/)
+    await expect(changedTargetCell).toHaveClass(/map-cell--mapped/)
+
+    await page.getByRole('button', { name: 'P00000QE 전환상품 매핑 편집' }).click()
+    const appliedModal = page.getByRole('dialog', { name: '하드왁스500g 24개' })
+    await expect(appliedModal.getByLabel('P00000QE-G L상품', { exact: true })).toHaveValue('P00000HT')
+    await appliedModal.getByLabel('P00000QE-G 매핑 제외', { exact: true }).check()
+    await appliedModal.getByRole('button', { name: '적용' }).click()
+    await expect(appliedModal).toBeHidden()
+    await expect(defaultTargetCell).toHaveClass(/map-cell--unmapped/)
+    await expect(changedTargetCell).toHaveClass(/map-cell--unmapped/)
+
+    await page.getByRole('button', { name: 'P00000QE 전환상품 매핑 편집' }).click()
+    const resetModal = page.getByRole('dialog', { name: '하드왁스500g 24개' })
+    await resetModal.getByRole('button', { name: '초기값' }).click()
+    await expect(resetModal.getByLabel('P00000QE-G L상품', { exact: true })).toHaveValue('P00000BV')
+    await resetModal.getByRole('button', { name: '적용' }).click()
+    await expect(defaultTargetCell).toHaveClass(/map-cell--mapped/)
+    await expect(changedTargetCell).toHaveClass(/map-cell--unmapped/)
+  })
+
   test('매출 수식은 세트 구성 단가와 전환 단가를 추적 가능한 참조로 표시하고 엑셀에 내보낸다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/#product-codes')
 
