@@ -6204,13 +6204,22 @@ export function ProductCodesView() {
       {activeConversionBlock && editingConversionProductCode ? (
         <div className="set-editor-backdrop" role="presentation">
           <div
-            className="set-editor-modal conversion-editor-modal"
+            ref={setEditorModalRef}
+            className={`set-editor-modal conversion-editor-modal${setEditorLayout ? ' is-positioned' : ''}`}
+            style={setEditorLayoutStyle}
             role="dialog"
             aria-modal="true"
             aria-labelledby="conversion-editor-title"
           >
             <header className="set-editor-header conversion-editor-header">
-              <div>
+              <div
+                className="set-editor-drag-handle"
+                title="드래그해서 모달 이동"
+                onPointerDown={startSetEditorMove}
+                onPointerMove={moveSetEditorLayout}
+                onPointerUp={stopSetEditorLayoutChange}
+                onPointerCancel={stopSetEditorLayoutChange}
+              >
                 <span className="set-editor-eyebrow">전환상품 매핑 편집</span>
                 <h2 id="conversion-editor-title">{activeConversionBlock.productLabel}</h2>
                 <p>
@@ -6346,6 +6355,16 @@ export function ProductCodesView() {
                 </button>
               </div>
             </footer>
+            <div
+              className="set-editor-resize-handle"
+              aria-label="전환상품 매핑 편집 모달 크기 조절"
+              role="separator"
+              title="드래그해서 모달 크기 조절"
+              onPointerDown={startSetEditorResize}
+              onPointerMove={moveSetEditorLayout}
+              onPointerUp={stopSetEditorLayoutChange}
+              onPointerCancel={stopSetEditorLayoutChange}
+            />
           </div>
         </div>
       ) : null}
