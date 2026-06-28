@@ -4721,6 +4721,13 @@ export function ProductCodesView() {
       const isIncomplete = !isSetComponentDraftComplete(draft)
       const amount = getSetComponentDraftAmount(draft)
       const isDrilldownTarget = activeSetDrilldown?.componentId === component.id
+      const selectedVariantChoice = variantChoices.find((variant) =>
+        normalizeVariantCode(variant.code) === normalizeVariantCode(draft.optionCode)
+      ) ?? variantChoices[0] ?? null
+      const showVariantSelect = !draft.deleted && draft.productCode && variantChoices.length > 1
+      const readonlyVariantLabel = selectedVariantChoice
+        ? `${selectedVariantChoice.code} · ${displayOptionName(selectedVariantChoice.option)}`
+        : '-'
       return (
         <tr
           key={component.id}
@@ -4749,22 +4756,35 @@ export function ProductCodesView() {
             </select>
           </td>
           <td>
-            <select
-              value={draft.optionCode}
-              title={draft.optionCode
-                ? `${draft.optionCode} · ${displayOptionName(getSetEditorVariantChoices(draft.productCode).find((variant) => variant.code === draft.optionCode)?.option)}`
-                : '왼쪽상품을 먼저 선택하세요'}
-              aria-label={`${component.id} 왼쪽상품 옵션`}
-              onChange={(event) => updateSetComponentOption(component, event.target.value)}
-              disabled={draft.deleted || !draft.productCode}
-            >
-              <option value="">옵션 선택</option>
-              {variantChoices.map((variant) => (
-                <option key={variant.code} value={variant.code}>
-                  {variant.code} · {displayOptionName(variant.option)}
-                </option>
-              ))}
-            </select>
+            {showVariantSelect ? (
+              <select
+                value={draft.optionCode}
+                title={draft.optionCode
+                  ? `${draft.optionCode} · ${displayOptionName(variantChoices.find((variant) => variant.code === draft.optionCode)?.option)}`
+                  : '옵션을 선택하세요'}
+                aria-label={`${component.id} 왼쪽상품 옵션`}
+                onChange={(event) => updateSetComponentOption(component, event.target.value)}
+              >
+                <option value="">옵션 선택</option>
+                {variantChoices.map((variant) => (
+                  <option key={variant.code} value={variant.code}>
+                    {variant.code} · {displayOptionName(variant.option)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span
+                className="set-editor-option-readonly"
+                aria-label={`${component.id} 왼쪽상품 옵션`}
+                title={draft.deleted
+                  ? '삭제된 구성'
+                  : draft.productCode
+                    ? readonlyVariantLabel
+                    : '왼쪽상품을 먼저 선택하세요'}
+              >
+                {draft.deleted || !draft.productCode ? '-' : readonlyVariantLabel}
+              </span>
+            )}
           </td>
           <td>
             <input

@@ -684,6 +684,7 @@
   text-align: right;
 }
 
+.set-editor-option-readonly,
 .conversion-editor-option-readonly {
   display: block;
   height: 24px;

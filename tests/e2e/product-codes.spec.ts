@@ -1377,12 +1377,13 @@ test.describe('상품코드 페이지', () => {
 
     await commonLeftProductSelect.selectOption('P00000BV')
     await expect(modal).toContainText('라이코드림 하이브리드(Lycodream Hybrid Hot Wax)500g')
-    await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품 옵션', { exact: true })).toHaveValue('A')
+    await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품 옵션', { exact: true })).toHaveText('A · -')
+    await expect(modal.locator('select[aria-label="P00000YZ-common-P00000ZA-A 왼쪽상품 옵션"]')).toHaveCount(0)
     await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 세트가', { exact: true })).toHaveValue('₩26,300')
 
     await commonLeftProductSelect.selectOption('P00000HT')
     await expect(modal).toContainText('라이코젯아이브로우(Lycojet Eyebrow Hot Wax) 500g')
-    await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품 옵션', { exact: true })).toHaveValue('A')
+    await expect(page.getByLabel('P00000YZ-common-P00000ZA-A 왼쪽상품 옵션', { exact: true })).toHaveText('A · -')
 
     await modal.getByRole('button', { name: '왼쪽상품 추가' }).first().click()
     await expect(modal.locator('select[aria-label$="왼쪽상품"]')).toHaveCount(5)
@@ -1435,7 +1436,8 @@ test.describe('상품코드 페이지', () => {
     const commonProductSelect = modal.locator('[data-set-editor-section="common"] select[aria-label$="왼쪽상품"]').first()
     await expect(commonProductSelect).toHaveValue('')
     await expect(commonProductSelect.locator('option').first()).toHaveText('왼쪽상품 선택')
-    await expect(modal.locator('[data-set-editor-section="common"] select[aria-label$="왼쪽상품 옵션"]').first()).toBeDisabled()
+    await expect(modal.locator('[data-set-editor-section="common"] .set-editor-option-readonly').first()).toHaveText('-')
+    await expect(modal.locator('[data-set-editor-section="common"] select[aria-label$="왼쪽상품 옵션"]')).toHaveCount(0)
     const afterCommonAddBox = await modal.boundingBox()
     expect(afterCommonAddBox).not.toBeNull()
     expect(afterCommonAddBox!.height).toBeGreaterThan(beforeCommonAddBox!.height + 120)
