@@ -15,18 +15,18 @@ type MenuItem = {
 
 const MENUS: MenuItem[] = [
   {
-    key: 'hardwax',
-    hash: '#hardwax',
-    title: '하드왁스',
-    desc: '엑셀 양식 순서대로 상품별 판매수/매출 확인',
-    tag: '신규',
-    tagKind: 'new',
-  },
-  {
     key: 'product-codes',
     hash: '#product-codes',
     title: '상품코드',
     desc: '상품코드별 판매수와 매출을 엑셀 양식 순서로 확인',
+    tag: '신규',
+    tagKind: 'new',
+  },
+  {
+    key: 'hardwax',
+    hash: '#hardwax',
+    title: '하드왁스',
+    desc: '엑셀 양식 순서대로 상품별 판매수/매출 확인',
   },
   {
     key: 'sales',

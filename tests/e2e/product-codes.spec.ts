@@ -5,7 +5,7 @@ const PRODUCT_CODES_START = '2026-04-01'
 const PRODUCT_CODES_END = '2026-04-30'
 
 test.describe('상품코드 페이지', () => {
-  test('홈 메뉴에서 하드왁스 아래 독립 상품코드 페이지로 진입할 수 있다', async ({ page }) => {
+  test('홈 메뉴에서 상품코드를 신규 메뉴로 맨 위에 표시하고 독립 페이지로 진입할 수 있다', async ({ page }) => {
     await page.goto('http://127.0.0.1:5173/catchup/')
 
     const hardwaxMenu = page.locator('a[href="#hardwax"]')
@@ -17,8 +17,10 @@ test.describe('상품코드 페이지', () => {
     const order = await page.locator('.home-menu-item').evaluateAll((items) =>
       items.map((item) => item.textContent?.replace(/\s+/g, ' ').trim()),
     )
-    expect(order[0]).toContain('하드왁스')
-    expect(order[1]).toContain('상품코드')
+    expect(order[0]).toContain('상품코드')
+    expect(order[0]).toContain('신규')
+    expect(order[1]).toContain('하드왁스')
+    expect(order[1]).not.toContain('신규')
 
     await productCodesMenu.click()
     await expect(page).toHaveURL(/#product-codes$/)
