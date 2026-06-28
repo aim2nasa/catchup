@@ -509,6 +509,8 @@ test.describe('상품코드 페이지', () => {
     await expect(modal).toContainText('옵션 5개')
     await expect(modal.locator('[data-conversion-row="P00000QE|G"]')).toContainText('G')
     await expect(modal.locator('[data-conversion-row="P00000QE|G"]')).toContainText('라이코드림 하이브리드')
+    await expect(modal.locator('[data-conversion-row="P00000QE|G"] .conversion-editor-price').nth(0)).toHaveText('₩19,200')
+    await expect(modal.locator('[data-conversion-row="P00000QE|G"] .conversion-editor-price').nth(1)).toHaveText('₩26,300')
     await expect(modal.getByLabel('P00000QE-G L상품', { exact: true })).toHaveValue('P00000BV')
     await expect(modal.getByLabel('P00000QE-G L옵션', { exact: true })).toHaveValue('A')
 
@@ -536,8 +538,12 @@ test.describe('상품코드 페이지', () => {
     expect(resizedBox!.width).toBeLessThan(movedBox!.width - 60)
     expect(resizedBox!.height).toBeGreaterThan(movedBox!.height + 40)
 
+    await modal.getByLabel('P00000QE-G L상품', { exact: true }).selectOption('P00000CD')
+    await expect(modal.getByLabel('P00000QE-G L옵션', { exact: true })).toHaveValue('A')
+    await expect(modal.locator('[data-conversion-row="P00000QE|G"] .conversion-editor-price').nth(1)).toHaveText('₩37,800')
     await modal.getByLabel('P00000QE-G L상품', { exact: true }).selectOption('P00000HT')
     await expect(modal.getByLabel('P00000QE-G L옵션', { exact: true })).toHaveValue('A')
+    await expect(modal.locator('[data-conversion-row="P00000QE|G"] .conversion-editor-price').nth(1)).toHaveText('₩26,300')
     await expect(modal).toContainText('화면 초안')
     await modal.getByRole('button', { name: '취소' }).click()
     await expect(modal).toBeHidden()

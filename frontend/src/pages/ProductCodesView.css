@@ -631,7 +631,7 @@
 }
 
 .conversion-editor-modal {
-  width: min(1500px, 94vw);
+  width: min(1600px, 96vw);
   max-height: 82vh;
 }
 
@@ -657,12 +657,14 @@
   overflow-x: auto;
 }
 
-.conversion-editor-table th:nth-child(1) { width: 64px; }
-.conversion-editor-table th:nth-child(2) { width: 360px; }
-.conversion-editor-table th:nth-child(3) { width: 430px; }
-.conversion-editor-table th:nth-child(4) { width: 430px; }
-.conversion-editor-table th:nth-child(5) { width: 72px; }
-.conversion-editor-table th:nth-child(6) { width: 92px; }
+.conversion-editor-table th:nth-child(1) { width: 58px; }
+.conversion-editor-table th:nth-child(2) { width: 300px; }
+.conversion-editor-table th:nth-child(3) { width: 88px; }
+.conversion-editor-table th:nth-child(4) { width: 370px; }
+.conversion-editor-table th:nth-child(5) { width: 370px; }
+.conversion-editor-table th:nth-child(6) { width: 88px; }
+.conversion-editor-table th:nth-child(7) { width: 56px; }
+.conversion-editor-table th:nth-child(8) { width: 74px; }
 
 .conversion-editor-table tr.is-unmapped td {
   color: #64748b;
@@ -673,6 +675,13 @@
   color: #1e3a8a;
   font-weight: 900;
   text-align: center;
+}
+
+.conversion-editor-price {
+  color: #14532d;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .conversion-editor-unmapped {

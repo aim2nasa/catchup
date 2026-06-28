@@ -6244,8 +6244,10 @@ export function ProductCodesView() {
                       <tr>
                         <th>U코드</th>
                         <th>U옵션명</th>
+                        <th>U단가</th>
                         <th>L상품 선택</th>
                         <th>L옵션 선택</th>
+                        <th>L단가</th>
                         <th>수량</th>
                         <th>상태</th>
                       </tr>
@@ -6264,6 +6266,10 @@ export function ProductCodesView() {
                         const lOptionName = draft.lVariant
                           ? displayOptionName(variantChoices.find((variant) => variant.code === draft.lVariant)?.option ?? draft.lVariant)
                           : ''
+                        const uPrice = uInfo?.price ?? 0
+                        const lPrice = !draft.unmapped && draft.lProduct && draft.lVariant
+                          ? getSetEditorVariantPrice(draft.lProduct, draft.lVariant)
+                          : 0
                         return (
                           <tr
                             key={rowKey}
@@ -6275,6 +6281,12 @@ export function ProductCodesView() {
                             </td>
                             <td title={uInfo?.optionLabel ?? uVariant}>
                               {uInfo?.optionLabel ?? uVariant}
+                            </td>
+                            <td
+                              className="conversion-editor-price"
+                              title={uPrice > 0 ? fmtCurrency(uPrice, currency) : 'U상품 단가 미확인'}
+                            >
+                              {uPrice > 0 ? fmtCurrency(uPrice, currency) : '-'}
                             </td>
                             <td>
                               <select
@@ -6307,6 +6319,12 @@ export function ProductCodesView() {
                                   </option>
                                 ))}
                               </select>
+                            </td>
+                            <td
+                              className="conversion-editor-price"
+                              title={lPrice > 0 ? fmtCurrency(lPrice, currency) : 'L상품 옵션 단가 미확인'}
+                            >
+                              {lPrice > 0 ? fmtCurrency(lPrice, currency) : '-'}
                             </td>
                             <td className="conversion-editor-ratio">1:1</td>
                             <td>
