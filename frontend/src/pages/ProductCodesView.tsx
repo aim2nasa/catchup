@@ -508,13 +508,13 @@ const L_GROUPS: LGroup[] = [
     codes: [
       'P00000HT', 'P00000BV', 'P00000CB', 'P00000BX',
       'P00000XE', 'P0000BIF', 'P0000BLD', 'P0000BMJ', 'P0000BMI',
-      'P00000ZB',
     ],
   },
   {
     category: '하드왁스',
     label: '1kg',
     codes: [
+      'P00000ZB',
       'P00000UH', 'P00000TI', 'P00000BY', 'P00000BZ',
       'P00000CH', 'P00000CG', 'P00000CA', 'P00000BW', 'P00000CI',
       'P00000CE', 'P00000KH', 'P00000CD', 'P00000CF',

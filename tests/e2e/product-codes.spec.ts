@@ -55,6 +55,20 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('.product-category-row .pc-excel-row-head').first()).toHaveText(/\d+/)
     await expect(page.locator('.product-category-row')).toHaveCount(9)
     await expect(page.locator('.product-segment-row')).toHaveCount(0)
+
+    const hardwaxRowOrder = await page.locator('.pc-excel-table tbody tr').evaluateAll((rows) =>
+      rows.map((row) => row.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
+    )
+    const subtotal500gIndex = hardwaxRowOrder.findIndex((text) => text.includes('500g 합계'))
+    const cupBeadsIndex = hardwaxRowOrder.findIndex((text) => text.includes('P00000ZB'))
+    const first1kgIndex = hardwaxRowOrder.findIndex((text) => text.includes('P00000UH'))
+    const subtotal1kgIndex = hardwaxRowOrder.findIndex((text) => text.includes('1kg 합계'))
+    expect(subtotal500gIndex).toBeGreaterThan(-1)
+    expect(cupBeadsIndex).toBeGreaterThan(subtotal500gIndex)
+    expect(first1kgIndex).toBeGreaterThan(cupBeadsIndex)
+    expect(subtotal1kgIndex).toBeGreaterThan(first1kgIndex)
+    await expect(page.locator('td[data-row-key="parent:1kg:P00000ZB"][data-col-key="A:상품코드"]')).toContainText('P00000ZB')
+    await expect(page.locator('td[data-row-key="parent:500g:P00000ZB"]')).toHaveCount(0)
   })
 
   test('카테고리 행은 엑셀 좌표에 포함되고 구간 표시 행은 만들지 않는다', async ({ page }) => {
@@ -373,7 +387,7 @@ test.describe('상품코드 페이지', () => {
     await expect(page.locator('.pc-excel-table-wrap')).toBeVisible({ timeout: 60_000 })
 
     const cases = [
-      { colKey: 'B:P00000YZ-D', rowKey: 'parent:500g:P00000ZB', componentQty: 1 },
+      { colKey: 'B:P00000YZ-D', rowKey: 'parent:1kg:P00000ZB', componentQty: 1 },
       { colKey: 'B:P00000YZ-D', rowKey: 'parent:제모미인제품:P00000ZA', componentQty: 1 },
       { colKey: 'B:P00000YS-A', rowKey: 'parent:500g:P00000HT', componentQty: 1 },
       { colKey: 'B:P00000YS-A', rowKey: 'parent:제모미인제품:P00000XW', componentQty: 5 },
@@ -390,7 +404,7 @@ test.describe('상품코드 페이지', () => {
       await expect(mappedCell).toHaveCSS('text-align', 'right')
     }
 
-    const oldDirectSetCell = page.locator('td[data-row-key="parent:500g:P00000ZB"][data-col-key="B:P00000YS-A"]')
+    const oldDirectSetCell = page.locator('td[data-row-key="parent:1kg:P00000ZB"][data-col-key="B:P00000YS-A"]')
     await expect(oldDirectSetCell).toHaveText('')
     await expect(oldDirectSetCell).not.toHaveClass(/map-cell--mapped/)
   })
